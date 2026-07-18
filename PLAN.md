@@ -130,6 +130,30 @@ Model gotówkowy: brak bramki, brak subskrypcji, brak webhooków. Płatność od
 
 ---
 
+## Backlog - pomysły do rozważenia (nie przypisane do fazy)
+
+Zgłoszone do zrobienia kiedyś, ale jeszcze nie zaplanowane w konkretnej fazie
+i nie wiadomo, czy/kiedy wejdą. W odróżnieniu od „Czego nie budujemy" -
+to nie jest lista odrzuconych pomysłów, tylko parking lot do priorytetyzacji.
+
+- [ ] **Import leadów z Meta (Facebook/Instagram Lead Ads) - mini CRM.**
+  Klient pozyskuje leady z reklam na Meta i chce je importować do systemu,
+  a potem odznaczać (kontakt/konwersja) jak w prostym CRM. Do ustalenia przy
+  starcie prac: (1) import ręczny (CSV eksportowany z Meta Ads Manager) czy
+  integracja z Meta Leads API (wymaga weryfikacji biznesowej i webhooków -
+  dużo cięższe); (2) model danych - osobna tabela `Lead` (imię, kontakt,
+  źródło/kampania, data importu, status: NOWY/SKONTAKTOWANO/PRZEKONWERTOWANY/
+  ODRZUCONY, notatki, opcjonalne przypisanie do trenera) czy rozszerzenie
+  istniejącego `Member`; (3) czy konwersja leada ma tworzyć realnego `Member`
+  (i jeśli tak - to jest naturalny punkt startowy dla `Member.joinedAt`,
+  patrz SPEC.md sekcja 1); (4) kto ma dostęp - właściciel, czy też trenerzy.
+  Nie ma to bezpośredniego związku z retencją (CLAUDE.md: „przy każdej
+  decyzji pytaj, czy to zwiększy szansę, że klient zostanie po 90 dniach") -
+  to raczej pozyskiwanie, nie utrzymanie - więc naturalnie pasuje bliżej
+  Fazy 6 niż wcześniej.
+
+---
+
 ## Czego nie budujemy
 
 Spisane, żeby nie wróciło jako „a może jeszcze": sklep z rękawicami, grafik pracy i płace trenerów, zawody i drabinki turniejowe, czat wewnętrzny, aplikacja natywna, integracja z bramką obrotową, moduł dietetyczny, sprzedaż wideo z treningów.
