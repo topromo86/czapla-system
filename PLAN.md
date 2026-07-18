@@ -138,15 +138,31 @@ to nie jest lista odrzuconych pomysłów, tylko parking lot do priorytetyzacji.
 
 - [ ] **Import leadów z Meta (Facebook/Instagram Lead Ads) - mini CRM.**
   Klient pozyskuje leady z reklam na Meta i chce je importować do systemu,
-  a potem odznaczać (kontakt/konwersja) jak w prostym CRM. Do ustalenia przy
-  starcie prac: (1) import ręczny (CSV eksportowany z Meta Ads Manager) czy
-  integracja z Meta Leads API (wymaga weryfikacji biznesowej i webhooków -
-  dużo cięższe); (2) model danych - osobna tabela `Lead` (imię, kontakt,
-  źródło/kampania, data importu, status: NOWY/SKONTAKTOWANO/PRZEKONWERTOWANY/
-  ODRZUCONY, notatki, opcjonalne przypisanie do trenera) czy rozszerzenie
-  istniejącego `Member`; (3) czy konwersja leada ma tworzyć realnego `Member`
-  (i jeśli tak - to jest naturalny punkt startowy dla `Member.joinedAt`,
-  patrz SPEC.md sekcja 1); (4) kto ma dostęp - właściciel, czy też trenerzy.
+  a potem odznaczać (kontakt/konwersja) jak w prostym CRM.
+
+  Ustalenia (2026-07-18, właściciel projektu):
+  - **Import ręczny przez CSV** (eksport z Meta Ads Manager), nie integracja
+    z Meta Leads API - prościej, bez weryfikacji biznesowej i webhooków.
+  - **Rozszerzenie istniejącego `Member`**, nie osobna tabela `Lead`.
+  - **Tak** - potwierdzony lead ma możliwość utworzenia realnego klienta.
+  - **Dostęp domyślnie tylko właściciel**, z opcją rozszerzenia o trenerów
+    później.
+
+  Otwarty konflikt do rozwiązania przy starcie prac: CLAUDE.md reguła 1
+  mówi, że `ownerTrainerId` jest obowiązkowe dla *każdego* `Member` - to
+  reguła nadrzędna („naruszenie psuje cały sens systemu"). Lead z importu
+  CSV nie ma jeszcze przypisanego trenera. Do rozstrzygnięcia: albo (a)
+  leady żyją w `Member` z jakimś stanem „niepotwierdzony" i wymuszeniem
+  wyboru trenera dopiero przy potwierdzeniu (czyli `ownerTrainerId` zostaje
+  faktycznie obowiązkowe zawsze, po prostu rekord leada jest tworzony
+  dopiero w chwili potwierdzenia, a import CSV trafia do tabeli
+  pośredniej/tymczasowej), albo (b) reguła 1 dostaje wyjątek dla leadów
+  przed potwierdzeniem. (a) jest spójniejsze z resztą systemu i chroni
+  regułę 1 - rekomendacja na start, do potwierdzenia z właścicielem.
+  Jeśli lead konwertuje się na klienta, to naturalny punkt startowy dla
+  `Member.joinedAt` (SPEC.md sekcja 1) - dopiero potwierdzenie leada
+  liczyłoby się jako dołączenie, nie sam import.
+
   Nie ma to bezpośredniego związku z retencją (CLAUDE.md: „przy każdej
   decyzji pytaj, czy to zwiększy szansę, że klient zostanie po 90 dniach") -
   to raczej pozyskiwanie, nie utrzymanie - więc naturalnie pasuje bliżej
