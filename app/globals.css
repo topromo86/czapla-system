@@ -6,29 +6,30 @@
 
 /* Design tokens - marka Czapla Boxing (logo klienta). Zdefiniowane raz,
    używane przez Tailwind theme. Nigdy hex bezpośrednio w komponentach.
-   Jeden stały motyw ciemny - bez przełącznika jasny/ciemny. */
+   Jeden stały motyw jasny - bez przełącznika jasny/ciemny. */
 :root {
-  --ink: #12161a; /* tło */
-  --surface: #191f24; /* karty */
-  --surface-2: #212930; /* elementy wtórne */
-  --line: #2e3941; /* obramowania */
-  --line-soft: #232c33; /* separatory */
-  --text: #dee3e4;
-  --muted-brand: #7c8a93;
+  --ink: #f4f5f6; /* tło strony - jasnoszare */
+  --surface: #ffffff; /* karty */
+  --surface-2: #ececee; /* elementy wtórne */
+  --line: #dbdee1; /* obramowania */
+  --line-soft: #e7e9eb; /* separatory */
+  --text: #16191c;
+  --muted-brand: #667080;
   --brand-red: #ee1d23; /* akcent główny - czerwień z logo Czapla Boxing */
   --brand-red-dim: #a8151a;
   --red: #c8392f; /* alerty, churn - celowo inny odcień niż brand-red, żeby nie mylić z akcją */
-  --jade: #5c9a7b; /* potwierdzenia */
+  --jade: #1f8a5c; /* potwierdzenia, aktywny karnet */
+  --amber: #c9760a; /* karnet kończący się wkrótce */
 
   /* Mapowanie tokenów shadcn/ui na naszą paletę zamiast domyślnej neutralnej. */
   --background: var(--ink);
   --foreground: var(--text);
   --card: var(--surface);
   --card-foreground: var(--text);
-  --popover: var(--surface-2);
+  --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary: var(--brand-red);
-  --primary-foreground: var(--text);
+  --primary-foreground: #ffffff;
   --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
   --muted: var(--surface-2);
@@ -43,14 +44,14 @@
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--brand-red);
-  --sidebar-primary-foreground: var(--text);
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--surface-2);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: var(--line);
   --sidebar-ring: var(--brand-red);
   --chart-1: var(--brand-red);
   --chart-2: var(--jade);
-  --chart-3: var(--red);
+  --chart-3: var(--amber);
   --chart-4: var(--muted-brand);
   --chart-5: var(--brand-red-dim);
 }
@@ -67,6 +68,7 @@
   --color-brand-red-dim: var(--brand-red-dim);
   --color-red: var(--red);
   --color-jade: var(--jade);
+  --color-amber: var(--amber);
 
   --font-display: var(--font-anton);
   --font-sans: var(--font-archivo);

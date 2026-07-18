@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "System zarządzania klubem bokserskim Czapla Boxing - Mikołów i Tychy",
     start_url: "/",
     display: "standalone",
-    background_color: "#12161a",
-    theme_color: "#12161a",
+    background_color: "#f4f5f6",
+    theme_color: "#f4f5f6",
     lang: "pl",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

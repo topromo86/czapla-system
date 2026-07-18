@@ -112,6 +112,11 @@ enum MemberStatus {
   CHURNED
 }
 
+enum Sex {
+  MALE
+  FEMALE
+}
+
 model Member {
   id                         String       @id @default(cuid())
   userId                     String?      @unique
@@ -122,6 +127,7 @@ model Member {
   lastName                   String
   birthDate                  DateTime     @db.Date
   isMinor                    Boolean // wyliczane z birthDate, przeliczane jobem
+  sex                        Sex? // nieobowiązkowe - nieznane dla ręcznie dodanych starych kartotek
   weightKg                   Float?
   level                      MemberLevel  @default(WHITE)
   goal                       String?

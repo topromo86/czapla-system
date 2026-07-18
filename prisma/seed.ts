@@ -633,6 +633,7 @@ async function main() {
         lastName: spec.lastName,
         birthDate: spec.birthDate,
         isMinor: spec.isKid,
+        sex: spec.isMale ? "MALE" : "FEMALE",
         weightKg: spec.weightKg,
         level: levelForTenure(tenureDays),
         goal: spec.hasGoal

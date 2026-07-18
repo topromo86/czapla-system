@@ -26,12 +26,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Czapla Boxing",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#12161a",
+  themeColor: "#f4f5f6",
 };
 
 export default function RootLayout({
