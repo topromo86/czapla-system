@@ -1,0 +1,122 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens - CLAUDE.md. Zdefiniowane raz, używane przez Tailwind theme.
+   Nigdy hex bezpośrednio w komponentach. Jeden stały motyw ciemny - bez
+   przełącznika jasny/ciemny (prototyp nie przewiduje light mode). */
+:root {
+  --ink: #12161a; /* tło */
+  --surface: #191f24; /* karty */
+  --surface-2: #212930; /* elementy wtórne */
+  --line: #2e3941; /* obramowania */
+  --line-soft: #232c33; /* separatory */
+  --text: #dee3e4;
+  --muted-brand: #7c8a93;
+  --brass: #c9b071; /* akcent główny (mosiądz gongu) */
+  --brass-dim: #8a7844;
+  --red: #c8392f; /* alerty, churn */
+  --jade: #5c9a7b; /* potwierdzenia */
+
+  /* Mapowanie tokenów shadcn/ui na naszą paletę zamiast domyślnej neutralnej. */
+  --background: var(--ink);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--text);
+  --primary: var(--brass);
+  --primary-foreground: var(--ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--muted-brand);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: var(--red);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--brass);
+  --radius: 0.5rem;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--brass);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--brass);
+  --chart-1: var(--brass);
+  --chart-2: var(--jade);
+  --chart-3: var(--red);
+  --chart-4: var(--muted-brand);
+  --chart-5: var(--brass-dim);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-text: var(--text);
+  --color-muted-brand: var(--muted-brand);
+  --color-brass: var(--brass);
+  --color-brass-dim: var(--brass-dim);
+  --color-red: var(--red);
+  --color-jade: var(--jade);
+
+  --font-display: var(--font-anton);
+  --font-sans: var(--font-archivo);
+  --font-mono: var(--font-ibm-plex-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

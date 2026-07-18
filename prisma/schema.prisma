@@ -1,0 +1,535 @@
+// Prisma schema - Klub Bokserski
+// Źródło prawdy: SPEC.md sekcja 1. W razie konfliktu wygrywa CLAUDE.md.
+//
+// Konwencje:
+// - Wszystkie id: cuid()
+// - Wszystkie kwoty: Int (grosze), nigdy Float
+// - Wszystkie momenty w czasie (DateTime bez czystej daty): @db.Timestamptz,
+//   żeby Postgres trzymał je jako instant w UTC. Konwersja na Europe/Warsaw
+//   dzieje się w aplikacji, nigdy w bazie. Patrz CLAUDE.md: pułapka ze strefami czasu.
+// - Czyste daty kalendarzowe (birthDate, CashDay.date): @db.Date
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Tożsamość i role
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  TRAINER
+  MEMBER
+  GUARDIAN
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String?
+  name            String
+  phone           String?
+  role            Role
+  emailVerifiedAt DateTime? @db.Timestamptz
+  lastLoginAt     DateTime? @db.Timestamptz
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+
+  trainer             Trainer?     @relation("TrainerAccount")
+  memberAccount       Member?      @relation("MemberAccount")
+  guardianOfMembers   Member[]     @relation("MemberGuardian")
+  authoredNotes       Note[]       @relation("NoteAuthor")
+  recordedAttendances Attendance[] @relation("AttendanceRecordedBy")
+  soldPasses          Pass[]       @relation("PassSoldBy")
+  recordedPayments    Payment[]    @relation("PaymentRecordedBy")
+  closedCashDays      CashDay[]    @relation("CashDayClosedBy")
+  grantedConsents     Consent[]    @relation("ConsentGrantedBy")
+
+  @@index([role])
+}
+
+model Location {
+  id       String @id @default(cuid())
+  name     String // "Mikołów" | "Tychy"
+  address  String
+  timezone String @default("Europe/Warsaw")
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  trainers       Trainer[]
+  members        Member[]
+  classTemplates ClassTemplate[]
+  sessions       Session[]
+  payments       Payment[]
+  cashDays       CashDay[]
+}
+
+model Trainer {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  locationId String
+  hiredAt    DateTime @db.Timestamptz
+  active     Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user     User     @relation("TrainerAccount", fields: [userId], references: [id], onDelete: Restrict)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  ownedMembers           Member[]        @relation("OwnerTrainer")
+  sparringClearedMembers Member[]        @relation("SparringClearer")
+  classTemplates         ClassTemplate[]
+  sessions               Session[]       @relation("SessionTrainer")
+  substituteSessions     Session[]       @relation("SessionSubstitute")
+  retentionTasks         RetentionTask[]
+  scores                 TrainerScore[]
+
+  @@index([locationId, active])
+}
+
+// ---------------------------------------------------------------------------
+// Klienci
+// ---------------------------------------------------------------------------
+
+enum MemberLevel {
+  WHITE
+  YELLOW
+  ORANGE
+  GREEN
+}
+
+enum MemberStatus {
+  ACTIVE
+  FROZEN
+  CHURNED
+}
+
+model Member {
+  id                         String       @id @default(cuid())
+  userId                     String?      @unique
+  guardianUserId             String?
+  ownerTrainerId             String
+  homeLocationId             String
+  firstName                  String
+  lastName                   String
+  birthDate                  DateTime     @db.Date
+  isMinor                    Boolean // wyliczane z birthDate, przeliczane jobem
+  weightKg                   Float?
+  level                      MemberLevel  @default(WHITE)
+  goal                       String?
+  status                     MemberStatus @default(ACTIVE)
+  joinedAt                   DateTime     @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta
+  churnedAt                  DateTime?    @db.Timestamptz
+  sparringClearedAt          DateTime?    @db.Timestamptz
+  sparringClearedByTrainerId String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user                     User?    @relation("MemberAccount", fields: [userId], references: [id], onDelete: SetNull)
+  guardianUser             User?    @relation("MemberGuardian", fields: [guardianUserId], references: [id], onDelete: Restrict)
+  ownerTrainer             Trainer  @relation("OwnerTrainer", fields: [ownerTrainerId], references: [id], onDelete: Restrict)
+  homeLocation             Location @relation(fields: [homeLocationId], references: [id], onDelete: Restrict)
+  sparringClearedByTrainer Trainer? @relation("SparringClearer", fields: [sparringClearedByTrainerId], references: [id], onDelete: SetNull)
+
+  bookings          Booking[]
+  attendances       Attendance[]
+  notes             Note[]
+  onboardingSteps   OnboardingStep[]
+  retentionTasks    RetentionTask[]
+  churnSurveys      ChurnSurvey[]
+  ratings           Rating[]
+  passes            Pass[]
+  payments          Payment[]
+  consents          Consent[]
+  referralsMade     Referral[]       @relation("ReferralReferrer")
+  referralsReceived Referral[]       @relation("ReferralReferee")
+
+  @@index([ownerTrainerId, status])
+  @@index([status, joinedAt])
+  @@index([guardianUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Zajęcia
+// ---------------------------------------------------------------------------
+
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+enum BookingStatus {
+  BOOKED
+  WAITLIST
+  CANCELLED
+  NO_SHOW
+  ATTENDED
+}
+
+enum AttendanceMethod {
+  QR
+  MANUAL
+}
+
+model ClassTemplate {
+  id          String  @id @default(cuid())
+  locationId  String
+  trainerId   String
+  name        String
+  weekday     Int // 0-6
+  startTime   String // "18:00"
+  durationMin Int
+  capacity    Int
+  minAge      Int?
+  maxAge      Int?
+  isKids      Boolean @default(false)
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  location Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  trainer  Trainer   @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  sessions Session[]
+
+  @@index([locationId, active])
+}
+
+model Session {
+  id                  String        @id @default(cuid())
+  templateId          String?
+  locationId          String
+  trainerId           String
+  substituteTrainerId String?
+  name                String
+  startsAt            DateTime      @db.Timestamptz
+  endsAt              DateTime      @db.Timestamptz
+  capacity            Int
+  status              SessionStatus @default(SCHEDULED)
+  cancelledReason     String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  template          ClassTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  location          Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  trainer           Trainer        @relation("SessionTrainer", fields: [trainerId], references: [id], onDelete: Restrict)
+  substituteTrainer Trainer?       @relation("SessionSubstitute", fields: [substituteTrainerId], references: [id], onDelete: SetNull)
+
+  bookings    Booking[]
+  attendances Attendance[]
+  ratings     Rating[]
+
+  @@index([startsAt, locationId])
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  sessionId        String
+  memberId         String
+  status           BookingStatus @default(BOOKED)
+  waitlistPosition Int?
+  createdAt        DateTime      @default(now()) @db.Timestamptz
+  cancelledAt      DateTime?     @db.Timestamptz
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, memberId])
+  @@index([memberId])
+}
+
+model Attendance {
+  id               String           @id @default(cuid())
+  sessionId        String
+  memberId         String
+  checkedInAt      DateTime         @default(now()) @db.Timestamptz
+  method           AttendanceMethod // MANUAL nie liczy się do KPI trenera
+  recordedByUserId String?
+
+  session        Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member         Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedByUser User?   @relation("AttendanceRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, memberId])
+  @@index([memberId, checkedInAt])
+}
+
+// ---------------------------------------------------------------------------
+// Retencja - serce systemu
+// ---------------------------------------------------------------------------
+
+enum NoteKind {
+  CONTACT
+  ONBOARDING
+  GENERAL
+}
+
+model Note {
+  id              String   @id @default(cuid())
+  memberId        String
+  authorUserId    String
+  kind            NoteKind
+  body            String   @db.Text // min. 30 znaków, walidacja na serwerze
+  flaggedForAudit Boolean  @default(false) // próbka 10% miesięcznie do przeglądu
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
+  member     Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  authorUser User   @relation("NoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  onboardingSteps      OnboardingStep[]
+  closedRetentionTasks RetentionTask[]
+
+  @@index([memberId, createdAt])
+  @@index([kind, flaggedForAudit])
+}
+
+model OnboardingStep {
+  id          String    @id @default(cuid())
+  memberId    String
+  step        Int // 1 | 2 | 3
+  dueAt       DateTime  @db.Timestamptz
+  completedAt DateTime? @db.Timestamptz
+  noteId      String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  note   Note?  @relation(fields: [noteId], references: [id], onDelete: SetNull)
+
+  @@unique([memberId, step])
+}
+
+enum RetentionTaskType {
+  INACTIVE_7
+  INACTIVE_14
+  RENEWAL
+}
+
+model RetentionTask {
+  id            String            @id @default(cuid())
+  memberId      String
+  trainerId     String
+  type          RetentionTaskType
+  createdAt     DateTime          @default(now()) @db.Timestamptz
+  dueAt         DateTime          @db.Timestamptz
+  escalatedAt   DateTime?         @db.Timestamptz
+  closedAt      DateTime?         @db.Timestamptz
+  closingNoteId String? // zamknięcie WYMAGA notatki - egzekwowane w lib/domain, nie tylko w bazie
+
+  member      Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer     Trainer @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  closingNote Note?   @relation(fields: [closingNoteId], references: [id], onDelete: SetNull)
+
+  @@index([trainerId, closedAt])
+  @@index([memberId, type, closedAt])
+}
+
+model ChurnReason {
+  id                  String  @id @default(cuid())
+  label               String
+  trainerControllable Boolean
+
+  surveys ChurnSurvey[]
+}
+
+model ChurnSurvey {
+  id         String    @id @default(cuid())
+  memberId   String
+  sentAt     DateTime  @default(now()) @db.Timestamptz
+  answeredAt DateTime? @db.Timestamptz
+  reasonId   String?
+  comment    String?   @db.Text
+
+  member Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reason ChurnReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  sessionId String
+  memberId  String
+  score     Int // 1-5
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, memberId])
+}
+
+// ---------------------------------------------------------------------------
+// Płatności - model gotówkowy, brak bramki, brak subskrypcji, brak webhooków
+// ---------------------------------------------------------------------------
+
+model Plan {
+  id              String  @id @default(cuid())
+  name            String
+  priceGross      Int // grosze
+  entriesPerMonth Int? // null = OPEN
+  durationDays    Int     @default(30)
+  forMinors       Boolean @default(false)
+  active          Boolean @default(true)
+
+  passes Pass[]
+}
+
+enum PassStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+}
+
+model Pass {
+  id                    String     @id @default(cuid())
+  memberId              String
+  planId                String
+  startsAt              DateTime   @db.Timestamptz
+  endsAt                DateTime   @db.Timestamptz
+  entriesLeft           Int? // null dla OPEN
+  status                PassStatus @default(ACTIVE)
+  frozenAt              DateTime?  @db.Timestamptz
+  frozenDaysUsed        Int        @default(0)
+  renewalReminderSentAt DateTime?  @db.Timestamptz
+  soldByUserId          String
+
+  member     Member    @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  plan       Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  soldByUser User      @relation("PassSoldBy", fields: [soldByUserId], references: [id], onDelete: Restrict)
+  payments   Payment[]
+
+  @@index([memberId, status])
+  @@index([status, endsAt])
+}
+
+enum PaymentMethod {
+  CASH
+  BLIK
+  TRANSFER
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  memberId          String
+  passId            String?
+  amountGross       Int // grosze - Payment jest append-only, korekta = nowy wpis z correctsPaymentId
+  method            PaymentMethod
+  locationId        String
+  recordedByUserId  String
+  recordedAt        DateTime      @default(now()) @db.Timestamptz
+  correctsPaymentId String?
+  note              String?       @db.Text
+
+  member          Member    @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  pass            Pass?     @relation(fields: [passId], references: [id], onDelete: SetNull)
+  location        Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  recordedByUser  User      @relation("PaymentRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  correctsPayment Payment?  @relation("PaymentCorrection", fields: [correctsPaymentId], references: [id], onDelete: SetNull)
+  corrections     Payment[] @relation("PaymentCorrection")
+
+  @@index([locationId, recordedAt])
+  @@index([memberId, recordedAt])
+}
+
+model CashDay {
+  id              String    @id @default(cuid())
+  locationId      String
+  date            DateTime  @db.Date
+  expectedGross   Int // suma Payment(CASH) tego dnia, grosze
+  countedGross    Int?
+  closedByUserId  String?
+  closedAt        DateTime? @db.Timestamptz
+  discrepancyNote String?   @db.Text
+
+  location     Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  closedByUser User?    @relation("CashDayClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([locationId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Zgody
+// ---------------------------------------------------------------------------
+
+model ConsentType {
+  id            String  @id @default(cuid())
+  key           String  @unique // "reg" | "rodo" | "health" | "image" | "guardian"
+  label         String
+  version       Int
+  required      Boolean
+  forMinorsOnly Boolean @default(false)
+  bodyHtml      String  @db.Text // treść dostarcza prawnik, nie generuj
+
+  consents Consent[]
+}
+
+model Consent {
+  id              String    @id @default(cuid())
+  memberId        String
+  consentTypeId   String
+  version         Int
+  grantedAt       DateTime  @default(now()) @db.Timestamptz
+  revokedAt       DateTime? @db.Timestamptz
+  ipAddress       String
+  userAgent       String
+  grantedByUserId String // przy dziecku: opiekun prawny
+
+  member        Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  consentType   ConsentType @relation(fields: [consentTypeId], references: [id], onDelete: Restrict)
+  grantedByUser User        @relation("ConsentGrantedBy", fields: [grantedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([memberId, consentTypeId])
+}
+
+// ---------------------------------------------------------------------------
+// Reszta
+// ---------------------------------------------------------------------------
+
+enum ReferralStatus {
+  SENT
+  REGISTERED
+  CONVERTED
+  REWARDED
+}
+
+model Referral {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  referrerMemberId String
+  refereeMemberId  String?
+  status           ReferralStatus @default(SENT)
+  convertedAt      DateTime?      @db.Timestamptz
+  rewardedAt       DateTime?      @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  referrerMember Member  @relation("ReferralReferrer", fields: [referrerMemberId], references: [id], onDelete: Restrict)
+  refereeMember  Member? @relation("ReferralReferee", fields: [refereeMemberId], references: [id], onDelete: SetNull)
+}
+
+model TrainerScore {
+  id              String   @id @default(cuid())
+  trainerId       String
+  period          String // "2026-07"
+  ret90           Float?
+  ret90Normalized Float?
+  rating          Float?
+  alertRate       Float?
+  onboardingRate  Float?
+  score           Int? // null gdy maturedCount < 5
+  maturedCount    Int
+  computedAt      DateTime @default(now()) @db.Timestamptz
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@unique([trainerId, period])
+}
