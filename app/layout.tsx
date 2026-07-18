@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Anton, Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { RegisterServiceWorker } from "./register-service-worker";
 
 const anton = Anton({
   variable: "--font-anton",
@@ -22,6 +23,15 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Klub Bokserski",
   description: "System zarządzania klubem bokserskim - Mikołów i Tychy",
+  appleWebApp: {
+    capable: true,
+    title: "Klub Bokserski",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#12161a",
 };
 
 export default function RootLayout({
@@ -34,7 +44,10 @@ export default function RootLayout({
       lang="pl"
       className={`${anton.variable} ${archivo.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   );
 }

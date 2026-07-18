@@ -229,6 +229,7 @@ model Session {
   attendances Attendance[]
   ratings     Rating[]
 
+  @@unique([templateId, startsAt]) // idempotencja jobu generateSessions
   @@index([startsAt, locationId])
 }
 

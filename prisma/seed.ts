@@ -789,7 +789,9 @@ async function main() {
           startsAt,
           endsAt,
           entriesLeft,
-          status: "ACTIVE",
+          // Karnet z minionym endsAt jest EXPIRED od razu - inaczej cały łańcuch
+          // odnowień poza ostatnim zostaje błędnie oznaczony jako aktywny.
+          status: endsAt <= NOW ? "EXPIRED" : "ACTIVE",
           soldByUserId,
         },
       });
@@ -820,31 +822,17 @@ async function main() {
       cursor = endsAt;
     }
 
-    if (lastPassId) {
-      const isFrozenDesignee = spec.bucket === "frozen";
-      let finalStatus: "ACTIVE" | "EXPIRED" | "FROZEN" = "ACTIVE";
-      let frozenAt: Date | undefined;
-      let frozenDaysUsed = 0;
-      let finalEndsAt = lastPassEndsAt;
-
-      if (isFrozenDesignee) {
-        finalStatus = "FROZEN";
-        frozenDaysUsed = randInt(5, 20);
-        frozenAt = daysAgo(randInt(1, 5));
-        finalEndsAt = addDays(lastPassEndsAt, frozenDaysUsed);
-      } else if (spec.bucket === "churned") {
-        finalStatus = "EXPIRED";
-      } else {
-        finalStatus = lastPassEndsAt >= NOW ? "ACTIVE" : "EXPIRED";
-      }
-
+    // Status ACTIVE/EXPIRED jest już poprawnie ustawiony per-karnet powyżej.
+    // Tu tylko nadpisujemy wyznaczonych klientów na FROZEN dla realizmu seeda.
+    if (lastPassId && spec.bucket === "frozen") {
+      const frozenDaysUsed = randInt(5, 20);
       await prisma.pass.update({
         where: { id: lastPassId },
         data: {
-          status: finalStatus,
-          frozenAt,
+          status: "FROZEN",
+          frozenAt: daysAgo(randInt(1, 5)),
           frozenDaysUsed,
-          endsAt: finalEndsAt,
+          endsAt: addDays(lastPassEndsAt, frozenDaysUsed),
         },
       });
     }
