@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { classifyPassStatus } from "@/lib/domain/pass";
+import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { assignPassAction } from "./actions";
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("pl-PL", {
-    timeZone: "Europe/Warsaw",
-    dateStyle: "medium",
-  }).format(date);
-}
 
 type AdminSearchParams = { q?: string; sex?: string; minors?: string };
 
@@ -31,7 +25,10 @@ export default async function AdminMembersPage({
 }) {
   const params = await searchParams;
   const { q, sex, minors } = params;
-  const plans = await prisma.plan.findMany({ where: { active: true } });
+  const [plans, locations] = await Promise.all([
+    prisma.plan.findMany({ where: { active: true } }),
+    prisma.location.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   const members = await prisma.member.findMany({
     where: {
@@ -119,7 +116,7 @@ export default async function AdminMembersPage({
                     : "Brak aktywnego karnetu"}
                 </p>
               </div>
-              <form action={assignPassAction} className="flex items-center gap-2">
+              <form action={assignPassAction} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="memberId" value={m.id} />
                 <select
                   name="planId"
@@ -128,7 +125,29 @@ export default async function AdminMembersPage({
                 >
                   {availablePlans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {p.name} - {(p.priceGross / 100).toFixed(0)} zł
+                    </option>
+                  ))}
+                </select>
+                <select
+                  name="method"
+                  required
+                  defaultValue="CASH"
+                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
+                >
+                  <option value="CASH">Gotówka</option>
+                  <option value="BLIK">BLIK</option>
+                  <option value="TRANSFER">Przelew</option>
+                </select>
+                <select
+                  name="locationId"
+                  required
+                  defaultValue={m.homeLocationId}
+                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
+                >
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
                     </option>
                   ))}
                 </select>
