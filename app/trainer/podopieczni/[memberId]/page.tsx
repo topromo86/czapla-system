@@ -1,0 +1,209 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireOwnsMember } from "@/lib/auth/guard";
+import { calculateAge } from "@/lib/domain/booking";
+import { daysSince } from "@/lib/domain/retention";
+import { formatDate } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { addNoteAction, closeRetentionTaskAction, completeOnboardingStepAction } from "../actions";
+
+const RETENTION_TASK_LABEL: Record<string, string> = {
+  INACTIVE_7: "Brak treningu od 7 dni",
+  INACTIVE_14: "Brak treningu od 14 dni - eskalacja",
+  RENEWAL: "Kończy się karnet",
+};
+
+const ONBOARDING_LABEL: Record<number, string> = {
+  1: "Rozmowa wstępna (dzień 3)",
+  2: "Kontakt kontrolny (dzień 14)",
+  3: "Retest i rozmowa o postępach (dzień 84)",
+};
+
+function formatTenure(joinedAt: Date | null, now: Date): string {
+  if (!joinedAt) return "Jeszcze nie dołączył(a) - brak pierwszej płatności lub obecności.";
+  const days = daysSince(joinedAt, now)!;
+  return `Od ${formatDate(joinedAt)} (${days} dni)`;
+}
+
+export default async function MemberCardPage({
+  params,
+}: {
+  params: Promise<{ memberId: string }>;
+}) {
+  const { memberId } = await params;
+  await requireOwnsMember(memberId);
+
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    include: {
+      ownerTrainer: { include: { user: true } },
+      notes: { orderBy: { createdAt: "desc" }, include: { authorUser: true } },
+      onboardingSteps: { orderBy: { step: "asc" } },
+      retentionTasks: { where: { closedAt: null }, orderBy: { createdAt: "asc" } },
+      attendances: { orderBy: { checkedInAt: "desc" }, take: 10, include: { session: true } },
+    },
+  });
+  if (!member) notFound();
+
+  const now = new Date();
+  const age = calculateAge(member.birthDate, now);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <section>
+        <h1 className="font-display text-brand-red text-2xl tracking-wide">
+          {member.firstName} {member.lastName}
+        </h1>
+        <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
+          {age} lat ·{" "}
+          {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
+          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {member.level} · Status{" "}
+          {member.status}
+        </p>
+        <p className="text-muted-brand mt-1 text-sm">Opiekun: {member.ownerTrainer.user.name}</p>
+        <p className="mt-2 text-sm">
+          <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Cel:{" "}
+          </span>
+          {member.goal ? member.goal : <span className="text-red">brak ustalonego celu</span>}
+        </p>
+        <p className="text-muted-brand mt-1 text-sm">{formatTenure(member.joinedAt, now)}</p>
+      </section>
+
+      {member.retentionTasks.length > 0 ? (
+        <section>
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Otwarte zadania ({member.retentionTasks.length})
+          </h2>
+          <ul className="mt-2 flex flex-col gap-3">
+            {member.retentionTasks.map((task) => (
+              <li key={task.id} className="border-red/40 bg-red/5 rounded-md border p-3">
+                <p className="text-text font-medium">
+                  {RETENTION_TASK_LABEL[task.type] ?? task.type}
+                  {task.escalatedAt ? (
+                    <span className="text-red ml-2 font-mono text-xs uppercase">eskalowane</span>
+                  ) : null}
+                </p>
+                <form action={closeRetentionTaskAction} className="mt-2 flex flex-col gap-2">
+                  <input type="hidden" name="retentionTaskId" value={task.id} />
+                  <input type="hidden" name="memberId" value={member.id} />
+                  <Textarea
+                    name="body"
+                    placeholder="Notatka z kontaktu (min. 30 znaków) - wymagana do zamknięcia zadania"
+                    required
+                    minLength={30}
+                    className="border-line bg-surface-2"
+                  />
+                  <Button type="submit" size="sm" className="self-start">
+                    Zamknij zadanie
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Onboarding</h2>
+        <ul className="mt-2 flex flex-col gap-3">
+          {member.onboardingSteps.map((step) => (
+            <li key={step.id} className="border-line bg-surface rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-text font-medium">
+                  {ONBOARDING_LABEL[step.step] ?? `Etap ${step.step}`}
+                </span>
+                <span className="text-muted-brand font-mono text-xs">
+                  {step.completedAt
+                    ? `Zrobione ${formatDate(step.completedAt)}`
+                    : `Termin: ${formatDate(step.dueAt)}${step.dueAt < now ? " (po terminie)" : ""}`}
+                </span>
+              </div>
+              {!step.completedAt ? (
+                <form action={completeOnboardingStepAction} className="mt-2 flex flex-col gap-2">
+                  <input type="hidden" name="onboardingStepId" value={step.id} />
+                  <input type="hidden" name="memberId" value={member.id} />
+                  <Textarea
+                    name="body"
+                    placeholder="Notatka z rozmowy (min. 30 znaków)"
+                    required
+                    minLength={30}
+                    className="border-line bg-surface-2"
+                  />
+                  <Button type="submit" size="sm" variant="outline" className="self-start">
+                    Oznacz etap jako zrobiony
+                  </Button>
+                </form>
+              ) : null}
+            </li>
+          ))}
+          {member.onboardingSteps.length === 0 ? (
+            <li className="text-muted-brand text-sm">
+              Etapy onboardingu pojawią się po pierwszej płatności lub obecności klienta.
+            </li>
+          ) : null}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Historia obecności (ostatnie 10)
+        </h2>
+        <ul className="mt-2 flex flex-col gap-1">
+          {member.attendances.map((a) => (
+            <li key={a.id} className="text-text flex items-center justify-between text-sm">
+              <span>{a.session.name}</span>
+              <span className="text-muted-brand font-mono text-xs">
+                {formatDate(a.checkedInAt)} · {a.method === "QR" ? "QR" : "ręcznie"}
+              </span>
+            </li>
+          ))}
+          {member.attendances.length === 0 ? (
+            <li className="text-muted-brand text-sm">Brak obecności.</li>
+          ) : null}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Notatki</h2>
+        <form action={addNoteAction} className="mt-2 flex flex-col gap-2">
+          <input type="hidden" name="memberId" value={member.id} />
+          <select
+            name="kind"
+            defaultValue="GENERAL"
+            className="border-line bg-surface-2 text-text w-40 rounded-md border px-2 py-1 text-sm"
+          >
+            <option value="GENERAL">Ogólna</option>
+            <option value="CONTACT">Kontakt</option>
+            <option value="ONBOARDING">Onboarding</option>
+          </select>
+          <Textarea
+            name="body"
+            placeholder="Treść notatki (min. 30 znaków)"
+            required
+            minLength={30}
+            className="border-line bg-surface-2"
+          />
+          <Button type="submit" size="sm" className="self-start">
+            Dodaj notatkę
+          </Button>
+        </form>
+
+        <ul className="mt-4 flex flex-col gap-2">
+          {member.notes.map((note) => (
+            <li key={note.id} className="border-line bg-surface rounded-md border p-3">
+              <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                {note.kind} · {note.authorUser.name} · {formatDate(note.createdAt)}
+              </p>
+              <p className="text-text mt-1 text-sm">{note.body}</p>
+            </li>
+          ))}
+          {member.notes.length === 0 ? (
+            <li className="text-muted-brand text-sm">Brak notatek.</li>
+          ) : null}
+        </ul>
+      </section>
+    </div>
+  );
+}

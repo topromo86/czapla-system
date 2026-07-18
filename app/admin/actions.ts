@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
+import { markJoinedIfNeeded } from "@/lib/services/member";
 import type { PaymentMethod } from "@/app/generated/prisma/client";
 
 const PAYMENT_METHODS: readonly PaymentMethod[] = ["CASH", "BLIK", "TRANSFER"];
@@ -59,6 +60,9 @@ export async function assignPassAction(formData: FormData) {
         recordedByUserId: session.user.id,
       },
     });
+
+    // Pierwsza opłacona transakcja = joinedAt, jeśli klient jeszcze nie dołączył.
+    await markJoinedIfNeeded(tx, memberId, now);
   });
 
   redirect("/admin");

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireOwnsSession, requireTrainerSelf } from "@/lib/auth/guard";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
+import { markJoinedIfNeeded } from "@/lib/services/member";
 
 // Ręczne uzupełnienie obecności przez trenera - method: MANUAL, wykluczone
 // z KPI (CLAUDE.md reguła 2: trener nie ocenia sam siebie własnymi wpisami).
@@ -27,6 +28,7 @@ export async function markManualAttendanceAction(formData: FormData) {
     });
     await tx.booking.update({ where: { id: bookingId }, data: { status: "ATTENDED" } });
     await decrementPassEntryIfLimited(tx, booking.memberId);
+    await markJoinedIfNeeded(tx, booking.memberId, new Date());
   });
 
   revalidatePath("/trainer");

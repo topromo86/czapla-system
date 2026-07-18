@@ -5,6 +5,14 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/detect-inactive",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/expire-old-tasks",
+      "schedule": "15 4 * * *"
+    },
+    {
       "path": "/api/cron/close-cash-day",
       "schedule": "0 20 * * *"
     }

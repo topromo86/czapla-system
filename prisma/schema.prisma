@@ -132,7 +132,7 @@ model Member {
   level                      MemberLevel  @default(WHITE)
   goal                       String?
   status                     MemberStatus @default(ACTIVE)
-  joinedAt                   DateTime     @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta
+  joinedAt                   DateTime?    @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta. null = jeszcze nie dołączył(a)
   churnedAt                  DateTime?    @db.Timestamptz
   sparringClearedAt          DateTime?    @db.Timestamptz
   sparringClearedByTrainerId String?
