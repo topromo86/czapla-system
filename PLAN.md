@@ -144,24 +144,31 @@ to nie jest lista odrzuconych pomysłów, tylko parking lot do priorytetyzacji.
   - **Import ręczny przez CSV** (eksport z Meta Ads Manager), nie integracja
     z Meta Leads API - prościej, bez weryfikacji biznesowej i webhooków.
   - **Rozszerzenie istniejącego `Member`**, nie osobna tabela `Lead`.
-  - **Tak** - potwierdzony lead ma możliwość utworzenia realnego klienta.
   - **Dostęp domyślnie tylko właściciel**, z opcją rozszerzenia o trenerów
     później.
 
-  Otwarty konflikt do rozwiązania przy starcie prac: CLAUDE.md reguła 1
-  mówi, że `ownerTrainerId` jest obowiązkowe dla *każdego* `Member` - to
-  reguła nadrzędna („naruszenie psuje cały sens systemu"). Lead z importu
-  CSV nie ma jeszcze przypisanego trenera. Do rozstrzygnięcia: albo (a)
-  leady żyją w `Member` z jakimś stanem „niepotwierdzony" i wymuszeniem
-  wyboru trenera dopiero przy potwierdzeniu (czyli `ownerTrainerId` zostaje
-  faktycznie obowiązkowe zawsze, po prostu rekord leada jest tworzony
-  dopiero w chwili potwierdzenia, a import CSV trafia do tabeli
-  pośredniej/tymczasowej), albo (b) reguła 1 dostaje wyjątek dla leadów
-  przed potwierdzeniem. (a) jest spójniejsze z resztą systemu i chroni
-  regułę 1 - rekomendacja na start, do potwierdzenia z właścicielem.
-  Jeśli lead konwertuje się na klienta, to naturalny punkt startowy dla
-  `Member.joinedAt` (SPEC.md sekcja 1) - dopiero potwierdzenie leada
-  liczyłoby się jako dołączenie, nie sam import.
+  Przepływ (potwierdzony):
+  1. Właściciel importuje CSV z leadami (imię, kontakt, kampania/źródło).
+  2. Lista leadów - dla każdego prosty checkbox/status **„obdzwoniony"**
+     (śledzenie, kto już był kontaktowany, bez oceny wyniku rozmowy na tym
+     etapie).
+  3. Z pozycji obdzwonionego leada właściciel **ręcznie buduje klienta**
+     (przycisk „utwórz klienta z leada") - to nie dzieje się automatycznie
+     przy imporcie ani przy odznaczeniu.
+  4. **Dopiero w tym kroku wybiera się i przypisuje trenera-opiekuna.**
+
+  To rozwiązuje konflikt z CLAUDE.md regułą 1 (`ownerTrainerId` obowiązkowe
+  dla każdego `Member`, reguła nadrzędna): leady żyją jako `Member` w stanie
+  „niepotwierdzony" (bez trenera), a `ownerTrainerId` staje się wymagane
+  dopiero w kroku 4, w momencie budowania klienta z leada - czyli reguła 1
+  nie jest naruszana, tylko odroczona do właściwego momentu. Wymaga to więc:
+  - nowego stanu na `Member` odróżniającego leada od potwierdzonego klienta
+    (np. `MemberStatus.LEAD` albo osobne pole) - do zaprojektowania przy
+    starcie prac, razem z tym, jak taki rekord wygląda, zanim ma wypełnione
+    `ownerTrainerId`, `homeLocationId` itd. (te pola też są dziś wymagane -
+    ta sama logika odroczenia powinna objąć wszystkie).
+  - `Member.joinedAt` (SPEC.md sekcja 1) liczone dopiero od potwierdzenia
+    (budowy klienta z leada), nie od importu CSV ani odznaczenia „obdzwoniony".
 
   Nie ma to bezpośredniego związku z retencją (CLAUDE.md: „przy każdej
   decyzji pytaj, czy to zwiększy szansę, że klient zostanie po 90 dniach") -
