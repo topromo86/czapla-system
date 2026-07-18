@@ -21,11 +21,11 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Klub Bokserski",
-  description: "System zarządzania klubem bokserskim - Mikołów i Tychy",
+  title: "Czapla Boxing",
+  description: "System zarządzania klubem bokserskim Czapla Boxing - Mikołów i Tychy",
   appleWebApp: {
     capable: true,
-    title: "Klub Bokserski",
+    title: "Czapla Boxing",
     statusBarStyle: "black-translucent",
   },
 };

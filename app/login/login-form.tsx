@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginAction, type LoginState } from "./actions";
@@ -14,11 +15,13 @@ export function LoginForm() {
 
   return (
     <Card className="border-line bg-surface w-full max-w-sm">
-      <CardHeader>
-        <CardTitle className="font-display text-brass text-2xl tracking-wide">
-          Klub Bokserski
-        </CardTitle>
-        <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">Logowanie</p>
+      <CardHeader className="items-center">
+        <div className="rounded-md bg-white px-4 py-3">
+          <Image src="/logo.png" alt="Czapla Boxing" width={220} height={121} priority />
+        </div>
+        <p className="text-muted-brand mt-2 font-mono text-xs tracking-widest uppercase">
+          Logowanie
+        </p>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-4">

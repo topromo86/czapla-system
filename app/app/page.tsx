@@ -136,9 +136,9 @@ export default async function SchedulePage({
       ) : null}
 
       {missingConsents ? (
-        <p className="border-brass/40 bg-brass/10 text-text rounded-md border p-3 text-sm">
+        <p className="border-brand-red/40 bg-brand-red/10 text-text rounded-md border p-3 text-sm">
           Brakuje kompletu wymaganych zgód dla {activeMember.firstName} - uzupełnij je w zakładce{" "}
-          <Link href={`/app/zgody?member=${activeMember.id}`} className="text-brass underline">
+          <Link href={`/app/zgody?member=${activeMember.id}`} className="text-brand-red underline">
             Zgody
           </Link>
           , inaczej zapis na zajęcia się nie powiedzie.

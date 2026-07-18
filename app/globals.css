@@ -4,9 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Design tokens - CLAUDE.md. Zdefiniowane raz, używane przez Tailwind theme.
-   Nigdy hex bezpośrednio w komponentach. Jeden stały motyw ciemny - bez
-   przełącznika jasny/ciemny (prototyp nie przewiduje light mode). */
+/* Design tokens - marka Czapla Boxing (logo klienta). Zdefiniowane raz,
+   używane przez Tailwind theme. Nigdy hex bezpośrednio w komponentach.
+   Jeden stały motyw ciemny - bez przełącznika jasny/ciemny. */
 :root {
   --ink: #12161a; /* tło */
   --surface: #191f24; /* karty */
@@ -15,9 +15,9 @@
   --line-soft: #232c33; /* separatory */
   --text: #dee3e4;
   --muted-brand: #7c8a93;
-  --brass: #c9b071; /* akcent główny (mosiądz gongu) */
-  --brass-dim: #8a7844;
-  --red: #c8392f; /* alerty, churn */
+  --brand-red: #ee1d23; /* akcent główny - czerwień z logo Czapla Boxing */
+  --brand-red-dim: #a8151a;
+  --red: #c8392f; /* alerty, churn - celowo inny odcień niż brand-red, żeby nie mylić z akcją */
   --jade: #5c9a7b; /* potwierdzenia */
 
   /* Mapowanie tokenów shadcn/ui na naszą paletę zamiast domyślnej neutralnej. */
@@ -27,8 +27,8 @@
   --card-foreground: var(--text);
   --popover: var(--surface-2);
   --popover-foreground: var(--text);
-  --primary: var(--brass);
-  --primary-foreground: var(--ink);
+  --primary: var(--brand-red);
+  --primary-foreground: var(--text);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
   --muted: var(--surface-2);
@@ -38,21 +38,21 @@
   --destructive: var(--red);
   --border: var(--line);
   --input: var(--line);
-  --ring: var(--brass);
+  --ring: var(--brand-red);
   --radius: 0.5rem;
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: var(--brass);
-  --sidebar-primary-foreground: var(--ink);
+  --sidebar-primary: var(--brand-red);
+  --sidebar-primary-foreground: var(--text);
   --sidebar-accent: var(--surface-2);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: var(--line);
-  --sidebar-ring: var(--brass);
-  --chart-1: var(--brass);
+  --sidebar-ring: var(--brand-red);
+  --chart-1: var(--brand-red);
   --chart-2: var(--jade);
   --chart-3: var(--red);
   --chart-4: var(--muted-brand);
-  --chart-5: var(--brass-dim);
+  --chart-5: var(--brand-red-dim);
 }
 
 @theme inline {
@@ -63,8 +63,8 @@
   --color-line-soft: var(--line-soft);
   --color-text: var(--text);
   --color-muted-brand: var(--muted-brand);
-  --color-brass: var(--brass);
-  --color-brass-dim: var(--brass-dim);
+  --color-brand-red: var(--brand-red);
+  --color-brand-red-dim: var(--brand-red-dim);
   --color-red: var(--red);
   --color-jade: var(--jade);
 

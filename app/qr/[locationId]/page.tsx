@@ -39,7 +39,7 @@ export default async function QrCheckInPage({
 
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
-      <h1 className="font-display text-brass text-2xl tracking-wide">{location.name}</h1>
+      <h1 className="font-display text-brand-red text-2xl tracking-wide">{location.name}</h1>
       <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">
         Meldowanie na zajęcia
       </p>

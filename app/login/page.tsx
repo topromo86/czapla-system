@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Logowanie - Klub Bokserski",
+  title: "Logowanie - Czapla Boxing",
 };
 
 export default function LoginPage() {

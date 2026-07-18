@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAccessibleMembers } from "@/lib/auth/guard";
+import { BrandHeaderLogo } from "../brand-header-logo";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const members = await getAccessibleMembers();
@@ -8,12 +9,12 @@ export default async function ClientLayout({ children }: { children: React.React
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-line bg-surface border-b px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <span className="font-display text-brass text-lg tracking-wide">Klub Bokserski</span>
+          <BrandHeaderLogo />
           <nav className="flex gap-4 font-mono text-xs tracking-widest uppercase">
-            <Link href="/app" className="text-text hover:text-brass">
+            <Link href="/app" className="text-text hover:text-brand-red">
               Grafik
             </Link>
-            <Link href="/app/zgody" className="text-text hover:text-brass">
+            <Link href="/app/zgody" className="text-text hover:text-brand-red">
               Zgody
             </Link>
           </nav>
