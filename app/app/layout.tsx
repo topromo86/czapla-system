@@ -1,6 +1,7 @@
 import { getAccessibleMembers, requireSession } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
+import { PAGE_SHELL } from "../shell";
 import { LogoutButton } from "../logout-button";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -34,9 +35,11 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-line bg-surface border-b px-4 py-3">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <BrandHeaderLogo />
+      <header className="border-line bg-surface border-b py-3">
+        <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
+          <div className="shrink-0">
+            <BrandHeaderLogo />
+          </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />
             <LogoutButton />
@@ -44,13 +47,13 @@ export default async function ClientLayout({ children }: { children: React.React
         </div>
       </header>
       {members.length === 0 ? (
-        <main className="mx-auto w-full max-w-3xl flex-1 p-4">
+        <main className={`${PAGE_SHELL} flex-1 py-4`}>
           <p className="text-muted-brand">
             To konto nie ma jeszcze przypisanego profilu klienta. Skontaktuj się z klubem.
           </p>
         </main>
       ) : (
-        <main className="mx-auto w-full max-w-3xl flex-1 p-4">{children}</main>
+        <main className={`${PAGE_SHELL} flex-1 py-4`}>{children}</main>
       )}
     </div>
   );

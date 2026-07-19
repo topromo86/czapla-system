@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
+import { PAGE_SHELL } from "../shell";
 import { LogoutButton } from "../logout-button";
 
 // Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
@@ -51,11 +52,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-line bg-surface border-b px-4 py-3">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="border-line bg-surface border-b py-3">
+        <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
+          <div className="flex shrink-0 items-center gap-3">
             <BrandHeaderLogo />
-            <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            <span className="text-muted-brand hidden font-mono text-xs tracking-widest uppercase sm:inline">
               Admin
             </span>
           </div>
@@ -65,7 +66,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl flex-1 p-4">{children}</main>
+      <main className={`${PAGE_SHELL} flex-1 py-4`}>{children}</main>
     </div>
   );
 }

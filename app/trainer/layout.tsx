@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTrainerSelf } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
+import { PAGE_SHELL } from "../shell";
 import { LogoutButton } from "../logout-button";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
@@ -38,11 +39,11 @@ export default async function TrainerLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-line bg-surface border-b px-4 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="border-line bg-surface border-b py-3">
+        <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
+          <div className="flex shrink-0 items-center gap-3">
             <BrandHeaderLogo />
-            <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            <span className="text-muted-brand hidden font-mono text-xs tracking-widest uppercase sm:inline">
               Trener
             </span>
           </div>
@@ -52,7 +53,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 p-4">{children}</main>
+      <main className={`${PAGE_SHELL} flex-1 py-4`}>{children}</main>
     </div>
   );
 }

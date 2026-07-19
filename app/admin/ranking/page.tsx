@@ -135,7 +135,7 @@ export default async function AdminRankingPage() {
           <Info className="text-brand-red size-4" />
           Wyjaśnienie statystyk
         </summary>
-        <div className="border-line text-muted-brand flex flex-col gap-5 border-t p-4 text-sm">
+        <div className="border-line text-muted-brand flex max-w-[72ch] flex-col gap-5 border-t p-4 text-sm">
           <div>
             <p className="text-text mb-2 font-mono text-xs tracking-widest uppercase">
               Skala kolorów pasków

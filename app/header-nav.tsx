@@ -35,6 +35,10 @@ function Badge({ value }: { value: number }) {
 // pozycja. Grupowanie wzięło się stąd, że panel właściciela urósł do
 // kilkunastu pozycji i płaski rząd przestawał się mieścić.
 //
+// Próg `lg` (a nie `xl` jak przy płaskiej liście): sześć grup zajmuje mniej
+// więcej połowę tego, co zajmowało dwanaście osobnych linków, więc pełny rząd
+// mieści się już na laptopie.
+//
 // Na wąskich ekranach panel pokazuje WSZYSTKIE grupy naraz jako sekcje z
 // nagłówkami - świadomie bez zagnieżdżonych rozwijań, bo te robiłyby z tego
 // trzy kliknięcia.
@@ -79,7 +83,7 @@ export function HeaderNav({ groups }: { groups: HeaderNavGroup[] }) {
     <>
       <nav
         ref={desktopNavRef}
-        className="hidden min-w-0 items-center gap-4 font-mono text-xs tracking-widest uppercase xl:flex"
+        className="hidden min-w-0 items-center gap-4 font-mono text-xs tracking-widest uppercase lg:flex"
       >
         {groups.map((group) => {
           const single = group.items.length === 1 ? group.items[0] : null;
@@ -143,7 +147,7 @@ export function HeaderNav({ groups }: { groups: HeaderNavGroup[] }) {
         })}
       </nav>
 
-      <details ref={mobileRef} className="relative xl:hidden">
+      <details ref={mobileRef} className="relative lg:hidden">
         <summary
           aria-label="Menu"
           className="border-line bg-surface-2 flex size-11 cursor-pointer list-none items-center justify-center rounded-md border [&::-webkit-details-marker]:hidden"
