@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireTrainerSelf } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
-import { HeaderNav } from "../header-nav";
+import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { LogoutButton } from "../logout-button";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
@@ -10,14 +10,30 @@ export default async function TrainerLayout({ children }: { children: React.Reac
     where: { trainerId: trainer.id, closedAt: null },
   });
 
-  const navItems = [
-    { href: "/trainer", label: "Dziś" },
-    { href: "/trainer/kasa", label: "Kasa" },
-    { href: "/trainer/alerty", label: "Alerty", badge: openAlertsCount || undefined },
-    { href: "/trainer/podopieczni", label: "Podopieczni" },
-    { href: "/trainer/sparingi", label: "Sparingi" },
-    { href: "/trainer/karta", label: "Moja karta" },
-    { href: "/trainer/aktywnosc", label: "Aktywność" },
+  // "Dziś", "Kasa" i "Alerty" zostają na jedno kliknięcie: pierwsze dwa to
+  // ekrany używane na sali w biegu, a Alerty niosą licznik, który ma być
+  // widoczny bez rozwijania czegokolwiek.
+  const navGroups: HeaderNavGroup[] = [
+    { label: "Dziś", items: [{ href: "/trainer", label: "Dziś" }] },
+    { label: "Kasa", items: [{ href: "/trainer/kasa", label: "Kasa" }] },
+    {
+      label: "Alerty",
+      items: [{ href: "/trainer/alerty", label: "Alerty", badge: openAlertsCount || undefined }],
+    },
+    {
+      label: "Klienci",
+      items: [
+        { href: "/trainer/podopieczni", label: "Podopieczni" },
+        { href: "/trainer/sparingi", label: "Sparingi" },
+      ],
+    },
+    {
+      label: "Moje",
+      items: [
+        { href: "/trainer/karta", label: "Moja karta" },
+        { href: "/trainer/aktywnosc", label: "Aktywność" },
+      ],
+    },
   ];
 
   return (
@@ -31,7 +47,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
             </span>
           </div>
           <div className="flex min-w-0 items-center gap-4">
-            <HeaderNav items={navItems} />
+            <HeaderNav groups={navGroups} />
             <LogoutButton />
           </div>
         </div>

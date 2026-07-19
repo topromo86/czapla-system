@@ -1,21 +1,49 @@
 import { requireRole } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
-import { HeaderNav } from "../header-nav";
+import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { LogoutButton } from "../logout-button";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Karnety" },
-  { href: "/admin/zajecia", label: "Zajęcia" },
-  { href: "/admin/trenerzy", label: "Trenerzy" },
-  { href: "/admin/klienci/nowy", label: "Dodaj klienta" },
-  { href: "/admin/finanse", label: "Finanse" },
-  { href: "/admin/kasa", label: "Kasa" },
-  { href: "/admin/retencja", label: "Retencja" },
-  { href: "/admin/ranking", label: "Ranking" },
-  { href: "/admin/oblozenie", label: "Obłożenie" },
-  { href: "/admin/powody-odejsc", label: "Powody odejść" },
-  { href: "/admin/audyt-notatek", label: "Audyt notatek" },
-  { href: "/admin/aktywnosc", label: "Aktywność" },
+// Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
+// przestawała się mieścić w nagłówku. Każdy ekran jest najwyżej dwa
+// kliknięcia od startu (grupa → pozycja).
+const NAV_GROUPS: HeaderNavGroup[] = [
+  {
+    label: "Klienci",
+    items: [
+      { href: "/admin", label: "Karnety" },
+      { href: "/admin/klienci/nowy", label: "Dodaj klienta" },
+    ],
+  },
+  {
+    label: "Grafik",
+    items: [
+      { href: "/admin/zajecia", label: "Zajęcia" },
+      { href: "/admin/oblozenie", label: "Obłożenie sal" },
+    ],
+  },
+  {
+    label: "Pieniądze",
+    items: [
+      { href: "/admin/kasa", label: "Kasa" },
+      { href: "/admin/finanse", label: "Finanse" },
+    ],
+  },
+  {
+    label: "Zespół",
+    items: [
+      { href: "/admin/trenerzy", label: "Trenerzy" },
+      { href: "/admin/ranking", label: "Ranking" },
+    ],
+  },
+  {
+    label: "Retencja",
+    items: [
+      { href: "/admin/retencja", label: "Przegląd" },
+      { href: "/admin/powody-odejsc", label: "Powody odejść" },
+      { href: "/admin/audyt-notatek", label: "Audyt notatek" },
+    ],
+  },
+  { label: "Aktywność", items: [{ href: "/admin/aktywnosc", label: "Aktywność" }] },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +60,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </span>
           </div>
           <div className="flex min-w-0 items-center gap-4">
-            <HeaderNav items={NAV_ITEMS} />
+            <HeaderNav groups={NAV_GROUPS} />
             <LogoutButton />
           </div>
         </div>
