@@ -4,6 +4,11 @@
 
 export const PASS_EXPIRING_SOON_DAYS = 7;
 
+// SPEC.md: zamrożenie karnetu maks. 30 dni/rok. Uproszczenie: liczone per
+// Pass (frozenDaysUsed), nie per klient/rok kalendarzowy - patrz PLAN.md
+// Faza 3 ❗️.
+export const MAX_FROZEN_DAYS = 30;
+
 export type PassStatusBadge = "NONE" | "EXPIRING_SOON" | "ACTIVE";
 
 export function classifyPassStatus(

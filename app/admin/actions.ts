@@ -3,66 +3,84 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
-import { markJoinedIfNeeded } from "@/lib/services/member";
-import type { PaymentMethod } from "@/app/generated/prisma/client";
+import { logActivity } from "@/lib/services/activity";
+import { MAX_FROZEN_DAYS } from "@/lib/domain/pass";
 
-const PAYMENT_METHODS: readonly PaymentMethod[] = ["CASH", "BLIK", "TRANSFER"];
+// Sprzedaż karnetu (Payment) przeniesiona wyłącznie do trenera - patrz
+// /trainer/kasa i lib/services/pass.ts#sellPass. Gotówka realnie zmienia ręce
+// przy trenerze, na sali, nie u właściciela w biurze.
 
-// Sprzedaż karnetu (SPEC.md sekcja 2 "Sprzedaż karnetu"): Pass + Payment w
-// jednej transakcji. Lokalizacja to gdzie fizycznie przyjęto pieniądze -
-// niekoniecznie lokalizacja domowa klienta (stąd osobne pole w formularzu).
-export async function assignPassAction(formData: FormData) {
+// Zamrożenie karnetu (SPEC.md sekcja 2, maks. 30 dni/rok - uproszczone tu do
+// 30 dni per Pass, patrz PLAN.md Faza 3). Zamrożenie wstrzymuje zegar: przy
+// odmrożeniu liczba faktycznie zamrożonych dni dopisuje się do endsAt, więc
+// klient nie traci opłaconego czasu.
+export async function freezePassAction(formData: FormData) {
   const session = await requireRole("ADMIN");
-  const memberId = String(formData.get("memberId"));
-  const planId = String(formData.get("planId"));
-  const locationId = String(formData.get("locationId"));
-  const method = String(formData.get("method"));
+  const passId = String(formData.get("passId"));
 
-  if (!PAYMENT_METHODS.includes(method as PaymentMethod)) {
-    throw new Error("Nieprawidłowa metoda płatności.");
+  const pass = await prisma.pass.findUniqueOrThrow({
+    where: { id: passId },
+    include: { member: true },
+  });
+
+  if (pass.status !== "ACTIVE") {
+    throw new Error("Zamrozić można tylko aktywny karnet.");
+  }
+  if (pass.frozenDaysUsed >= MAX_FROZEN_DAYS) {
+    throw new Error(`Wykorzystano już limit ${MAX_FROZEN_DAYS} dni zamrożenia dla tego karnetu.`);
   }
 
-  const [plan, currentActivePass] = await Promise.all([
-    prisma.plan.findUniqueOrThrow({ where: { id: planId } }),
-    prisma.pass.findFirst({
-      where: { memberId, status: "ACTIVE" },
-      orderBy: { endsAt: "desc" },
-    }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.pass.update({
+      where: { id: passId },
+      data: { status: "FROZEN", frozenAt: new Date() },
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "PASS_FROZEN",
+      memberId: pass.memberId,
+      summary: `Zamrożono karnet klienta ${pass.member.firstName} ${pass.member.lastName}`,
+    });
+  });
+
+  redirect("/admin");
+}
+
+export async function unfreezePassAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const passId = String(formData.get("passId"));
+
+  const pass = await prisma.pass.findUniqueOrThrow({
+    where: { id: passId },
+    include: { member: true },
+  });
+
+  if (pass.status !== "FROZEN" || !pass.frozenAt) {
+    throw new Error("Ten karnet nie jest zamrożony.");
+  }
 
   const now = new Date();
-  // Jeśli klient ma jeszcze aktywny karnet - nowy startuje od endsAt starego,
-  // nie od dziś (SPEC.md sekcja 2: "inaczej okradasz klienta z dni").
-  const startsAt =
-    currentActivePass && currentActivePass.endsAt > now ? currentActivePass.endsAt : now;
-  const endsAt = new Date(startsAt.getTime() + plan.durationDays * 86_400_000);
+  const frozenDays = Math.max(1, Math.ceil((now.getTime() - pass.frozenAt.getTime()) / 86_400_000));
+  const newEndsAt = new Date(pass.endsAt.getTime() + frozenDays * 86_400_000);
 
   await prisma.$transaction(async (tx) => {
-    const pass = await tx.pass.create({
+    await tx.pass.update({
+      where: { id: passId },
       data: {
-        memberId,
-        planId,
-        startsAt,
-        endsAt,
-        entriesLeft: plan.entriesPerMonth,
         status: "ACTIVE",
-        soldByUserId: session.user.id,
+        frozenAt: null,
+        frozenDaysUsed: { increment: frozenDays },
+        endsAt: newEndsAt,
       },
     });
 
-    await tx.payment.create({
-      data: {
-        memberId,
-        passId: pass.id,
-        amountGross: plan.priceGross,
-        method: method as PaymentMethod,
-        locationId,
-        recordedByUserId: session.user.id,
-      },
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "PASS_UNFROZEN",
+      memberId: pass.memberId,
+      summary: `Odmrożono karnet klienta ${pass.member.firstName} ${pass.member.lastName} (${frozenDays} dni zamrożenia, nowy koniec: ${newEndsAt.toISOString().slice(0, 10)})`,
     });
-
-    // Pierwsza opłacona transakcja = joinedAt, jeśli klient jeszcze nie dołączył.
-    await markJoinedIfNeeded(tx, memberId, now);
   });
 
   redirect("/admin");

@@ -110,6 +110,19 @@ export default async function NewClientPage() {
           </p>
         </div>
 
+        <div>
+          <Label htmlFor="referralCode">Kod polecenia (opcjonalnie)</Label>
+          <Input
+            id="referralCode"
+            name="referralCode"
+            placeholder="np. AB12CD"
+            className="border-line bg-surface-2 uppercase"
+          />
+          <p className="text-muted-brand mt-1 text-xs">
+            Jeśli ważny, klient trafi automatycznie do tego samego trenera co polecający.
+          </p>
+        </div>
+
         <Button type="submit">Dodaj klienta</Button>
       </form>
     </div>

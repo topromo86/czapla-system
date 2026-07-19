@@ -7,7 +7,9 @@ export type DetectInactiveResult = { membersChecked: number; tasksCreated: numbe
 // trenera, 14 dni = eskalacja. Liczone od ostatniej obecności (dowolna
 // metoda), nie od ostatniej rezerwacji (CLAUDE.md reguła 10). Idempotentny -
 // nie tworzy drugiego otwartego zadania tego samego typu dla tego samego
-// klienta.
+// klienta. PLAN.md Faza 6: klient z aktywnym (nierozwiązanym) zgłoszeniem
+// nieobecności/kontuzji jest pomijany - wiadomo już, dlaczego nie trenuje,
+// suchy alert nic by nie wniósł.
 export async function detectInactive(
   prisma: PrismaClient,
   now: Date = new Date(),
@@ -16,12 +18,14 @@ export async function detectInactive(
     where: { status: "ACTIVE", joinedAt: { not: null } },
     include: {
       attendances: { orderBy: { checkedInAt: "desc" }, take: 1 },
+      absenceReports: { where: { resolvedAt: null }, take: 1 },
     },
   });
 
   let tasksCreated = 0;
 
   for (const member of activeMembers) {
+    if (member.absenceReports.length > 0) continue;
     const lastAttendance = member.attendances[0]?.checkedInAt ?? null;
     const alertType = classifyInactivityAlert(daysSince(lastAttendance, now));
     if (!alertType) continue;

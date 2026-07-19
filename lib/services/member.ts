@@ -1,5 +1,6 @@
 import "server-only";
 import { Prisma, type PrismaClient } from "@/app/generated/prisma/client";
+import { convertReferralIfPending } from "./referral";
 
 type Tx = PrismaClient | Prisma.TransactionClient;
 
@@ -23,4 +24,6 @@ export async function markJoinedIfNeeded(tx: Tx, memberId: string, when: Date) {
       { memberId, step: 3, dueAt: new Date(when.getTime() + 84 * 86_400_000) },
     ],
   });
+
+  await convertReferralIfPending(tx, memberId, when);
 }

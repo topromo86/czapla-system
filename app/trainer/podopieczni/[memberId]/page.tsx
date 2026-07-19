@@ -5,14 +5,23 @@ import { calculateAge } from "@/lib/domain/booking";
 import { daysSince } from "@/lib/domain/retention";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addNoteAction, closeRetentionTaskAction, completeOnboardingStepAction } from "../actions";
+import {
+  addMeasurementAction,
+  addNoteAction,
+  closeRetentionTaskAction,
+  completeOnboardingStepAction,
+  resolveAbsenceReportAction,
+} from "../actions";
 
 const RETENTION_TASK_LABEL: Record<string, string> = {
   INACTIVE_7: "Brak treningu od 7 dni",
   INACTIVE_14: "Brak treningu od 14 dni - eskalacja",
   RENEWAL: "Kończy się karnet",
 };
+
+const ABSENCE_REASON_LABEL: Record<string, string> = { INJURY: "Kontuzja", OTHER: "Inny powód" };
 
 const ONBOARDING_LABEL: Record<number, string> = {
   1: "Rozmowa wstępna (dzień 3)",
@@ -42,6 +51,8 @@ export default async function MemberCardPage({
       onboardingSteps: { orderBy: { step: "asc" } },
       retentionTasks: { where: { closedAt: null }, orderBy: { createdAt: "asc" } },
       attendances: { orderBy: { checkedInAt: "desc" }, take: 10, include: { session: true } },
+      measurements: { orderBy: { recordedAt: "desc" }, take: 5 },
+      absenceReports: { where: { resolvedAt: null }, orderBy: { reportedAt: "desc" } },
     },
   });
   if (!member) notFound();
@@ -70,6 +81,34 @@ export default async function MemberCardPage({
         </p>
         <p className="text-muted-brand mt-1 text-sm">{formatTenure(member.joinedAt, now)}</p>
       </section>
+
+      {member.absenceReports.length > 0 ? (
+        <section>
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Zgłoszona nieobecność ({member.absenceReports.length})
+          </h2>
+          <ul className="mt-2 flex flex-col gap-3">
+            {member.absenceReports.map((report) => (
+              <li key={report.id} className="border-amber/40 bg-amber/5 rounded-md border p-3">
+                <p className="text-text font-medium">
+                  {ABSENCE_REASON_LABEL[report.reason] ?? report.reason}
+                </p>
+                {report.note ? <p className="text-text mt-1 text-sm">{report.note}</p> : null}
+                <p className="text-muted-brand mt-1 font-mono text-xs">
+                  Zgłoszono {formatDate(report.reportedAt)}
+                </p>
+                <form action={resolveAbsenceReportAction} className="mt-2">
+                  <input type="hidden" name="absenceReportId" value={report.id} />
+                  <input type="hidden" name="memberId" value={member.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    Oznacz jako zakończone
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {member.retentionTasks.length > 0 ? (
         <section>
@@ -144,6 +183,36 @@ export default async function MemberCardPage({
             </li>
           ) : null}
         </ul>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Pomiary</h2>
+        <ul className="mt-2 flex flex-col gap-1">
+          {member.measurements.map((m) => (
+            <li key={m.id} className="text-text flex items-center justify-between text-sm">
+              <span>{m.weightKg} kg</span>
+              <span className="text-muted-brand font-mono text-xs">{formatDate(m.recordedAt)}</span>
+            </li>
+          ))}
+          {member.measurements.length === 0 ? (
+            <li className="text-muted-brand text-sm">Brak zapisanych pomiarów.</li>
+          ) : null}
+        </ul>
+        <form action={addMeasurementAction} className="mt-2 flex items-center gap-2">
+          <input type="hidden" name="memberId" value={member.id} />
+          <Input
+            name="weightKg"
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="Waga (kg)"
+            required
+            className="border-line bg-surface-2 w-32"
+          />
+          <Button type="submit" size="sm" variant="outline">
+            Zapisz pomiar
+          </Button>
+        </form>
       </section>
 
       <section>

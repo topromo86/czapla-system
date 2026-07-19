@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatMoney } from "@/lib/format";
 import { todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { correctPaymentAction } from "./actions";
 
 function monthLabel(year: number, month: number): string {
   return new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric" }).format(
@@ -18,18 +21,24 @@ export default async function FinansePage() {
       : { year: today.year, month: today.month + 1 };
   const monthEnd = zonedTimeToUtc(nextMonth.year, nextMonth.month, 1, 0, 0);
 
-  const [locations, monthPayments, allPaymentsByMember, activeMembers] = await Promise.all([
-    prisma.location.findMany({ orderBy: { name: "asc" } }),
-    prisma.payment.findMany({
-      where: { recordedAt: { gte: monthStart, lt: monthEnd } },
-      include: { pass: { include: { plan: true } } },
-    }),
-    prisma.payment.groupBy({ by: ["memberId"], _sum: { amountGross: true } }),
-    prisma.member.findMany({
-      where: { status: "ACTIVE" },
-      include: { passes: { orderBy: { endsAt: "desc" }, take: 1 } },
-    }),
-  ]);
+  const [locations, monthPayments, allPaymentsByMember, activeMembers, recentPayments] =
+    await Promise.all([
+      prisma.location.findMany({ orderBy: { name: "asc" } }),
+      prisma.payment.findMany({
+        where: { recordedAt: { gte: monthStart, lt: monthEnd } },
+        include: { pass: { include: { plan: true } } },
+      }),
+      prisma.payment.groupBy({ by: ["memberId"], _sum: { amountGross: true } }),
+      prisma.member.findMany({
+        where: { status: "ACTIVE" },
+        include: { passes: { orderBy: { endsAt: "desc" }, take: 1 } },
+      }),
+      prisma.payment.findMany({
+        orderBy: { recordedAt: "desc" },
+        take: 40,
+        include: { member: true, correctsPayment: { include: { member: true } } },
+      }),
+    ]);
 
   const totalRevenue = monthPayments.reduce((sum, p) => sum + p.amountGross, 0);
 
@@ -144,6 +153,71 @@ export default async function FinansePage() {
             <li className="text-muted-brand text-sm">
               Brak - wszyscy aktywni klienci mają ważny karnet.
             </li>
+          ) : null}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Płatności (ostatnie {recentPayments.length}) i korekty
+        </h2>
+        <p className="text-muted-brand mt-1 text-xs">
+          Payment jest niezmienialny - korekta to nowy wpis z powodem, nigdy edycja ani usunięcie.
+          Kwota korekty: dodatnia = dopłata, ujemna = zwrot.
+        </p>
+        <ul className="mt-2 flex flex-col gap-2">
+          {recentPayments.map((p) => (
+            <li key={p.id} className="border-line bg-surface rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-text font-medium">
+                  {p.member.firstName} {p.member.lastName}
+                </span>
+                <span
+                  className={`font-mono text-sm ${p.amountGross < 0 ? "text-red" : "text-text"}`}
+                >
+                  {formatMoney(p.amountGross)}
+                </span>
+              </div>
+              <p className="text-muted-brand font-mono text-xs">
+                {formatDate(p.recordedAt)} · {p.method}
+                {p.correctsPayment ? (
+                  <span>
+                    {" "}
+                    · korekta płatności z {formatDate(p.correctsPayment.recordedAt)} (
+                    {formatMoney(p.correctsPayment.amountGross)})
+                  </span>
+                ) : null}
+              </p>
+              {p.note ? <p className="text-text mt-1 text-sm">{p.note}</p> : null}
+
+              <form
+                action={correctPaymentAction}
+                className="mt-2 flex flex-wrap items-center gap-2"
+              >
+                <input type="hidden" name="paymentId" value={p.id} />
+                <Input
+                  name="deltaZl"
+                  type="number"
+                  step="0.01"
+                  placeholder="Kwota korekty (zł, może być ujemna)"
+                  required
+                  className="border-line bg-surface-2 w-56"
+                />
+                <Input
+                  name="note"
+                  placeholder="Powód korekty (min. 5 znaków)"
+                  required
+                  minLength={5}
+                  className="border-line bg-surface-2 w-64"
+                />
+                <Button type="submit" size="sm" variant="outline">
+                  Koryguj
+                </Button>
+              </form>
+            </li>
+          ))}
+          {recentPayments.length === 0 ? (
+            <li className="text-muted-brand text-sm">Brak płatności.</li>
           ) : null}
         </ul>
       </section>

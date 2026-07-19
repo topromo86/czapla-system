@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { classifyPassStatus } from "@/lib/domain/pass";
+import { classifyPassStatus, MAX_FROZEN_DAYS } from "@/lib/domain/pass";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { assignPassAction } from "./actions";
+import { freezePassAction, unfreezePassAction } from "./actions";
 
 type AdminSearchParams = { q?: string; sex?: string; minors?: string };
 
@@ -25,10 +26,6 @@ export default async function AdminMembersPage({
 }) {
   const params = await searchParams;
   const { q, sex, minors } = params;
-  const [plans, locations] = await Promise.all([
-    prisma.plan.findMany({ where: { active: true } }),
-    prisma.location.findMany({ orderBy: { name: "asc" } }),
-  ]);
 
   const members = await prisma.member.findMany({
     where: {
@@ -47,7 +44,11 @@ export default async function AdminMembersPage({
       ],
     },
     include: {
-      passes: { where: { status: "ACTIVE" }, orderBy: { endsAt: "desc" }, take: 1 },
+      passes: {
+        where: { status: { in: ["ACTIVE", "FROZEN"] } },
+        orderBy: { endsAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 50,
@@ -94,67 +95,67 @@ export default async function AdminMembersPage({
         </Link>
       </div>
 
+      <p className="text-muted-brand text-xs">
+        Sprzedaż karnetu wykonuje trener na ekranie Kasa - tutaj tylko podgląd, edycja i
+        zamrożenie.
+      </p>
+
       <ul className="flex flex-col gap-2">
         {members.map((m) => {
           const activePass = m.passes[0];
-          const availablePlans = plans.filter((p) => p.forMinors === m.isMinor);
-          const badge = classifyPassStatus(activePass ?? null, now);
+          const isFrozen = activePass?.status === "FROZEN";
+          const badge = classifyPassStatus(!isFrozen ? (activePass ?? null) : null, now);
 
           return (
             <li
               key={m.id}
-              className="border-line bg-surface flex items-center justify-between rounded-md border p-3"
+              className="border-line bg-surface flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
             >
-              <div>
-                <p className="text-text font-medium">
-                  {m.firstName} {m.lastName}
-                  {m.isMinor ? " (dziecko)" : ""}
-                </p>
-                <p className={`font-mono text-xs ${STATUS_STYLE[badge]}`}>
-                  {activePass
-                    ? `Aktywny karnet do ${formatDate(activePass.endsAt)}`
-                    : "Brak aktywnego karnetu"}
-                </p>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/admin/klienci/${m.id}`}
+                  aria-label={`Podgląd karty klienta ${m.firstName} ${m.lastName}`}
+                >
+                  <Button type="button" variant="outline" size="icon-lg" className="size-11 shrink-0">
+                    <Eye className="size-5" />
+                  </Button>
+                </Link>
+                <div>
+                  <p className="text-text font-medium">
+                    {m.firstName} {m.lastName}
+                    {m.isMinor ? " (dziecko)" : ""}
+                  </p>
+                  {isFrozen ? (
+                    <p className="text-muted-brand font-mono text-xs">
+                      Zamrożony (do {formatDate(activePass!.endsAt)}, wykorzystano{" "}
+                      {activePass!.frozenDaysUsed}/{MAX_FROZEN_DAYS} dni)
+                    </p>
+                  ) : (
+                    <p className={`font-mono text-xs ${STATUS_STYLE[badge]}`}>
+                      {activePass
+                        ? `Aktywny karnet do ${formatDate(activePass.endsAt)}`
+                        : "Brak aktywnego karnetu"}
+                    </p>
+                  )}
+                </div>
               </div>
-              <form action={assignPassAction} className="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="memberId" value={m.id} />
-                <select
-                  name="planId"
-                  required
-                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
-                >
-                  {availablePlans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - {(p.priceGross / 100).toFixed(0)} zł
-                    </option>
-                  ))}
-                </select>
-                <select
-                  name="method"
-                  required
-                  defaultValue="CASH"
-                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
-                >
-                  <option value="CASH">Gotówka</option>
-                  <option value="BLIK">BLIK</option>
-                  <option value="TRANSFER">Przelew</option>
-                </select>
-                <select
-                  name="locationId"
-                  required
-                  defaultValue={m.homeLocationId}
-                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
-                >
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" size="sm">
-                  Załóż karnet
-                </Button>
-              </form>
+              <div className="flex flex-wrap items-center gap-2">
+                {isFrozen ? (
+                  <form action={unfreezePassAction}>
+                    <input type="hidden" name="passId" value={activePass!.id} />
+                    <Button type="submit" size="sm" variant="outline">
+                      Odmroź
+                    </Button>
+                  </form>
+                ) : activePass && activePass.frozenDaysUsed < MAX_FROZEN_DAYS ? (
+                  <form action={freezePassAction}>
+                    <input type="hidden" name="passId" value={activePass.id} />
+                    <Button type="submit" size="sm" variant="outline">
+                      Zamroź
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
             </li>
           );
         })}

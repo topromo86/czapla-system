@@ -15,7 +15,7 @@ export function LoginForm() {
 
   return (
     <Card className="border-line bg-surface w-full max-w-sm">
-      <CardHeader className="items-center">
+      <CardHeader className="items-center justify-items-center">
         <Image src="/logo.png" alt="Czapla Boxing" width={220} height={121} priority />
         <p className="text-muted-brand mt-2 font-mono text-xs tracking-widest uppercase">
           Logowanie

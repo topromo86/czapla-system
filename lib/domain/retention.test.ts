@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyInactivityAlert,
+  classifyRenewalStage,
   daysSince,
   isValidNoteBody,
+  shouldChurn,
   shouldEscalateTask,
 } from "./retention";
 
@@ -47,6 +49,60 @@ describe("classifyInactivityAlert", () => {
 
   it("INACTIVE_14 daleko powyżej granicy", () => {
     expect(classifyInactivityAlert(60)).toBe("INACTIVE_14");
+  });
+});
+
+describe("classifyRenewalStage", () => {
+  const now = new Date("2026-07-18T10:00:00Z");
+
+  it("null gdy karnet kończy się za więcej niż 3 dni", () => {
+    expect(classifyRenewalStage(new Date(now.getTime() + 4 * DAY), now)).toBeNull();
+  });
+
+  it("TASK dokładnie na granicy 3 dni przed końcem", () => {
+    expect(classifyRenewalStage(new Date(now.getTime() + 3 * DAY), now)).toBe("TASK");
+  });
+
+  it("TASK w dniu zakończenia karnetu", () => {
+    expect(classifyRenewalStage(now, now)).toBe("TASK");
+  });
+
+  it("TASK dzień po zakończeniu (jeszcze w oknie łaski)", () => {
+    expect(classifyRenewalStage(new Date(now.getTime() - 2 * DAY), now)).toBe("TASK");
+  });
+
+  it("ESCALATE dokładnie na granicy 3 dni po końcu", () => {
+    expect(classifyRenewalStage(new Date(now.getTime() - 3 * DAY), now)).toBe("ESCALATE");
+  });
+
+  it("ESCALATE daleko po terminie", () => {
+    expect(classifyRenewalStage(new Date(now.getTime() - 20 * DAY), now)).toBe("ESCALATE");
+  });
+});
+
+describe("shouldChurn", () => {
+  const now = new Date("2026-07-18T10:00:00Z");
+
+  it("false gdy brak punktu odniesienia (null)", () => {
+    expect(shouldChurn(null, now)).toBe(false);
+  });
+
+  it("false poniżej 21 dni", () => {
+    expect(shouldChurn(new Date(now.getTime() - 20 * DAY), now)).toBe(false);
+  });
+
+  it("true dokładnie na granicy 21 dni", () => {
+    expect(shouldChurn(new Date(now.getTime() - 21 * DAY), now)).toBe(true);
+  });
+
+  it("true daleko po progu", () => {
+    expect(shouldChurn(new Date(now.getTime() - 90 * DAY), now)).toBe(true);
+  });
+
+  it("respektuje własny próg", () => {
+    const ref = new Date(now.getTime() - 10 * DAY);
+    expect(shouldChurn(ref, now, 5)).toBe(true);
+    expect(shouldChurn(ref, now, 15)).toBe(false);
   });
 });
 

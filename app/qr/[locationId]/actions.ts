@@ -6,13 +6,14 @@ import { requireMemberAccess } from "@/lib/auth/guard";
 import { isWithinCheckInWindow } from "@/lib/domain/booking";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
 import { markJoinedIfNeeded } from "@/lib/services/member";
+import { notifyGuardianCheckIn } from "@/lib/services/notify";
 
 export async function checkInAction(formData: FormData) {
   const bookingId = String(formData.get("bookingId"));
 
   const booking = await prisma.booking.findUniqueOrThrow({
     where: { id: bookingId },
-    include: { session: true },
+    include: { session: true, member: { include: { guardianUser: true } } },
   });
   await requireMemberAccess(booking.memberId);
 
@@ -31,6 +32,20 @@ export async function checkInAction(formData: FormData) {
     await decrementPassEntryIfLimited(tx, booking.memberId);
     await markJoinedIfNeeded(tx, booking.memberId, now);
   });
+
+  // "Dziecko weszło na salę" (SPEC.md sekcja 3) - tylko przy realnym check-inie
+  // QR, nigdy przy ręcznym uzupełnieniu przez trenera. Best-effort: awaria
+  // powiadomienia nigdy nie blokuje samego check-inu.
+  if (booking.member.isMinor && booking.member.guardianUser) {
+    try {
+      await notifyGuardianCheckIn(
+        booking.member.guardianUser,
+        `${booking.member.firstName} ${booking.member.lastName}`,
+      );
+    } catch {
+      // celowo połknięte - patrz komentarz wyżej
+    }
+  }
 
   redirect(`/qr/${booking.session.locationId}?success=1`);
 }

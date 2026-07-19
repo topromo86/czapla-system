@@ -4,21 +4,24 @@ Fazy realizuj **po kolei**. Nie zaczynaj kolejnej, dopóki poprzednia nie jest w
 
 Kolejność nie jest przypadkowa: najpierw to, co zbiera dane o retencji, potem to, co na tych danych operuje. Ranking trenerów jest bezużyteczny przez pierwsze 90 dni, bo nie ma dojrzałej kohorty - dlatego jest w Fazie 5, a nie w Fazie 1, mimo że to główny cel projektu.
 
-Legenda: `[ ]` do zrobienia · `[x]` gotowe
+Legenda: `[ ]` do zrobienia · `[x]` gotowe · ❗️ = brakuje, patrz tutaj najpierw
+
+Stan na 2026-07-19: **Cały plan (Fazy 0-6) gotowy.** SMS w Fazie 4 i wysyłka ankiety w Fazie 5 to gotowe wtyczki bez podpiętego dostawcy poczty/SMS (patrz ❗️ przy nich) - to jedyne realne braki, reszta działa i jest przetestowana na żywo. Faza 5 zbudowana wcześniej niż standardowo zalecane, na życzenie właściciela - w seedzie dane są już dojrzałe, na produkcji z prawdziwymi klientami nadal trzeba będzie poczekać ok. 90 dni na sensowne wyniki rankingu.
 
 ---
 
 ## Faza 0 - Fundament
 **Cel:** puste, ale wdrożone i działające repo. **Czas: 1-2 dni.**
 
-- [ ] `create-next-app` (TypeScript, App Router, Tailwind), ESLint + Prettier
-- [ ] Prisma + Postgres (Neon), połączenie, pierwsza migracja
-- [ ] Pełny schema z `SPEC.md` sekcja 1 - cały, na raz. Zmiana schematu później jest droga.
-- [ ] Seed deterministyczny wg `SPEC.md` sekcja 5
-- [ ] Auth.js: e-mail + hasło, 4 role, `lib/auth/guard.ts` z jednym miejscem autoryzacji
-- [ ] Design tokens z `CLAUDE.md` → `globals.css` + Tailwind theme, fonty (Anton, Archivo, IBM Plex Mono)
-- [ ] shadcn/ui init, przykrycie domyślnym motywem tokenami
-- [ ] Deploy na Vercel, env dev/prod, GitHub Actions: lint + typecheck + testy
+- [x] `create-next-app` (TypeScript, App Router, Tailwind), ESLint + Prettier
+- [x] Prisma + Postgres, połączenie, pierwsza migracja (lokalna baza dev - prawdziwy Neon dopiero przy wdrożeniu, patrz ❗️ niżej)
+- [x] Pełny schema z `SPEC.md` sekcja 1 - cały, na raz. Zmiana schematu później jest droga.
+- [x] Seed deterministyczny wg `SPEC.md` sekcja 5
+- [x] Auth.js: e-mail + hasło, 4 role, `lib/auth/guard.ts` z jednym miejscem autoryzacji
+- [x] Design tokens z `CLAUDE.md` → `globals.css` + Tailwind theme, fonty (Anton, Archivo, IBM Plex Mono) - zaktualizowane na jasny motyw + branding klienta (Czapla Boxing)
+- [x] shadcn/ui init, przykrycie domyślnym motywem tokenami
+- [x] GitHub Actions: lint + typecheck + testy
+- [ ] ❗️ **Deploy na Vercel, env dev/prod** - czeka na Twoje konto GitHub/Vercel. Cały projekt działa dotąd tylko lokalnie.
 
 > **Prompt:** Przeczytaj CLAUDE.md i SPEC.md. Wykonaj Fazę 0 z PLAN.md. Zacznij od pełnego schema Prisma - pokaż mi go do akceptacji przed migracją. Nie pisz jeszcze żadnego UI poza layoutem i stroną logowania.
 
@@ -27,16 +30,16 @@ Legenda: `[ ]` do zrobienia · `[x]` gotowe
 ## Faza 1 - Zapisy i obecności
 **Cel:** klient zapisuje się i melduje kodem QR. Od tego momentu zbierają się dane. **Czas: 1-2 tyg.**
 
-- [ ] `lib/domain/booking.ts` - czyste funkcje: okno odwołania, awans z listy rezerwowej, walidacja wieku. **Testy jednostkowe najpierw.**
-- [ ] Job `generateSessions` (8 tygodni do przodu)
-- [ ] Ekran grafiku: 7 dni, filtr lokalizacji, zapis, odwołanie, lista rezerwowa
-- [ ] Awans z listy rezerwowej w transakcji + powiadomienie
-- [ ] Zgody: modele, ekran podpisu przy pierwszym logowaniu, **blokada rezerwacji po stronie serwera** bez kompletu
-- [ ] Karnet minimum: właściciel ręcznie zakłada `Pass` klientowi, wygasły karnet blokuje rezerwację. Pełna kasa dopiero w Fazie 3 - tu chodzi tylko o to, żeby warunek rezerwacji miał na czym stać.
-- [ ] Check-in QR: strony `/qr/[locationId]`, walidacja okna −30/+20 min, `Attendance(QR)`
-- [ ] Panel trenera - ekran „Dziś": lista obecności, ręczne uzupełnianie braków (`method: MANUAL`)
-- [ ] Odwołanie zajęć / zastępstwo przez trenera
-- [ ] PWA: manifest, service worker, instalacja na ekranie głównym
+- [x] `lib/domain/booking.ts` - czyste funkcje: okno odwołania, awans z listy rezerwowej, walidacja wieku. **Testy jednostkowe najpierw.**
+- [x] Job `generateSessions` (8 tygodni do przodu)
+- [x] Ekran grafiku: 7 dni, filtr lokalizacji, zapis, odwołanie, lista rezerwowa
+- [x] Awans z listy rezerwowej w transakcji (transakcyjnie, sprawdzone) - ❗️ samo "powiadomienie" to tylko widoczna zmiana statusu w apce, nie push/e-mail (brak infrastruktury, patrz Faza 4)
+- [x] Zgody: modele, ekran podpisu przy pierwszym logowaniu, **blokada rezerwacji po stronie serwera** bez kompletu
+- [x] Karnet minimum: właściciel ręcznie zakłada `Pass` klientowi, wygasły karnet blokuje rezerwację (od Fazy 3 pełna sprzedaż z płatnością)
+- [x] Check-in QR: strony `/qr/[locationId]`, walidacja okna −30/+20 min, `Attendance(QR)`
+- [x] Panel trenera - ekran „Dziś": lista obecności, ręczne uzupełnianie braków (`method: MANUAL`)
+- [x] Odwołanie zajęć / zastępstwo przez trenera
+- [x] PWA: manifest, service worker, instalacja na ekranie głównym
 
 > **Prompt:** Faza 1 z PLAN.md. Zacznij od lib/domain/booking.ts i testów - dopiero potem UI. Reguła nr 2 i nr 9 z CLAUDE.md są krytyczne: obecność MANUAL musi być oznaczona, a rezerwacja bez kompletu zgód ma się nie udać na serwerze.
 
@@ -47,16 +50,16 @@ Legenda: `[ ]` do zrobienia · `[x]` gotowe
 ## Faza 2 - Warstwa retencji
 **Cel:** system zaczyna pilnować relacji. To jest właściwy produkt. **Czas: 1-2 tyg.**
 
-- [ ] Przypisanie opiekuna: `ownerTrainerId` obowiązkowy przy zakładaniu klienta
-- [ ] Karta klienta: dane, cel, staż, historia obecności
-- [ ] Notatki (`Note`) - dodawanie, walidacja min. 30 znaków na serwerze
-- [ ] `OnboardingStep` - generowanie 3 etapów przy `joinedAt`, ekran checklisty
-- [ ] Job `detectInactive` - alerty 7/14 dni
-- [ ] Job `expireOldTasks` - eskalacja
-- [ ] Panel trenera: ekran „Alerty" z badge, zamknięcie **wyłącznie z notatką**
-- [ ] Panel trenera: ekran „Podopieczni"
-- [ ] Panel właściciela: retencja kohortowa, liczba zagrożonych, eskalacje
-- [ ] Powiadomienia push/mail do trenera o nowym zadaniu
+- [x] Przypisanie opiekuna: `ownerTrainerId` obowiązkowy przy zakładaniu klienta
+- [x] Karta klienta: dane, cel, staż, historia obecności
+- [x] Notatki (`Note`) - dodawanie, walidacja min. 30 znaków na serwerze
+- [x] `OnboardingStep` - generowanie 3 etapów przy `joinedAt`, ekran checklisty
+- [x] Job `detectInactive` - alerty 7/14 dni
+- [x] Job `expireOldTasks` - eskalacja
+- [x] Panel trenera: ekran „Alerty" z badge, zamknięcie **wyłącznie z notatką**
+- [x] Panel trenera: ekran „Podopieczni"
+- [x] Panel właściciela: retencja kohortowa, liczba zagrożonych, eskalacje
+- [ ] ❗️ **Powiadomienia push/mail do trenera o nowym zadaniu** - zadanie samo jest widoczne w apce (Alerty + badge), ale nie ma faktycznej wysyłki push/e-mail. Brak infrastruktury (VAPID keys, dostawca poczty) - do ustalenia, czym to wysyłać.
 
 > **Prompt:** Faza 2 z PLAN.md. To jest sedno całego projektu - przeczytaj sekcję „Po co ten projekt istnieje" w CLAUDE.md, zanim zaczniesz. Nie dodawaj żadnego skrótu typu „oznacz jako wykonane" przy zadaniach kontaktowych.
 
@@ -69,17 +72,18 @@ Legenda: `[ ]` do zrobienia · `[x]` gotowe
 
 Model gotówkowy: brak bramki, brak subskrypcji, brak webhooków. Płatność odhacza człowiek.
 
-- [ ] **Przed startem:** odpowiedź od księgowej klienta w sprawie kasy fiskalnej. Może zmienić cały moduł.
-- [ ] Ekran „Kasa" (trener, mobile-first): klient + plan + metoda + lokalizacja, jedno kliknięcie. Ma działać na telefonie, na sali, przy 12 osobach czekających.
-- [ ] `Payment` append-only + wpisy korygujące. Bez edycji, bez usuwania.
-- [ ] Nowy karnet startuje od `endsAt` starego, nie od dziś
-- [ ] Zamrożenie (maks. 30 dni/rok): prośba klienta → akceptacja właściciela
-- [ ] Zdejmowanie wejść z karnetów limitowanych przy `Attendance`
-- [ ] Job `renewalReminders` → `RetentionTask(RENEWAL)`, harmonogram z `SPEC.md`
-- [ ] Job `passLifecycle`, job `closeCashDay`
-- [ ] `CashDay`: dzienne rozliczenie per lokalizacja, rozbieżność wymaga notatki
-- [ ] Panel właściciela: finanse, kasa, lista wygasłych do odzyskania
-- [ ] Klient: podgląd karnetu i historii (nic nie opłaca w apce)
+- [x] Ekran „Kasa" (trener, mobile-first) - `/trainer/kasa`, jedyne miejsce sprzedaży karnetu (przeniesione z `/admin`, żeby płatność odhaczał ten, kto faktycznie trzyma gotówkę).
+- [x] `Payment` append-only. Bez edycji, bez usuwania.
+- [x] Wpisy korygujące płatności - ekran na `/admin/finanse` (nowy wpis z `correctsPaymentId` i wymaganym powodem, nigdy edycja).
+- [x] Nowy karnet startuje od `endsAt` starego, nie od dziś
+- [x] Zamrożenie (uproszczone do 30 dni/Pass, nie 30 dni/rok kalendarzowy) - admin zamraża/odmraża na `/admin`, `frozenDaysUsed` i `endsAt` liczą się same. ❗️ Nadal brak osobnej "prośby klienta" - dziś to wyłącznie decyzja admina, nie ma ekranu klienta do złożenia prośby.
+- [x] Zdejmowanie wejść z karnetów limitowanych przy `Attendance`
+- [x] Job `renewalReminders` → `RetentionTask(RENEWAL)` - zadanie dla trenera przy endsAt-3 dni, eskalacja przy endsAt+3 dni, jeśli wciąż otwarte (codziennie ok. 6:30). Krok "-5 dni powiadomienie" z SPEC.md pokrywa już istniejący próg `PASS_EXPIRING_SOON_DAYS` (wizualna zmiana statusu, nie push/e-mail - ten sam wzorzec co przy awansie z listy rezerwowej w Fazie 1).
+- [x] Job `passLifecycle` - karnety ACTIVE z minionym `endsAt` przechodzą w EXPIRED (zamrożone celowo pomijane).
+- [x] Job `closeCashDay`
+- [x] `CashDay`: dzienne rozliczenie per lokalizacja, rozbieżność wymaga notatki
+- [x] Panel właściciela: finanse, kasa, lista wygasłych do odzyskania
+- [x] Klient: podgląd karnetu i historii (nic nie opłaca w apce) - `/app/karnet`, tylko do odczytu.
 
 > **Prompt:** Faza 3 z PLAN.md, model gotówkowy. Reguły 11 i 12 z CLAUDE.md są tu najważniejsze: każdy wpis płatności ma autora i jest niezmienialny, a przypomnienie o karnecie to zadanie retencyjne dla trenera, nie mail z systemu. Kwoty w groszach jako Int.
 
@@ -88,13 +92,13 @@ Model gotówkowy: brak bramki, brak subskrypcji, brak webhooków. Płatność od
 ## Faza 4 - Dzieci i rodzice
 **Cel:** rodzic wie, co się dzieje. **Czas: ~1 tydz.**
 
-- [ ] Rola `GUARDIAN`, powiązanie `Member.guardianUserId`
-- [ ] Zgoda opiekuna prawnego jako blokada rezerwacji dla `isMinor`
-- [ ] Panel rodzica: wszystkie ekrany z `SPEC.md` sekcja 3
-- [ ] **Powiadomienie „dziecko weszło na salę"** przy `Attendance(QR)` - push + fallback SMS
-- [ ] Ustawienia powiadomień
-- [ ] Filtr grafiku `isKids`, walidacja `minAge/maxAge`
-- [ ] Job przeliczający `isMinor` przy 18. urodzinach
+- [x] Rola `GUARDIAN`, powiązanie `Member.guardianUserId`
+- [x] Zgoda opiekuna prawnego jako blokada rezerwacji dla `isMinor`
+- [x] Panel rodzica: ekran „Moje dziecko" (`/app/dziecko`) - ostatnia obecność, trener-opiekun i kontakt, ustawienia powiadomień. Reszta ekranów rodzica to współdzielone `/app`, `/app/karnet`, `/app/zgody` (Postępy i Polecenia z tabeli SPEC.md to Faza 6, nietknięte).
+- [x] Powiadomienie „dziecko weszło na salę" przy `Attendance(QR)` - prawdziwy Web Push (VAPID, działa bez żadnego zewnętrznego konta) + fallback SMS. ❗️ SMS to na razie tylko gotowa wtyczka (`lib/services/notify.ts#sendSms`) - nie ma podpiętego dostawcy (Twilio/Vonage itp.), więc realnie nic nie wysyła, tylko loguje próbę. Wymaga założenia płatnego konta przez klienta.
+- [x] Ustawienia powiadomień - `/app/dziecko`, toggle push/SMS + przycisk włączenia subskrypcji w przeglądarce.
+- [x] Filtr grafiku `isKids`, walidacja `minAge/maxAge`
+- [x] Job przeliczający `isMinor` przy 18. urodzinach (`recalcMinorStatus`, codziennie 4:30) - nie rusza `guardianUserId`, to osobna decyzja.
 
 > **Prompt:** Faza 4 z PLAN.md. Uwaga na push na iOS - działa tylko w PWA dodanej do ekranu głównego. Zaprojektuj fallback SMS od razu, nie jako poprawkę.
 
@@ -103,14 +107,16 @@ Model gotówkowy: brak bramki, brak subskrypcji, brak webhooków. Płatność od
 ## Faza 5 - Scoring i premie
 **Cel:** trenerzy są rozliczani. **Uruchamiać dopiero, gdy Faza 1-2 zbierała dane przez min. 90 dni.** **Czas: ~1 tydz.**
 
-- [ ] `lib/domain/scoring.ts` - czyste funkcje. **Testy jednostkowe obowiązkowo**, łącznie z przypadkiem `maturedCount < 5 → null`
-- [ ] Normalizacja retencji względem typu grupy
-- [ ] Job `computeScores` (miesięczny) → `TrainerScore`
-- [ ] `Rating` - prośba o ocenę godzinę po zajęciach, 1 kliknięcie
-- [ ] Ekran „Moja karta" (trener) i „Ranking" (właściciel)
-- [ ] Próg premii + oznaczenie lidera
-- [ ] Próbka 10% notatek do audytu przez właściciela
-- [ ] `ChurnSurvey` + ekran „Powody odejść" z podziałem „trener" / „klub"
+Zbudowana na życzenie właściciela wcześniej niż zwykle zalecane - "chcę to widzieć od razu, żeby nauczyć się czytać analizę". **W środowisku dev/seed dane już są dojrzałe** (seed generuje historię klientów sięgającą miesięcy wstecz, nie tylko od dzisiaj), więc ranking pokazuje realne, zróżnicowane wyniki już teraz. **Na produkcji z prawdziwymi klientami klubu ta sama zasada `maturedCount < 5 → null` nadal obowiązuje** - dopóki nie minie ok. 90 dni od startu Fazy 1 na żywym ruchu, admin i trenerzy będą widzieć „za mało danych", i tak ma być.
+
+- [x] `lib/domain/scoring.ts` - czyste funkcje + testy jednostkowe, w tym `maturedCount < 5 → null`.
+- [x] Normalizacja retencji względem typu grupy - retencja klubu liczona osobno dla dzieci/dorosłych, ważona składem kohorty trenera (`weightedClubSegmentRet90`). ❗️ SPEC.md wspomina niezdefiniowaną nigdzie stałą `clubRet90Target` - zamiast jej zgadywać, ta normalizacja ją zastępuje w sposób udokumentowany w kodzie.
+- [x] Job `computeScores` (1. dnia miesiąca) → `TrainerScore`, liczony nad kroczącym oknem 90 dni.
+- [x] `Rating` - baner „Oceń ostatnie zajęcia" w `/app` dla nieocenionych obecności QR sprzed godziny+, 1 klik. ❗️ Bez realnej "prośby" push godzinę po zajęciach - ten sam brak infrastruktury co gdzie indziej, więc widoczna zmiana w UI zamiast powiadomienia (wzorzec z Fazy 1).
+- [x] Ekran „Moja karta" (`/trainer/karta`) i „Ranking" (`/admin/ranking`) - trener widzi wyłącznie własny wynik i pozycję liczbową, nigdy wyników innych.
+- [x] Próg premii + oznaczenie lidera (`BONUS_THRESHOLD_SCORE`). ❗️ SPEC.md nie podaje liczby - przyjęto 70 jako świadomy placeholder, właściciel powinien go realnie ustawić po zobaczeniu pierwszych wyników na żywych danych.
+- [x] Próbka 10% notatek do audytu przez właściciela (`/admin/audyt-notatek`) - losowana co miesiąc przez `computeScores`.
+- [x] `ChurnSurvey` + ekran „Powody odejść" (`/admin/powody-odejsc`) z podziałem „trener" / „klub". ❗️ Wysyłka ankiety mailem nie istnieje (brak dostawcy poczty) - admin/trener wpisuje odpowiedź ręcznie po rozmowie z klientem. Przy okazji zbudowany brakujący job `churnAndSurvey` (21 dni bez obecności QR → CHURNED), którego wcześniej w ogóle nie było mimo że jest w tabeli zadań cyklicznych SPEC.md.
 
 > **Prompt:** Faza 5 z PLAN.md. Zacznij od lib/domain/scoring.ts i testów. Reguły 4, 5, 6, 7 z CLAUDE.md to nie są sugestie - każda z nich broni systemu przed konkretnym trybem awarii.
 
@@ -121,12 +127,12 @@ Model gotówkowy: brak bramki, brak subskrypcji, brak webhooków. Płatność od
 ## Faza 6 - Reszta
 **Cel:** wygoda. Nic tu nie jest krytyczne. **Czas: 1-2 tyg.**
 
-- [ ] Polecenia: kody, śledzenie konwersji, rabaty, przypisanie do opiekuna
-- [ ] Sparingi: dopuszczenia, dobór par, lista bez pary
-- [ ] Postępy: pomiary, testy na poziom, wykres frekwencji, seria
-- [ ] Obłożenie sal (właściciel)
-- [ ] Eksport i usunięcie danych osobowych (RODO)
-- [ ] Zgłaszanie kontuzji / nieobecności z wyprzedzeniem
+- [x] Polecenia (`/app/polecenia`, `/polecenie/[code]`) - kod jednorazowy, publiczny link informacyjny (klub nie ma samoobsługowej rejestracji - link kieruje na stronę "przyjdź i podaj kod", nie na formularz), śledzenie konwersji (SENT→REGISTERED przy zakładaniu klienta, →CONVERTED przy pierwszej płatności), automatyczne przypisanie do tego samego trenera co polecający. ❗️ "Progi rabatowe" nie są zautomatyzowane - brak mechanizmu kuponów na `Payment`, admin ręcznie oznacza nagrodę jako przyznaną po wydaniu jej poza systemem.
+- [x] Sparingi (`/trainer/sparingi`) - dopuszczenia (toggle na `sparringClearedAt`), dobór par (`lib/domain/sparring.ts`, dokładnie wg wzoru SPEC.md: ta sama `level`, różnica wagi ≤4kg, sortuj i paruj zachłannie), lista bez pary jako zadanie dla trenera.
+- [x] Postępy (`/app/postepy`) - poziom (stan bieżący `Member.level`), wykres frekwencji i seria (`lib/domain/progress.ts`, tygodniowe okna Europe/Warsaw), pomiary wagi (nowy model `Measurement`, trener loguje na karcie klienta). ❗️ "Testy na poziom" nie mają osobnej historii zdarzeń - tylko bieżący stan `level`, bez logu kiedy/dlaczego zmieniono.
+- [x] Obłożenie sal (`/admin/oblozenie`) - wypełnienie nadchodzących zajęć (14 dni) per lokalizacja, pasek wypełnienia.
+- [x] Eksport i usunięcie danych osobowych (RODO) - `/api/admin/export-member/[id]` (pełny zrzut JSON), anonimizacja na karcie klienta admina (czyści dane identyfikujące, **zachowuje** `Payment`/`Pass`/obecności - obowiązek księgowy, i tak przestają być powiązane z tożsamością po wyczyszczeniu imienia). ❗️ Nie czyści historycznych wpisów `ActivityLog` ani treści `Note` - te opisują działania klubu i mogą wciąż zawierać stare imię klienta w treści.
+- [x] Zgłaszanie kontuzji / nieobecności z wyprzedzeniem (`/app`, nowy model `AbsenceReport`) - klient zgłasza powód i opcjonalny komentarz, trener widzi i zamyka na karcie klienta, **aktywne zgłoszenie wstrzymuje job `detectInactive`** (nie generuje suchego alertu, skoro wiadomo już dlaczego klient nie trenuje).
 
 ---
 

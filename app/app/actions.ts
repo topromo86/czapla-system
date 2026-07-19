@@ -10,6 +10,7 @@ import {
   resolveCancellationOutcome,
 } from "@/lib/domain/booking";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
+import type { AbsenceReason } from "@/app/generated/prisma/client";
 
 function readReturnTo(formData: FormData): string {
   const value = formData.get("returnTo");
@@ -83,6 +84,56 @@ export async function bookSessionAction(formData: FormData) {
     where: { sessionId_memberId: { sessionId, memberId } },
     create: { sessionId, memberId, status, waitlistPosition },
     update: { status, waitlistPosition, cancelledAt: null },
+  });
+
+  redirect(returnTo);
+}
+
+// Ocena zajęć - "1 kliknięcie" (SPEC.md sekcja 4 "ratingRequest"). Brak
+// infrastruktury do wysyłki prośby godzinę po zajęciach (push tylko dla
+// GUARDIAN, patrz Faza 4) - zamiast tego widoczny baner w /app dla
+// nieocenionych obecności starszych niż godzina, ten sam wzorzec co przy
+// awansie z listy rezerwowej w Fazie 1.
+export async function rateSessionAction(formData: FormData) {
+  const memberId = String(formData.get("memberId"));
+  const sessionId = String(formData.get("sessionId"));
+  const score = Number(formData.get("score"));
+  const returnTo = readReturnTo(formData);
+
+  await requireMemberAccess(memberId);
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    throw new Error("Nieprawidłowa ocena.");
+  }
+
+  await prisma.rating.upsert({
+    where: { sessionId_memberId: { sessionId, memberId } },
+    create: { sessionId, memberId, score },
+    update: { score },
+  });
+
+  redirect(returnTo);
+}
+
+// Zgłoszenie nieobecności/kontuzji z wyprzedzeniem (PLAN.md Faza 6) - żeby
+// trener miał kontekst zamiast suchego alertu INACTIVE_7/14. Aktywne
+// zgłoszenie wstrzymuje detectInactive (lib/jobs/detect-inactive.ts).
+export async function reportAbsenceAction(formData: FormData) {
+  const memberId = String(formData.get("memberId"));
+  const reason = String(formData.get("reason") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  const returnTo = readReturnTo(formData);
+
+  await requireMemberAccess(memberId);
+  if (reason !== "INJURY" && reason !== "OTHER") {
+    throw new Error("Nieprawidłowy powód.");
+  }
+
+  await prisma.absenceReport.create({
+    data: {
+      memberId,
+      reason: reason as AbsenceReason,
+      note: note || null,
+    },
   });
 
   redirect(returnTo);

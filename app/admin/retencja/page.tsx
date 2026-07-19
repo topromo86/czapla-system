@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Info } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/format";
 import { todayInTimeZone } from "@/lib/domain/time";
+import { CHURN_THRESHOLD_DAYS, TASK_ESCALATION_THRESHOLD_DAYS } from "@/lib/domain/retention";
 
 const TASK_LABEL: Record<string, string> = {
   INACTIVE_7: "Brak treningu od 7 dni",
@@ -68,6 +70,14 @@ export default async function RetencjaPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="font-display text-brand-red text-2xl tracking-wide">Retencja</h1>
+        <p className="text-muted-brand mt-1 text-sm">
+          Ilu klientów zostaje w klubie, a nie tylko ilu do niego trafia. Liczby liczone na dziś, na
+          żywo.
+        </p>
+      </div>
+
       <section className="flex gap-8">
         <div>
           <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Aktywni</h2>
@@ -149,13 +159,108 @@ export default async function RetencjaPage() {
         </div>
       </section>
 
-      <p className="text-muted-brand text-xs">
-        Pełny ranking trenerów z normalizacją retencji wg typu grupy - dopiero w Fazie 5, gdy
-        zbierzemy min. 90 dni realnych danych (CLAUDE.md reguła 5).{" "}
-        <Link href="/admin" className="text-brand-red underline">
-          Wróć do Karnetów
-        </Link>
-      </p>
+      <details className="border-line bg-surface rounded-md border">
+        <summary className="text-text flex cursor-pointer list-none items-center gap-2 p-4 font-mono text-xs tracking-widest uppercase [&::-webkit-details-marker]:hidden">
+          <Info className="text-brand-red size-4" />
+          Wyjaśnienie statystyk
+        </summary>
+        <div className="border-line text-muted-brand flex flex-col gap-5 border-t p-4 text-sm">
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Po co jest ten ekran
+            </p>
+            <p>
+              Pokazuje, ilu klientów <b>zostaje</b> w klubie, a nie tylko ilu się zapisało. Nowi
+              klienci nie mają znaczenia, jeśli odchodzą po miesiącu - tutaj to widać. Wszystkie
+              liczby są wyliczane na bieżąco, w chwili otwarcia strony.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">Aktywni</p>
+            <p>
+              Liczba klientów ze statusem aktywnym, którzy mają już datę dołączenia (czyli pierwszą
+              płatność albo pierwszą obecność). Surowy rozmiar bazy - sam w sobie nie mówi nic o
+              jakości, patrz na niego razem z retencją poniżej.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Retencja 90 dni · wyżej = lepiej
+            </p>
+            <p>
+              Odsetek klientów, którzy dołączyli <b>co najmniej 90 dni temu</b> i do dziś nie zostali
+              oznaczeni jako odeszli. Liczba w nawiasie to wielkość tej grupy („dojrzała kohorta") -
+              im większa, tym pewniejszy wynik. Nie ma jednej „dobrej" wartości; najbardziej
+              użyteczny jest <b>trend miesiąc do miesiąca</b>, nie pojedynczy odczyt.
+            </p>
+            <p className="mt-2">
+              Status „odszedł" nadaje system automatycznie po {CHURN_THRESHOLD_DAYS} dniach bez
+              treningu - i liczy do tego <b>wyłącznie obecności zeskanowane kodem QR</b> na sali.
+              Ręczne odznaczenie obecności przez trenera tego licznika nie zeruje. To celowe: nikt
+              nie powinien móc podbić własnego wyniku wpisami z palca.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Zagrożeni · niżej = lepiej
+            </p>
+            <p>
+              Ilu klientów ma <b>w tej chwili</b> otwarte przynajmniej jedno zadanie retencyjne u
+              trenera (brak treningu od 7 lub 14 dni, albo kończący się karnet). To nie statystyka
+              historyczna, tylko lista „do zrobienia dziś" - zmienia się codziennie.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Eskalacje · 0 = stan pożądany
+            </p>
+            <p>
+              <b>„Eskalowano" znaczy: zadanie przeleżało u trenera ponad{" "}
+              {TASK_ESCALATION_THRESHOLD_DAYS} dni bez zamknięcia i system sam oznaczył je jako
+              zaniedbane.</b>{" "}
+              Data przy wpisie to dzień, w którym to nastąpiło. Zadanie zamyka się wyłącznie
+              notatką z kontaktu (min. 30 znaków) - samo kliknięcie „zrobione" nie istnieje, więc
+              każda pozycja tutaj oznacza klienta, do którego przez ponad tydzień nikt się nie
+              odezwał.
+            </p>
+            <p className="mt-2">
+              Pusta lista jest dobra. Rosnąca lista to sygnał, że trener ma za dużo zadań albo je
+              ignoruje - jedno i drugie warto sprawdzić w rozmowie, nie tylko w tabelce.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Tabela kohortowa · wyżej = lepiej
+            </p>
+            <p>
+              To samo pytanie co „Retencja 90 dni", tylko rozbite na miesiące dołączenia. Pozwala
+              zobaczyć, czy klienci z konkretnego miesiąca (np. po promocji albo po zmianie
+              grafiku) zostają dłużej niż z innych. Wiersz oznaczony jako{" "}
+              <b>(świeża kohorta)</b> ma jeszcze mniej niż 90 dni - jego wynik się zmieni, nie
+              wyciągaj z niego wniosków.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Uwaga na ekran „Ranking trenerów"
+            </p>
+            <p>
+              Tam też jest kolumna „Retencja", ale to <b>inna liczba</b> - względna, podzielona
+              przez średnią klubową w segmencie danego trenera. Nie porównuj jej wprost z procentem
+              z tego ekranu.{" "}
+              <Link href="/admin/ranking" className="text-brand-red underline">
+                Przejdź do Rankingu
+              </Link>
+            </p>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

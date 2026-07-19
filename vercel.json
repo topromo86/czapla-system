@@ -15,6 +15,26 @@
     {
       "path": "/api/cron/close-cash-day",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/pass-lifecycle",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/recalc-minor-status",
+      "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/renewal-reminders",
+      "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/churn-and-survey",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/compute-scores",
+      "schedule": "0 3 1 * *"
     }
   ]
 }

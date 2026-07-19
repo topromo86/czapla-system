@@ -41,15 +41,24 @@ model User {
   createdAt       DateTime  @default(now()) @db.Timestamptz
   updatedAt       DateTime  @updatedAt @db.Timestamptz
 
-  trainer             Trainer?     @relation("TrainerAccount")
-  memberAccount       Member?      @relation("MemberAccount")
-  guardianOfMembers   Member[]     @relation("MemberGuardian")
-  authoredNotes       Note[]       @relation("NoteAuthor")
-  recordedAttendances Attendance[] @relation("AttendanceRecordedBy")
-  soldPasses          Pass[]       @relation("PassSoldBy")
-  recordedPayments    Payment[]    @relation("PaymentRecordedBy")
-  closedCashDays      CashDay[]    @relation("CashDayClosedBy")
-  grantedConsents     Consent[]    @relation("ConsentGrantedBy")
+  // Powiadomienie "dziecko weszło na salę" (SPEC.md sekcja 3) - dotyczy
+  // wyłącznie GUARDIAN. pushSubscription to surowy obiekt PushSubscription
+  // z przeglądarki (endpoint + klucze), zapisany po zgodzie użytkownika.
+  pushSubscription  Json?
+  checkInNotifyPush Boolean @default(true)
+  checkInNotifySms  Boolean @default(false)
+
+  trainer              Trainer?      @relation("TrainerAccount")
+  memberAccount        Member?       @relation("MemberAccount")
+  guardianOfMembers    Member[]      @relation("MemberGuardian")
+  authoredNotes        Note[]        @relation("NoteAuthor")
+  recordedAttendances  Attendance[]  @relation("AttendanceRecordedBy")
+  soldPasses           Pass[]        @relation("PassSoldBy")
+  recordedPayments     Payment[]     @relation("PaymentRecordedBy")
+  closedCashDays       CashDay[]     @relation("CashDayClosedBy")
+  grantedConsents      Consent[]     @relation("ConsentGrantedBy")
+  activityLogs         ActivityLog[] @relation("ActivityActor")
+  recordedMeasurements Measurement[] @relation("MeasurementRecordedBy")
 
   @@index([role])
 }
@@ -69,6 +78,8 @@ model Location {
   sessions       Session[]
   payments       Payment[]
   cashDays       CashDay[]
+
+  availabilityWindows AvailabilityWindow[]
 }
 
 model Trainer {
@@ -76,7 +87,19 @@ model Trainer {
   userId     String   @unique
   locationId String
   hiredAt    DateTime @db.Timestamptz
+  // active=false to "wyciszenie": trener znika z list wyboru i z widoku
+  // klientów, ale cała historia (sesje, oceny, wyniki) zostaje nietknięta.
   active     Boolean  @default(true)
+
+  deactivatedAt DateTime? @db.Timestamptz
+
+  // Wizytówka widoczna dla klientów. Zdjęcie trzymamy jako bajty w bazie i
+  // serwujemy osobnym endpointem (app/api/trener/[trainerId]/zdjecie), a nie
+  // jako data URI w HTML - inaczej każda odsłona listy trenerów ciągnęłaby
+  // kilkaset kB niecacheowalnego base64.
+  bio           String? @db.Text
+  photo         Bytes?
+  photoMimeType String?
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
@@ -91,6 +114,7 @@ model Trainer {
   substituteSessions     Session[]       @relation("SessionSubstitute")
   retentionTasks         RetentionTask[]
   scores                 TrainerScore[]
+  availabilityWindows    AvailabilityWindow[]
 
   @@index([locationId, active])
 }
@@ -158,6 +182,9 @@ model Member {
   consents          Consent[]
   referralsMade     Referral[]       @relation("ReferralReferrer")
   referralsReceived Referral[]       @relation("ReferralReferee")
+  activityLogs      ActivityLog[]
+  measurements      Measurement[]
+  absenceReports    AbsenceReport[]
 
   @@index([ownerTrainerId, status])
   @@index([status, joinedAt])
@@ -186,6 +213,79 @@ enum AttendanceMethod {
   MANUAL
 }
 
+// Jak daleko w przód klient może się zapisywać.
+// CURRENT_WEEK - do najbliższej niedzieli włącznie, reset w poniedziałek o
+// północy (niezależnie od tego, czy dziś jest poniedziałek czy czwartek).
+// FIXED_DAYS - stałe okno N dni do przodu (7/14/21/28).
+enum BookingHorizonMode {
+  CURRENT_WEEK
+  FIXED_DAYS
+}
+
+// Ustawienia klubu - jeden wiersz (id="singleton"). Osobna tabela zamiast
+// zmiennych środowiskowych, bo właściciel ma to zmieniać sam z panelu, bez
+// wdrożenia.
+model ClubSettings {
+  id                 String             @id @default("singleton")
+  bookingHorizonMode BookingHorizonMode @default(CURRENT_WEEK)
+  bookingHorizonDays Int                @default(7)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+
+// Rodzaj zajęć (Boks Grupowy, Boks Grupowy Junior, Treningi Personalne...).
+// Osobna tabela, a nie enum - właściciel dodaje i zmienia rodzaje sam, bez
+// migracji bazy. Po tym polu działa filtrowanie plannera.
+model ClassCategory {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+  // Rodzaj przypisywany automatycznie treningom indywidualnym - dokładnie
+  // jeden taki wiersz, pilnowane częściowym indeksem unikalnym w migracji.
+  isIndividual Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  sessions       Session[]
+  classTemplates ClassTemplate[]
+
+  @@index([active, sortOrder])
+}
+
+// GROUP - zajęcia grupowe (z szablonu albo dodane ręcznie przez właściciela).
+// INDIVIDUAL - trening 1:1, tworzony dopiero w chwili zapisu klienta na wolny
+// slot z okna dostępności trenera (AvailabilityWindow), zawsze capacity = 1.
+enum SessionKind {
+  GROUP
+  INDIVIDUAL
+}
+
+// Okno dostępności trenera na treningi indywidualne: "wtorki 16:00-20:00,
+// sloty po 60 min". Klient nie wybiera dowolnej godziny - widzi wyłącznie
+// sloty wyliczone z tych okien (lib/domain/availability.ts), więc zapis na
+// 23:00 jest niemożliwy z definicji, a nie tylko ukryty w UI.
+model AvailabilityWindow {
+  id          String  @id @default(cuid())
+  trainerId   String
+  locationId  String
+  weekday     Int // 0 = niedziela ... 6 = sobota (konwencja Date.getUTCDay)
+  startTime   String // "16:00"
+  endTime     String // "20:00"
+  slotMinutes Int     @default(60)
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  trainer  Trainer  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([trainerId, active])
+}
+
 model ClassTemplate {
   id          String  @id @default(cuid())
   locationId  String
@@ -203,8 +303,11 @@ model ClassTemplate {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  location Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  trainer  Trainer   @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  categoryId String?
+
+  location Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  trainer  Trainer        @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  category ClassCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sessions Session[]
 
   @@index([locationId, active])
@@ -217,6 +320,7 @@ model Session {
   trainerId           String
   substituteTrainerId String?
   name                String
+  kind                SessionKind   @default(GROUP)
   startsAt            DateTime      @db.Timestamptz
   endsAt              DateTime      @db.Timestamptz
   capacity            Int
@@ -226,6 +330,9 @@ model Session {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
+  categoryId String?
+
+  category          ClassCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   template          ClassTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   location          Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
   trainer           Trainer        @relation("SessionTrainer", fields: [trainerId], references: [id], onDelete: Restrict)
@@ -282,13 +389,14 @@ enum NoteKind {
 }
 
 model Note {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   memberId        String
   authorUserId    String
   kind            NoteKind
-  body            String   @db.Text // min. 30 znaków, walidacja na serwerze
-  flaggedForAudit Boolean  @default(false) // próbka 10% miesięcznie do przeglądu
-  createdAt       DateTime @default(now()) @db.Timestamptz
+  body            String    @db.Text // min. 30 znaków, walidacja na serwerze
+  flaggedForAudit Boolean   @default(false) // próbka 10% miesięcznie do przeglądu
+  reviewedAt      DateTime? @db.Timestamptz // właściciel zamknął przegląd tej notatki
+  createdAt       DateTime  @default(now()) @db.Timestamptz
 
   member     Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
   authorUser User   @relation("NoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
@@ -523,6 +631,45 @@ model Referral {
   refereeMember  Member? @relation("ReferralReferee", fields: [refereeMemberId], references: [id], onDelete: SetNull)
 }
 
+// ---------------------------------------------------------------------------
+// Postępy i zgłoszenia (Faza 6)
+// ---------------------------------------------------------------------------
+
+model Measurement {
+  id               String   @id @default(cuid())
+  memberId         String
+  weightKg         Float
+  recordedAt       DateTime @default(now()) @db.Timestamptz
+  recordedByUserId String
+
+  member         Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedByUser User   @relation("MeasurementRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([memberId, recordedAt])
+}
+
+enum AbsenceReason {
+  INJURY
+  OTHER
+}
+
+// Zgłoszenie z wyprzedzeniem (kontuzja/inny powód), żeby trener wiedział
+// DLACZEGO klient nie trenuje, zamiast dostawać suchy alert INACTIVE_7/14
+// bez kontekstu. resolvedAt=null = wciąż aktualne.
+model AbsenceReport {
+  id               String        @id @default(cuid())
+  memberId         String
+  reason           AbsenceReason
+  note             String?       @db.Text
+  reportedAt       DateTime      @default(now()) @db.Timestamptz
+  expectedReturnAt DateTime?     @db.Date
+  resolvedAt       DateTime?     @db.Timestamptz
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, resolvedAt])
+}
+
 model TrainerScore {
   id              String   @id @default(cuid())
   trainerId       String
@@ -539,4 +686,49 @@ model TrainerScore {
   trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 
   @@unique([trainerId, period])
+}
+
+// ---------------------------------------------------------------------------
+// Historia aktywności - kto co zrobił (admin widzi wszystkich, trener tylko
+// siebie - patrz lib/auth/guard.ts i /admin/aktywnosc, /trainer/aktywnosc)
+// ---------------------------------------------------------------------------
+
+enum ActivityAction {
+  MEMBER_CREATED
+  MEMBER_UPDATED
+  MEASUREMENT_ADDED
+  PASS_SOLD
+  PASS_FROZEN
+  PASS_UNFROZEN
+  PAYMENT_CORRECTED
+  NOTE_ADDED
+  ONBOARDING_STEP_COMPLETED
+  RETENTION_TASK_CLOSED
+  SESSION_CREATED
+  SESSION_UPDATED
+  SESSION_CANCELLED
+  INDIVIDUAL_SESSION_BOOKED
+  AVAILABILITY_WINDOW_CHANGED
+  TRAINER_CREATED
+  TRAINER_UPDATED
+  TRAINER_DEACTIVATED
+  TRAINER_REACTIVATED
+  TRAINER_DELETED
+  SETTINGS_UPDATED
+  CATEGORY_CHANGED
+}
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  actorUserId String
+  action      ActivityAction
+  memberId    String?
+  summary     String         @db.Text
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+
+  actorUser User    @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  member    Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([memberId, createdAt])
 }
