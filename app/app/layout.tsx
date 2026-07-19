@@ -2,6 +2,7 @@ import { getAccessibleMembers, requireSession } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
+import { SignedInAs } from "../signed-in-as";
 import { LogoutButton } from "../logout-button";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -37,8 +38,9 @@ export default async function ClientLayout({ children }: { children: React.React
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-line bg-surface border-b py-3">
         <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-center gap-3">
             <BrandHeaderLogo />
+            <SignedInAs name={session.user.name} />
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />

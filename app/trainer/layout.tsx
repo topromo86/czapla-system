@@ -3,10 +3,11 @@ import { requireTrainerSelf } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
+import { SignedInAs } from "../signed-in-as";
 import { LogoutButton } from "../logout-button";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
-  const { trainer } = await requireTrainerSelf();
+  const { session, trainer } = await requireTrainerSelf();
   const openAlertsCount = await prisma.retentionTask.count({
     where: { trainerId: trainer.id, closedAt: null },
   });
@@ -43,9 +44,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
         <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
           <div className="flex shrink-0 items-center gap-3">
             <BrandHeaderLogo />
-            <span className="text-muted-brand hidden font-mono text-xs tracking-widest uppercase sm:inline">
-              Trener
-            </span>
+            <SignedInAs role="Trener" name={session.user.name} />
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />

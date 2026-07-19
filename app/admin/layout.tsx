@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
+import { SignedInAs } from "../signed-in-as";
 import { LogoutButton } from "../logout-button";
 
 // Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
@@ -48,7 +49,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireRole("ADMIN");
+  const session = await requireRole("ADMIN");
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -56,9 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className={`${PAGE_SHELL} flex items-center justify-between gap-4`}>
           <div className="flex shrink-0 items-center gap-3">
             <BrandHeaderLogo />
-            <span className="text-muted-brand hidden font-mono text-xs tracking-widest uppercase sm:inline">
-              Admin
-            </span>
+            <SignedInAs role="Admin" name={session.user.name} />
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={NAV_GROUPS} />
