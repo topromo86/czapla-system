@@ -7,11 +7,13 @@ import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
 import {
   addMeasurementAction,
   addNoteAction,
   closeRetentionTaskAction,
   completeOnboardingStepAction,
+  refundEntryAction,
   resolveAbsenceReportAction,
 } from "../actions";
 
@@ -20,8 +22,6 @@ const RETENTION_TASK_LABEL: Record<string, string> = {
   INACTIVE_14: "Brak treningu od 14 dni - eskalacja",
   RENEWAL: "Kończy się karnet",
 };
-
-const ABSENCE_REASON_LABEL: Record<string, string> = { INJURY: "Kontuzja", OTHER: "Inny powód" };
 
 const ONBOARDING_LABEL: Record<number, string> = {
   1: "Rozmowa wstępna (dzień 3)",
@@ -53,6 +53,12 @@ export default async function MemberCardPage({
       attendances: { orderBy: { checkedInAt: "desc" }, take: 10, include: { session: true } },
       measurements: { orderBy: { recordedAt: "desc" }, take: 5 },
       absenceReports: { where: { resolvedAt: null }, orderBy: { reportedAt: "desc" } },
+      bookings: {
+        where: { absenceReason: { not: null } },
+        include: { session: true },
+        orderBy: { cancelledAt: "desc" },
+        take: 15,
+      },
     },
   });
   if (!member) notFound();
@@ -141,6 +147,61 @@ export default async function MemberCardPage({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {member.bookings.length > 0 ? (
+        <section>
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Zgłoszone nieobecności na zajęciach ({member.bookings.length})
+          </h2>
+          <ul className="mt-2 flex flex-col gap-2">
+            {member.bookings.map((booking) => {
+              const lostEntry = booking.status === "NO_SHOW" && booking.chargedPassId != null;
+              return (
+                <li key={booking.id} className="border-line bg-surface rounded-md border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-text font-medium">
+                        {booking.session.name}
+                        <span className="text-muted-brand ml-2 font-mono text-xs">
+                          {ABSENCE_REASON_LABEL[booking.absenceReason!] ?? booking.absenceReason}
+                        </span>
+                      </p>
+                      <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                        {formatDate(booking.session.startsAt)}
+                        {booking.status === "NO_SHOW" ? " · odwołane po terminie" : " · odwołane na czas"}
+                      </p>
+                      {booking.cancellationNote ? (
+                        <p className="text-text mt-1 text-sm">{booking.cancellationNote}</p>
+                      ) : null}
+                    </div>
+
+                    {lostEntry ? (
+                      booking.entryRefundedAt ? (
+                        <span className="text-jade font-mono text-xs tracking-widest uppercase">
+                          Wejście zwrócone
+                        </span>
+                      ) : (
+                        <form action={refundEntryAction} className="flex items-center gap-2">
+                          <input type="hidden" name="bookingId" value={booking.id} />
+                          <input type="hidden" name="memberId" value={member.id} />
+                          <span className="text-amber font-mono text-xs">Wejście przepadło</span>
+                          <Button type="submit" size="sm" variant="outline">
+                            Zwróć wejście
+                          </Button>
+                        </form>
+                      )
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-muted-brand mt-2 text-xs">
+            Odwołanie na mniej niż 4 godz. przed startem kosztuje wejście automatycznie. Jeśli
+            uznasz, że w tej sytuacji się należy - zwróć je.
+          </p>
         </section>
       ) : null}
 

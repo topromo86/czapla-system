@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMemberAccess } from "@/lib/auth/guard";
 import {
@@ -9,8 +10,16 @@ import {
   nextWaitlistPromotion,
   resolveCancellationOutcome,
 } from "@/lib/domain/booking";
+import {
+  ABSENCE_REASON_LABEL,
+  isAbsenceReason,
+  resolveAbsenceOutcome,
+  resolveAbsenceRangeEnd,
+} from "@/lib/domain/absence";
+import { zonedTimeToUtc } from "@/lib/domain/time";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
-import type { AbsenceReason } from "@/app/generated/prisma/client";
+import { logActivity } from "@/lib/services/activity";
+import { formatDate, formatDayTime } from "@/lib/format";
 
 function readReturnTo(formData: FormData): string {
   const value = formData.get("returnTo");
@@ -20,6 +29,20 @@ function readReturnTo(formData: FormData): string {
 function withError(returnTo: string, reason: string): string {
   const separator = returnTo.includes("?") ? "&" : "?";
   return `${returnTo}${separator}error=${reason}`;
+}
+
+// Zwolnione miejsce oddajemy pierwszej osobie z listy rezerwowej. Wyciągnięte
+// z cancelBookingAction, bo tę samą rzecz robią teraz trzy ścieżki odwołania
+// (zwykłe, pojedyncza nieobecność, przerwa do daty).
+async function promoteFromWaitlist(tx: Prisma.TransactionClient, sessionId: string) {
+  const waitlist = await tx.booking.findMany({ where: { sessionId, status: "WAITLIST" } });
+  const promoted = nextWaitlistPromotion(waitlist);
+  if (promoted) {
+    await tx.booking.update({
+      where: { id: promoted.id },
+      data: { status: "BOOKED", waitlistPosition: null },
+    });
+  }
 }
 
 export async function bookSessionAction(formData: FormData) {
@@ -114,26 +137,138 @@ export async function rateSessionAction(formData: FormData) {
   redirect(returnTo);
 }
 
-// Zgłoszenie nieobecności/kontuzji z wyprzedzeniem (PLAN.md Faza 6) - żeby
-// trener miał kontekst zamiast suchego alertu INACTIVE_7/14. Aktywne
-// zgłoszenie wstrzymuje detectInactive (lib/jobs/detect-inactive.ts).
-export async function reportAbsenceAction(formData: FormData) {
-  const memberId = String(formData.get("memberId"));
+// Nieobecność na KONKRETNYCH zajęciach: odwołuje rezerwację i zostawia powód,
+// który trener widzi na rozpisce. Wcześniej zgłoszenie nieobecności nie
+// odwoływało niczego - klient znikał z sali, ale zostawał na liście obecności.
+export async function reportSessionAbsenceAction(formData: FormData) {
+  const bookingId = String(formData.get("bookingId"));
   const reason = String(formData.get("reason") ?? "");
   const note = String(formData.get("note") ?? "").trim();
   const returnTo = readReturnTo(formData);
 
-  await requireMemberAccess(memberId);
-  if (reason !== "INJURY" && reason !== "OTHER") {
-    throw new Error("Nieprawidłowy powód.");
+  if (!isAbsenceReason(reason)) throw new Error("Nieprawidłowy powód.");
+
+  const booking = await prisma.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { session: true },
+  });
+  const session = await requireMemberAccess(booking.memberId);
+
+  if (booking.status !== "BOOKED" && booking.status !== "WAITLIST") {
+    redirect(withError(returnTo, "ALREADY_CANCELLED"));
   }
 
-  await prisma.absenceReport.create({
-    data: {
+  const now = new Date();
+  const wasBooked = booking.status === "BOOKED";
+  const outcome =
+    booking.status === "WAITLIST" ? "CANCELLED" : resolveAbsenceOutcome(booking.session.startsAt, now);
+
+  await prisma.$transaction(async (tx) => {
+    // Reguła 4h obowiązuje tak samo jak przy zwykłym odwołaniu - zgłoszenie
+    // powodu nie jest furtką. Trener może zwrócić wejście ręcznie.
+    const chargedPassId =
+      outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, booking.memberId) : null;
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: outcome,
+        cancelledAt: now,
+        waitlistPosition: null,
+        absenceReason: reason,
+        cancellationNote: note || null,
+        chargedPassId,
+      },
+    });
+
+    if (wasBooked) {
+      await promoteFromWaitlist(tx, booking.sessionId);
+    }
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "ABSENCE_REPORTED",
+      memberId: booking.memberId,
+      summary: `Zgłoszono nieobecność (${ABSENCE_REASON_LABEL[reason]}) na "${booking.session.name}" ${formatDayTime(booking.session.startsAt)}${outcome === "NO_SHOW" ? " - wejście przepadło" : ""}`,
+    });
+  });
+
+  redirect(returnTo);
+}
+
+// Przerwa w treningach do wskazanej daty: jedno zgłoszenie odwołuje wszystkie
+// rezerwacje w tym okresie. Wstrzymuje też alerty o braku treningu
+// (lib/jobs/detect-inactive.ts) - trener wie, dlaczego kogoś nie ma.
+export async function reportAbsencePeriodAction(formData: FormData) {
+  const memberId = String(formData.get("memberId"));
+  const reason = String(formData.get("reason") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  const until = String(formData.get("until") ?? "");
+  const returnTo = readReturnTo(formData);
+
+  const session = await requireMemberAccess(memberId);
+  if (!isAbsenceReason(reason)) throw new Error("Nieprawidłowy powód.");
+
+  const now = new Date();
+  const range = resolveAbsenceRangeEnd({ until, now, toUtc: zonedTimeToUtc });
+  if ("error" in range) {
+    redirect(withError(returnTo, `ABSENCE_${range.error}`));
+  }
+
+  const affected = await prisma.booking.findMany({
+    where: {
       memberId,
-      reason: reason as AbsenceReason,
-      note: note || null,
+      status: { in: ["BOOKED", "WAITLIST"] },
+      session: { startsAt: { gte: now, lt: range.endsAt }, status: { not: "CANCELLED" } },
     },
+    include: { session: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    const report = await tx.absenceReport.create({
+      data: {
+        memberId,
+        reason,
+        note: note || null,
+        expectedReturnAt: range.endsAt,
+      },
+    });
+
+    let lostEntries = 0;
+    for (const booking of affected) {
+      const outcome =
+        booking.status === "WAITLIST"
+          ? "CANCELLED"
+          : resolveAbsenceOutcome(booking.session.startsAt, now);
+
+      const chargedPassId =
+        outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, memberId) : null;
+      if (outcome === "NO_SHOW") lostEntries++;
+
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          status: outcome,
+          cancelledAt: now,
+          waitlistPosition: null,
+          absenceReason: reason,
+          cancellationNote: note || null,
+          absenceReportId: report.id,
+          chargedPassId,
+        },
+      });
+
+      if (booking.status === "BOOKED") {
+        await promoteFromWaitlist(tx, booking.sessionId);
+      }
+    }
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "ABSENCE_REPORTED",
+      memberId,
+      summary: `Zgłoszono przerwę (${ABSENCE_REASON_LABEL[reason]}) do ${formatDate(new Date(range.endsAt.getTime() - 1))} - odwołano ${affected.length} zajęć${lostEntries > 0 ? `, przepadło wejść: ${lostEntries}` : ""}`,
+    });
   });
 
   redirect(returnTo);
@@ -157,31 +292,22 @@ export async function cancelBookingAction(formData: FormData) {
       : resolveCancellationOutcome(booking.session.startsAt, now);
 
   await prisma.$transaction(async (tx) => {
+    // Spóźnione odwołanie = NO_SHOW = wejście przepada, dokładnie jak przy
+    // realnej obecności (SPEC.md sekcja 2). Zapisujemy karnet, z którego
+    // zeszło wejście, żeby trener mógł je precyzyjnie zwrócić.
+    const chargedPassId =
+      outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, booking.memberId) : null;
+
     await tx.booking.update({
       where: { id: bookingId },
-      data: { status: outcome, cancelledAt: now, waitlistPosition: null },
+      data: { status: outcome, cancelledAt: now, waitlistPosition: null, chargedPassId },
     });
-
-    // Spóźnione odwołanie = NO_SHOW = wejście przepada, dokładnie jak przy
-    // realnej obecności (SPEC.md sekcja 2).
-    if (outcome === "NO_SHOW") {
-      await decrementPassEntryIfLimited(tx, booking.memberId);
-    }
 
     // Zwolnione miejsce (odwołanie na czas lub spóźnione, oba fizycznie
     // zwalniają miejsce przed zajęciami) - awans z listy rezerwowej w tej
     // samej transakcji, żeby dwie osoby nie weszły na jedno miejsce.
     if (wasBooked) {
-      const waitlist = await tx.booking.findMany({
-        where: { sessionId: booking.sessionId, status: "WAITLIST" },
-      });
-      const promoted = nextWaitlistPromotion(waitlist);
-      if (promoted) {
-        await tx.booking.update({
-          where: { id: promoted.id },
-          data: { status: "BOOKED", waitlistPosition: null },
-        });
-      }
+      await promoteFromWaitlist(tx, booking.sessionId);
     }
   });
 

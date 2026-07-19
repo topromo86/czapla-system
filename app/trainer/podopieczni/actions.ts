@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireOwnsMember } from "@/lib/auth/guard";
 import { isValidNoteBody, MIN_NOTE_LENGTH } from "@/lib/domain/retention";
 import { logActivity } from "@/lib/services/activity";
+import { refundPassEntry } from "@/lib/services/pass";
+import { formatDayTime } from "@/lib/format";
 
 const RETENTION_TASK_LABEL: Record<string, string> = {
   INACTIVE_7: "Brak treningu od 7 dni",
@@ -141,6 +143,51 @@ export async function addMeasurementAction(formData: FormData) {
       action: "MEASUREMENT_ADDED",
       memberId,
       summary: `Zapisano pomiar wagi (${weightKg} kg) dla ${member.firstName} ${member.lastName}`,
+    });
+  });
+
+  revalidatePath(`/trainer/podopieczni/${memberId}`);
+}
+
+// Zwrot wejścia za spóźnione odwołanie (wariant C ustalony z klientem):
+// reguła 4h obowiązuje automatycznie, ale trener - który zna sytuację - może
+// wejście oddać. Zwrot trafia na TEN karnet, z którego wejście zeszło
+// (Booking.chargedPassId), bo klient mógł w międzyczasie kupić nowy.
+export async function refundEntryAction(formData: FormData) {
+  const bookingId = String(formData.get("bookingId"));
+  const memberId = String(formData.get("memberId"));
+  const session = await requireOwnsMember(memberId);
+
+  const booking = await prisma.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { session: true, member: true },
+  });
+
+  if (booking.memberId !== memberId) {
+    throw new Error("Rezerwacja nie należy do tego klienta.");
+  }
+  if (booking.status !== "NO_SHOW") {
+    throw new Error("Za te zajęcia nie przepadło wejście.");
+  }
+  if (booking.entryRefundedAt) {
+    throw new Error("Wejście zostało już zwrócone.");
+  }
+  if (!booking.chargedPassId) {
+    throw new Error("Te zajęcia nie obciążyły karnetu (karnet OPEN albo brak karnetu).");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await refundPassEntry(tx, booking.chargedPassId!);
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { entryRefundedAt: new Date(), entryRefundedByUserId: session.user.id },
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "ENTRY_REFUNDED",
+      memberId,
+      summary: `Zwrócono wejście za "${booking.session.name}" (${formatDayTime(booking.session.startsAt)}) - ${booking.member.firstName} ${booking.member.lastName}`,
     });
   });
 

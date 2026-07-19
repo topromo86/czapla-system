@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
-import { hasRequiredConsents, requiredConsentKeys } from "@/lib/domain/booking";
+import {
+  canCancelFree,
+  FREE_CANCELLATION_WINDOW_HOURS,
+  hasRequiredConsents,
+  requiredConsentKeys,
+} from "@/lib/domain/booking";
+import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
 import {
   bookingHorizonEnd,
   describeHorizon,
@@ -12,10 +18,13 @@ import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/t
 import { getClubSettings } from "@/lib/services/settings";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDate, formatDayTime } from "@/lib/format";
 import { WeekPlanner, type PlannerSession } from "./planner";
-import { rateSessionAction, reportAbsenceAction } from "./actions";
-
-const ABSENCE_REASON_LABEL: Record<string, string> = { INJURY: "Kontuzja", OTHER: "Inny powód" };
+import {
+  rateSessionAction,
+  reportAbsencePeriodAction,
+  reportSessionAbsenceAction,
+} from "./actions";
 
 const RATING_DELAY_MS = 3_600_000;
 
@@ -115,6 +124,21 @@ export default async function SchedulePage({
     where: { memberId: activeMember.id, resolvedAt: null },
     orderBy: { reportedAt: "desc" },
   });
+
+  // Zapisane zajęcia niezależnie od oglądanego tygodnia - klient ma je widzieć
+  // zawsze, także gdy przewinie planner dwa tygodnie do przodu.
+  const upcomingBookings = await prisma.booking.findMany({
+    where: {
+      memberId: activeMember.id,
+      status: { in: ["BOOKED", "WAITLIST"] },
+      session: { startsAt: { gte: now }, status: { not: "CANCELLED" } },
+    },
+    include: { session: { include: { trainer: { include: { user: true } } } } },
+    orderBy: { session: { startsAt: "asc" } },
+    take: 20,
+  });
+
+  const defaultAbsenceUntil = isoDate(addCalendarDays(todayInTimeZone(now), 7));
 
   const pendingRatings = await prisma.attendance.findMany({
     where: {
@@ -302,40 +326,144 @@ export default async function SchedulePage({
 
       <section className="flex flex-col gap-2">
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Nieobecność / kontuzja
+          Twoje najbliższe zajęcia ({upcomingBookings.length})
         </h2>
-        {activeAbsenceReport ? (
-          <p className="border-line bg-surface rounded-md border p-3 text-sm">
-            Zgłoszono: {ABSENCE_REASON_LABEL[activeAbsenceReport.reason]}
-            {activeAbsenceReport.note ? ` - ${activeAbsenceReport.note}` : ""}. Trener widzi to
-            zgłoszenie i wie, dlaczego {activeMember.firstName} nie trenuje.
+
+        {upcomingBookings.length === 0 ? (
+          <p className="text-muted-brand border-line bg-surface rounded-md border p-3 text-sm">
+            Nie masz zapisanych zajęć. Wybierz termin w grafiku poniżej.
           </p>
         ) : (
+          <ul className="flex flex-col gap-2">
+            {upcomingBookings.map((booking) => {
+              const free = canCancelFree(booking.session.startsAt, now);
+              return (
+                <li key={booking.id} className="border-line bg-surface rounded-md border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-text font-medium">{booking.session.name}</p>
+                      <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                        {formatDayTime(booking.session.startsAt)} ·{" "}
+                        {booking.session.trainer.user.name}
+                        {booking.status === "WAITLIST" ? " · lista rezerwowa" : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`font-mono text-xs ${free ? "text-muted-brand" : "text-amber"}`}
+                    >
+                      {free ? "Odwołanie bezpłatne" : "Wejście przepadnie"}
+                    </span>
+                  </div>
+
+                  <details className="mt-2">
+                    <summary className="text-brand-red cursor-pointer text-sm">
+                      Nie będę na tych zajęciach
+                    </summary>
+                    <form
+                      action={reportSessionAbsenceAction}
+                      className="border-line-soft mt-2 flex flex-col gap-2 border-t pt-2"
+                    >
+                      <input type="hidden" name="bookingId" value={booking.id} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <select
+                        name="reason"
+                        required
+                        className="border-line bg-surface-2 text-text w-40 rounded-md border px-2 py-1 text-sm"
+                      >
+                        <option value="INJURY">Kontuzja</option>
+                        <option value="OTHER">Inny powód</option>
+                      </select>
+                      <Textarea
+                        name="note"
+                        rows={2}
+                        placeholder="Komentarz dla trenera (opcjonalnie)"
+                        className="border-line bg-surface-2"
+                      />
+                      <Button type="submit" size="sm" variant="outline" className="self-start">
+                        Odwołaj i podaj powód
+                      </Button>
+                    </form>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Dłuższa przerwa
+        </h2>
+
+        {activeAbsenceReport ? (
+          <div className="border-amber/40 bg-amber/5 rounded-md border p-3">
+            <p className="text-text text-sm font-medium">
+              Zgłoszona przerwa: {ABSENCE_REASON_LABEL[activeAbsenceReport.reason]}
+              {activeAbsenceReport.expectedReturnAt
+                ? ` do ${formatDate(new Date(activeAbsenceReport.expectedReturnAt.getTime() - 1))}`
+                : ""}
+            </p>
+            {activeAbsenceReport.note ? (
+              <p className="text-muted-brand mt-1 text-sm">{activeAbsenceReport.note}</p>
+            ) : null}
+            <p className="text-muted-brand mt-1 text-xs">
+              Trener widzi powód i wie, dlaczego {activeMember.firstName} nie trenuje. Alerty o
+              braku treningu są wstrzymane. Możesz normalnie zapisać się na zajęcia, jeśli wrócisz
+              wcześniej.
+            </p>
+          </div>
+        ) : (
           <form
-            action={reportAbsenceAction}
+            action={reportAbsencePeriodAction}
             className="border-line bg-surface flex flex-col gap-2 rounded-md border p-3"
           >
             <input type="hidden" name="memberId" value={activeMember.id} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <p className="text-muted-brand text-xs">
-              Zgłoś z wyprzedzeniem, żeby trener wiedział o przerwie - alerty o braku treningu
-              zostaną wstrzymane na czas zgłoszenia.
+              Odwołuje <b>wszystkie</b> zapisane zajęcia do wybranego dnia włącznie i informuje
+              trenera o powodzie. Zajęcia odwołane na mniej niż{" "}
+              {FREE_CANCELLATION_WINDOW_HOURS} godz. przed startem kosztują wejście - tak samo jak
+              zwykłe odwołanie.
             </p>
-            <select
-              name="reason"
-              required
-              className="border-line bg-surface-2 text-text w-40 rounded-md border px-2 py-1 text-sm"
-            >
-              <option value="INJURY">Kontuzja</option>
-              <option value="OTHER">Inny powód</option>
-            </select>
+
+            <div className="flex flex-wrap gap-2">
+              <select
+                name="reason"
+                required
+                className="border-line bg-surface-2 text-text w-40 rounded-md border px-2 py-1 text-sm"
+              >
+                <option value="INJURY">Kontuzja</option>
+                <option value="OTHER">Inny powód</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-muted-brand">do dnia</span>
+                <input
+                  type="date"
+                  name="until"
+                  required
+                  defaultValue={defaultAbsenceUntil}
+                  className="border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm"
+                />
+              </label>
+            </div>
+
             <Textarea
               name="note"
-              placeholder="Komentarz (opcjonalnie)"
+              rows={2}
+              placeholder="Komentarz dla trenera (opcjonalnie)"
               className="border-line bg-surface-2"
             />
+
+            {upcomingBookings.length > 0 ? (
+              <p className="text-muted-brand text-xs">
+                Masz teraz {upcomingBookings.length} zapisanych zajęć - te, które wypadną w
+                zgłoszonym okresie, zostaną odwołane.
+              </p>
+            ) : null}
+
             <Button type="submit" size="sm" variant="outline" className="self-start">
-              Zgłoś nieobecność
+              Zgłoś przerwę
             </Button>
           </form>
         )}

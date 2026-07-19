@@ -59,6 +59,7 @@ model User {
   grantedConsents      Consent[]     @relation("ConsentGrantedBy")
   activityLogs         ActivityLog[] @relation("ActivityActor")
   recordedMeasurements Measurement[] @relation("MeasurementRecordedBy")
+  refundedEntries      Booking[]     @relation("BookingEntryRefundedBy")
 
   @@index([role])
 }
@@ -355,8 +356,24 @@ model Booking {
   createdAt        DateTime      @default(now()) @db.Timestamptz
   cancelledAt      DateTime?     @db.Timestamptz
 
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // Powód odwołania podany przez klienta - trener widzi na rozpisce, czemu
+  // kogoś nie ma, zamiast pustego miejsca.
+  absenceReason      AbsenceReason?
+  cancellationNote   String?        @db.Text
+  absenceReportId    String?
+
+  // Karnet, z którego realnie zdjęto wejście przy spóźnionym odwołaniu.
+  // Zapisany wprost, żeby zwrot trafił dokładnie tam, skąd wejście zeszło -
+  // klient mógł w międzyczasie kupić nowy karnet.
+  chargedPassId         String?
+  entryRefundedAt       DateTime? @db.Timestamptz
+  entryRefundedByUserId String?
+
+  session       Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member        Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  absenceReport AbsenceReport? @relation(fields: [absenceReportId], references: [id], onDelete: SetNull)
+  chargedPass   Pass?          @relation("BookingChargedPass", fields: [chargedPassId], references: [id], onDelete: SetNull)
+  entryRefundedBy User?        @relation("BookingEntryRefundedBy", fields: [entryRefundedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, memberId])
   @@index([memberId])
@@ -522,6 +539,8 @@ model Pass {
   soldByUser User      @relation("PassSoldBy", fields: [soldByUserId], references: [id], onDelete: Restrict)
   payments   Payment[]
 
+  chargedBookings Booking[] @relation("BookingChargedPass")
+
   @@index([memberId, status])
   @@index([status, endsAt])
 }
@@ -665,7 +684,8 @@ model AbsenceReport {
   expectedReturnAt DateTime?     @db.Date
   resolvedAt       DateTime?     @db.Timestamptz
 
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  bookings Booking[]
 
   @@index([memberId, resolvedAt])
 }
@@ -716,6 +736,8 @@ enum ActivityAction {
   TRAINER_DELETED
   SETTINGS_UPDATED
   CATEGORY_CHANGED
+  ABSENCE_REPORTED
+  ENTRY_REFUNDED
 }
 
 model ActivityLog {

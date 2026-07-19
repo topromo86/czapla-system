@@ -10,13 +10,32 @@ type Tx = PrismaClient | Prisma.TransactionClient;
 // dopiero przy realnej obecności (Attendance) albo spóźnionym odwołaniu
 // (NO_SHOW) - nigdy przy samej rezerwacji (SPEC.md sekcja 2: "rezerwacja NIE
 // zdejmuje wejścia"). Karnety OPEN (entriesLeft null) są pomijane.
-export async function decrementPassEntryIfLimited(tx: Tx, memberId: string) {
+//
+// Zwraca id karnetu, z którego zeszło wejście (albo null). Wywołujący zapisuje
+// je przy rezerwacji, żeby ewentualny zwrot trafił dokładnie tam, skąd wejście
+// zeszło - klient mógł w międzyczasie kupić nowy karnet.
+export async function decrementPassEntryIfLimited(
+  tx: Tx,
+  memberId: string,
+): Promise<string | null> {
   const pass = await tx.pass.findFirst({
     where: { memberId, status: "ACTIVE" },
     orderBy: { endsAt: "desc" },
   });
   if (pass && pass.entriesLeft != null) {
     await tx.pass.update({ where: { id: pass.id }, data: { entriesLeft: { decrement: 1 } } });
+    return pass.id;
+  }
+  return null;
+}
+
+// Zwrot wejścia na konkretny karnet - odwrotność powyższego. Świadomie bez
+// sprawdzania, czy karnet jest wciąż aktywny: jeśli trener uznaje, że wejście
+// się należy, ma wrócić tam, skąd zeszło, nawet gdy karnet zdążył wygasnąć.
+export async function refundPassEntry(tx: Tx, passId: string) {
+  const pass = await tx.pass.findUnique({ where: { id: passId } });
+  if (pass && pass.entriesLeft != null) {
+    await tx.pass.update({ where: { id: passId }, data: { entriesLeft: { increment: 1 } } });
   }
 }
 
