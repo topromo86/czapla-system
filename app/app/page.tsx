@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
-import {
-  canCancelFree,
-  FREE_CANCELLATION_WINDOW_HOURS,
-  hasRequiredConsents,
-  requiredConsentKeys,
-} from "@/lib/domain/booking";
+import { canCancelFree, hasRequiredConsents, requiredConsentKeys } from "@/lib/domain/booking";
 import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
 import { RATING_LABEL, RATING_SCORES, scoreColor } from "@/lib/domain/rating";
 import {
@@ -371,7 +366,11 @@ export default async function SchedulePage({
         ) : (
           <ul className="flex flex-col gap-2">
             {upcomingBookings.map((booking) => {
-              const free = canCancelFree(booking.session.startsAt, now);
+              const free = canCancelFree(
+                booking.session.startsAt,
+                now,
+                settings.freeCancellationHours,
+              );
               return (
                 <li key={booking.id} className="border-line bg-surface rounded-md border p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -458,7 +457,7 @@ export default async function SchedulePage({
             <p className="text-muted-brand text-xs">
               Odwołuje <b>wszystkie</b> zapisane zajęcia do wybranego dnia włącznie i informuje
               trenera o powodzie. Zajęcia odwołane na mniej niż{" "}
-              {FREE_CANCELLATION_WINDOW_HOURS} godz. przed startem kosztują wejście - tak samo jak
+              {settings.freeCancellationHours} godz. przed startem kosztują wejście - tak samo jak
               zwykłe odwołanie.
             </p>
 

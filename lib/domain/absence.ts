@@ -1,7 +1,7 @@
 // Czyste funkcje zgłaszania nieobecności.
 //
 // Reguła nadrzędna (wariant C, ustalony z klientem): zgłoszenie nieobecności
-// NIE omija zasady 4 godzin. Odwołanie na mniej niż 4h przed startem kosztuje
+// NIE omija okna bezkosztowego odwołania. Odwołanie poniżej okna kosztuje
 // wejście dokładnie tak samo jak zwykłe odwołanie - inaczej "kontuzja" byłaby
 // darmowym wyjściem z każdego spóźnionego odwołania i nikt by tego nie
 // weryfikował. Trener widzi powód i może wejście zwrócić ręcznie
@@ -44,11 +44,12 @@ export type AbsenceImpact = {
 export function summarizeAbsenceImpact(
   bookings: readonly AffectedBooking[],
   now: Date,
+  windowHours?: number,
 ): AbsenceImpact {
   const entries = bookings
     .slice()
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
-    .map((booking) => ({ booking, free: canCancelFree(booking.startsAt, now) }));
+    .map((booking) => ({ booking, free: canCancelFree(booking.startsAt, now, windowHours) }));
 
   return {
     entries,

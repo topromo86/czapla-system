@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { BookingHorizonMode } from "@/lib/domain/schedule";
+import { FREE_CANCELLATION_WINDOW_HOURS } from "@/lib/domain/booking";
 import { BONUS_THRESHOLD_SCORE } from "@/lib/domain/scoring";
 
 export type ClubSettingsView = {
@@ -8,6 +9,7 @@ export type ClubSettingsView = {
   bookingHorizonDays: number;
   bonusThresholdScore: number;
   bonusAmountGross: number;
+  freeCancellationHours: number;
 };
 
 // Ustawienia klubu z bezpiecznym domyślnym stanem. Wiersz "singleton" jest
@@ -23,5 +25,6 @@ export async function getClubSettings(): Promise<ClubSettingsView> {
     // Domyślnie 0 zł: dopóki właściciel nie ustawi kwoty, premia istnieje
     // jako próg, ale nic nie wypłacamy - lepiej niż zgadywać kwotę.
     bonusAmountGross: settings?.bonusAmountGross ?? 0,
+    freeCancellationHours: settings?.freeCancellationHours ?? FREE_CANCELLATION_WINDOW_HOURS,
   };
 }

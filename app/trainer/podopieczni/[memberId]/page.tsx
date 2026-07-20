@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
+import { getClubSettings } from "@/lib/services/settings";
 import {
   addMeasurementAction,
   addNoteAction,
@@ -42,6 +43,8 @@ export default async function MemberCardPage({
 }) {
   const { memberId } = await params;
   await requireOwnsMember(memberId);
+
+  const settings = await getClubSettings();
 
   const member = await prisma.member.findUnique({
     where: { id: memberId },
@@ -199,7 +202,8 @@ export default async function MemberCardPage({
             })}
           </ul>
           <p className="text-muted-brand mt-2 text-xs">
-            Odwołanie na mniej niż 4 godz. przed startem kosztuje wejście automatycznie. Jeśli
+            Odwołanie na mniej niż {settings.freeCancellationHours} godz. przed startem kosztuje
+            wejście automatycznie. Jeśli
             uznasz, że w tej sytuacji się należy - zwróć je.
           </p>
         </section>

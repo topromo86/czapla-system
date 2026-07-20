@@ -3,21 +3,45 @@
 
 import type { PassStatus, SessionStatus } from "@/app/generated/prisma/client";
 
-export const FREE_CANCELLATION_WINDOW_HOURS = 4;
+// Awaryjna wartość okna bezkosztowego odwołania. Realna siedzi w ustawieniach
+// klubu (ClubSettings.freeCancellationHours) i to ją trzeba podawać w wywołaniach
+// - ta stała ratuje tylko sytuację, w której ustawień nie da się odczytać.
+export const FREE_CANCELLATION_WINDOW_HOURS = 24;
+
+// Widełki dla właściciela. Dół to 1h, bo poniżej odwołanie przestaje mieć
+// jakikolwiek sens organizacyjny; góra to tydzień, bo dłuższe okno oznacza
+// w praktyce "zapisu nie da się odwołać".
+export const MIN_CANCELLATION_WINDOW_HOURS = 1;
+export const MAX_CANCELLATION_WINDOW_HOURS = 168;
+
 export const CHECK_IN_WINDOW_BEFORE_MIN = 30;
 export const CHECK_IN_WINDOW_AFTER_MIN = 20;
 
-export function canCancelFree(sessionStartsAt: Date, now: Date): boolean {
+export function canCancelFree(
+  sessionStartsAt: Date,
+  now: Date,
+  windowHours: number = FREE_CANCELLATION_WINDOW_HOURS,
+): boolean {
   const hoursUntilStart = (sessionStartsAt.getTime() - now.getTime()) / 3_600_000;
-  return hoursUntilStart >= FREE_CANCELLATION_WINDOW_HOURS;
+  return hoursUntilStart >= windowHours;
 }
 
-// Odwołanie < 4h przed startem = NO_SHOW, wejście przepada (SPEC.md sekcja 2).
+// Odwołanie poniżej okna = NO_SHOW, wejście przepada (SPEC.md sekcja 2).
 export function resolveCancellationOutcome(
   sessionStartsAt: Date,
   now: Date,
+  windowHours: number = FREE_CANCELLATION_WINDOW_HOURS,
 ): "CANCELLED" | "NO_SHOW" {
-  return canCancelFree(sessionStartsAt, now) ? "CANCELLED" : "NO_SHOW";
+  return canCancelFree(sessionStartsAt, now, windowHours) ? "CANCELLED" : "NO_SHOW";
+}
+
+// Walidacja wartości z formularza. Ułamki godzin odpadają celowo: reguła jest
+// komunikowana klientom w godzinach i "2,5h" tylko utrudniałoby jej zrozumienie.
+export function parseCancellationWindowHours(raw: string): number | null {
+  const value = Number(raw.trim().replace(",", "."));
+  if (!Number.isInteger(value)) return null;
+  if (value < MIN_CANCELLATION_WINDOW_HOURS || value > MAX_CANCELLATION_WINDOW_HOURS) return null;
+  return value;
 }
 
 export function isWithinCheckInWindow(sessionStartsAt: Date, now: Date): boolean {

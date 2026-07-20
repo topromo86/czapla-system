@@ -6,11 +6,8 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMemberAccess } from "@/lib/auth/guard";
 import { buildSlots, findSlot } from "@/lib/domain/availability";
-import {
-  canCancelFree,
-  evaluateBookingEligibility,
-  FREE_CANCELLATION_WINDOW_HOURS,
-} from "@/lib/domain/booking";
+import { canCancelFree, evaluateBookingEligibility } from "@/lib/domain/booking";
+import { getClubSettings } from "@/lib/services/settings";
 import { logActivity } from "@/lib/services/activity";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
 import { formatDayTime } from "@/lib/format";
@@ -154,7 +151,9 @@ export async function cancelIndividualSlotAction(formData: FormData) {
   // na czas jest bezkosztowe, spóźnione kosztuje wejście. Bez tego trening
   // indywidualny byłby furtką - można by odwoływać pięć minut przed czasem
   // bez żadnych konsekwencji, blokując trenerowi termin.
-  if (canCancelFree(booking.session.startsAt, new Date())) {
+  const { freeCancellationHours } = await getClubSettings();
+
+  if (canCancelFree(booking.session.startsAt, new Date(), freeCancellationHours)) {
     // Kasujemy całą sesję, nie tylko rezerwację - inaczej pusty trening
     // indywidualny blokowałby slot innym klientom.
     await prisma.session.delete({ where: { id: booking.sessionId } });
@@ -168,7 +167,7 @@ export async function cancelIndividualSlotAction(formData: FormData) {
         where: { id: booking.sessionId },
         data: {
           status: "CANCELLED",
-          cancelledReason: `Odwołane przez klienta mniej niż ${FREE_CANCELLATION_WINDOW_HOURS} godz. przed startem`,
+          cancelledReason: `Odwołane przez klienta mniej niż ${freeCancellationHours} godz. przed startem`,
         },
       });
       await decrementPassEntryIfLimited(tx, booking.memberId);

@@ -286,6 +286,11 @@ model ClubSettings {
   bonusThresholdScore Int @default(70)
   bonusAmountGross    Int @default(0)
 
+  // Ile godzin przed startem odwołanie jest bezkosztowe. Wcześniej 4h zaszyte
+  // w kodzie - właściciel zmienia to sam, bo reguła bywa negocjowana z
+  // klubowiczami i nie powinna wymagać wdrożenia.
+  freeCancellationHours Int @default(24)
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 }

@@ -30,11 +30,12 @@ describe("summarizeAbsenceImpact", () => {
   it("dzieli zajęcia na bezkosztowe i kosztujące wejście", () => {
     const impact = summarizeAbsenceImpact(
       [
-        booking("b1", "2026-07-20T09:00:00Z"), // za godzinę - mniej niż 4h
+        booking("b1", "2026-07-20T09:00:00Z"), // za godzinę - mniej niż okno
         booking("b2", "2026-07-20T16:00:00Z"), // za 8h - na czas
         booking("b3", "2026-07-22T16:00:00Z"), // pojutrze
       ],
       NOW,
+      4,
     );
 
     expect(impact.costlyCount).toBe(1);
@@ -43,10 +44,19 @@ describe("summarizeAbsenceImpact", () => {
     expect(impact.entries.find((e) => e.booking.id === "b2")?.free).toBe(true);
   });
 
-  it("granica dokładnie 4h liczy się jako odwołanie na czas", () => {
-    const impact = summarizeAbsenceImpact([booking("b1", "2026-07-20T12:00:00Z")], NOW);
+  it("granica dokładnie na oknie liczy się jako odwołanie na czas", () => {
+    const impact = summarizeAbsenceImpact([booking("b1", "2026-07-20T12:00:00Z")], NOW, 4);
     expect(impact.freeCount).toBe(1);
     expect(impact.costlyCount).toBe(0);
+  });
+
+  // Podgląd musi iść za ustawieniem klubu, inaczej klient zobaczyłby "bez
+  // kosztów", a serwer i tak zabrałby wejście.
+  it("szersze okno przesuwa zajęcia do kosztujących", () => {
+    const bookings = [booking("b1", "2026-07-20T16:00:00Z")]; // za 8h
+
+    expect(summarizeAbsenceImpact(bookings, NOW, 4).freeCount).toBe(1);
+    expect(summarizeAbsenceImpact(bookings, NOW, 24).costlyCount).toBe(1);
   });
 
   it("sortuje chronologicznie niezależnie od kolejności wejściowej", () => {
@@ -68,13 +78,20 @@ describe("summarizeAbsenceImpact", () => {
 });
 
 describe("resolveAbsenceOutcome", () => {
-  // Sedno wariantu C: zgłoszenie nieobecności nie omija reguły 4 godzin.
+  // Sedno wariantu C: zgłoszenie nieobecności nie omija okna odwołania.
   it("spóźnione zgłoszenie to NO_SHOW - wejście przepada", () => {
-    expect(resolveAbsenceOutcome(new Date("2026-07-20T09:00:00Z"), NOW)).toBe("NO_SHOW");
+    expect(resolveAbsenceOutcome(new Date("2026-07-20T09:00:00Z"), NOW, 4)).toBe("NO_SHOW");
   });
 
   it("zgłoszenie z wyprzedzeniem jest bezkosztowe", () => {
-    expect(resolveAbsenceOutcome(new Date("2026-07-20T16:00:00Z"), NOW)).toBe("CANCELLED");
+    expect(resolveAbsenceOutcome(new Date("2026-07-20T16:00:00Z"), NOW, 4)).toBe("CANCELLED");
+  });
+
+  it("respektuje okno przekazane z ustawień klubu", () => {
+    // Ten sam termin: bezkosztowy przy oknie 4h, kosztuje wejście przy 24h.
+    const startsAt = new Date("2026-07-20T16:00:00Z");
+    expect(resolveAbsenceOutcome(startsAt, NOW, 4)).toBe("CANCELLED");
+    expect(resolveAbsenceOutcome(startsAt, NOW, 24)).toBe("NO_SHOW");
   });
 });
 

@@ -10,6 +10,10 @@ import {
   WEEKDAY_LABELS,
 } from "@/lib/domain/availability";
 import { bookingHorizonEnd, describeHorizon, FIXED_HORIZON_OPTIONS } from "@/lib/domain/schedule";
+import {
+  MAX_CANCELLATION_WINDOW_HOURS,
+  MIN_CANCELLATION_WINDOW_HOURS,
+} from "@/lib/domain/booking";
 import { getClubSettings } from "@/lib/services/settings";
 import { formatDate, formatDayTime, toDateInputValue, toTimeInputValue } from "@/lib/format";
 import {
@@ -20,6 +24,7 @@ import {
   deleteAvailabilityWindowAction,
   toggleCategoryAction,
   updateBookingHorizonAction,
+  updateCancellationWindowAction,
   updateCategoryAction,
   updateSessionAction,
 } from "./actions";
@@ -153,6 +158,57 @@ export default async function AdminSessionsPage({
 
           <Button type="submit" className="self-start">
             Zapisz okno zapisów
+          </Button>
+        </form>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Okno odwołania
+        </h2>
+        <form
+          action={updateCancellationWindowAction}
+          className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
+        >
+          <div>
+            <label
+              htmlFor="freeCancellationHours"
+              className="text-text block text-sm font-medium"
+            >
+              Ile godzin przed startem odwołanie jest bezkosztowe
+            </label>
+            <p className="text-muted-brand mt-0.5 text-sm">
+              Odwołanie poniżej tej granicy kosztuje wejście z karnetu - tak samo przy zajęciach
+              grupowych, indywidualnych i przy zgłoszeniu nieobecności. Trener zawsze może zwrócić
+              wejście ręcznie.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <Input
+                id="freeCancellationHours"
+                name="freeCancellationHours"
+                type="number"
+                inputMode="numeric"
+                min={MIN_CANCELLATION_WINDOW_HOURS}
+                max={MAX_CANCELLATION_WINDOW_HOURS}
+                step={1}
+                required
+                defaultValue={String(settings.freeCancellationHours)}
+                className="max-w-28"
+              />
+              <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                godz.
+              </span>
+            </div>
+          </div>
+
+          <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
+            Teraz obowiązuje: <b className="text-text">{settings.freeCancellationHours} godz.</b>{" "}
+            Zmiana działa tylko w przód - już odwołane zajęcia zachowują swój wynik, więc nikomu nie
+            odbierze ani nie odda wejścia wstecz.
+          </p>
+
+          <Button type="submit" className="self-start">
+            Zapisz okno odwołania
           </Button>
         </form>
       </section>

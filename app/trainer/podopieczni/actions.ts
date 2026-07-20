@@ -150,7 +150,7 @@ export async function addMeasurementAction(formData: FormData) {
 }
 
 // Zwrot wejścia za spóźnione odwołanie (wariant C ustalony z klientem):
-// reguła 4h obowiązuje automatycznie, ale trener - który zna sytuację - może
+// okno odwołania obowiązuje automatycznie, ale trener - który zna sytuację - może
 // wejście oddać. Zwrot trafia na TEN karnet, z którego wejście zeszło
 // (Booking.chargedPassId), bo klient mógł w międzyczasie kupić nowy.
 export async function refundEntryAction(formData: FormData) {

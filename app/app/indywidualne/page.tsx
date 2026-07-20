@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
 import { Button } from "@/components/ui/button";
 import { buildSlots, MIN_BOOKING_LEAD_HOURS } from "@/lib/domain/availability";
-import { canCancelFree, FREE_CANCELLATION_WINDOW_HOURS } from "@/lib/domain/booking";
+import { canCancelFree } from "@/lib/domain/booking";
+import { getClubSettings } from "@/lib/services/settings";
 import { formatDate, formatTime } from "@/lib/format";
 import { bookIndividualSlotAction, cancelIndividualSlotAction } from "./actions";
 
@@ -50,7 +51,8 @@ export default async function IndividualTrainingPage({
   const selectedTrainer =
     trainersWithWindows.find((t) => t.id === trener) ?? trainersWithWindows[0] ?? null;
 
-  const [windows, busy, myBookings] = await Promise.all([
+  const [settings, windows, busy, myBookings] = await Promise.all([
+    getClubSettings(),
     selectedTrainer
       ? prisma.availabilityWindow.findMany({
           where: { trainerId: selectedTrainer.id, active: true },
@@ -135,7 +137,11 @@ export default async function IndividualTrainingPage({
           </h2>
           <ul className="mt-2 flex flex-col gap-2">
             {myBookings.map((booking) => {
-              const free = canCancelFree(booking.session.startsAt, now);
+              const free = canCancelFree(
+                booking.session.startsAt,
+                now,
+                settings.freeCancellationHours,
+              );
               return (
                 <li
                   key={booking.id}
@@ -237,7 +243,7 @@ export default async function IndividualTrainingPage({
 
             <p className="text-muted-brand mt-4 text-xs">
               Terminy znikają z listy, gdy ktoś je zajmie oraz gdy do startu zostało mniej niż{" "}
-              {MIN_BOOKING_LEAD_HOURS} godz. Odwołanie na mniej niż {FREE_CANCELLATION_WINDOW_HOURS}{" "}
+              {MIN_BOOKING_LEAD_HOURS} godz. Odwołanie na mniej niż {settings.freeCancellationHours}{" "}
               godz. przed treningiem kosztuje wejście z karnetu - tak samo jak przy zajęciach
               grupowych.
             </p>

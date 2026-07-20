@@ -17,6 +17,7 @@ import {
   resolveAbsenceRangeEnd,
 } from "@/lib/domain/absence";
 import { zonedTimeToUtc } from "@/lib/domain/time";
+import { getClubSettings } from "@/lib/services/settings";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
 import { logActivity } from "@/lib/services/activity";
 import { formatDate, formatDayTime } from "@/lib/format";
@@ -166,13 +167,17 @@ export async function reportSessionAbsenceAction(formData: FormData) {
   }
 
   const now = new Date();
+  const { freeCancellationHours } = await getClubSettings();
   const wasBooked = booking.status === "BOOKED";
   const outcome =
-    booking.status === "WAITLIST" ? "CANCELLED" : resolveAbsenceOutcome(booking.session.startsAt, now);
+    booking.status === "WAITLIST"
+      ? "CANCELLED"
+      : resolveAbsenceOutcome(booking.session.startsAt, now, freeCancellationHours);
 
   await prisma.$transaction(async (tx) => {
-    // Reguła 4h obowiązuje tak samo jak przy zwykłym odwołaniu - zgłoszenie
-    // powodu nie jest furtką. Trener może zwrócić wejście ręcznie.
+    // Okno bezkosztowego odwołania obowiązuje tak samo jak przy zwykłym
+    // odwołaniu - zgłoszenie powodu nie jest furtką. Trener może zwrócić
+    // wejście ręcznie.
     const chargedPassId =
       outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, booking.memberId) : null;
 
@@ -217,6 +222,7 @@ export async function reportAbsencePeriodAction(formData: FormData) {
   if (!isAbsenceReason(reason)) throw new Error("Nieprawidłowy powód.");
 
   const now = new Date();
+  const { freeCancellationHours } = await getClubSettings();
   const range = resolveAbsenceRangeEnd({ until, now, toUtc: zonedTimeToUtc });
   if ("error" in range) {
     redirect(withError(returnTo, `ABSENCE_${range.error}`));
@@ -246,7 +252,7 @@ export async function reportAbsencePeriodAction(formData: FormData) {
       const outcome =
         booking.status === "WAITLIST"
           ? "CANCELLED"
-          : resolveAbsenceOutcome(booking.session.startsAt, now);
+          : resolveAbsenceOutcome(booking.session.startsAt, now, freeCancellationHours);
 
       const chargedPassId =
         outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, memberId) : null;
@@ -292,11 +298,12 @@ export async function cancelBookingAction(formData: FormData) {
   await requireMemberAccess(booking.memberId);
 
   const now = new Date();
+  const { freeCancellationHours } = await getClubSettings();
   const wasBooked = booking.status === "BOOKED";
   const outcome =
     booking.status === "WAITLIST"
       ? "CANCELLED"
-      : resolveCancellationOutcome(booking.session.startsAt, now);
+      : resolveCancellationOutcome(booking.session.startsAt, now, freeCancellationHours);
 
   await prisma.$transaction(async (tx) => {
     // Spóźnione odwołanie = NO_SHOW = wejście przepada, dokładnie jak przy

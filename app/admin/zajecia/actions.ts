@@ -17,6 +17,12 @@ import {
   FIXED_HORIZON_OPTIONS,
   type BookingHorizonMode,
 } from "@/lib/domain/schedule";
+import {
+  FREE_CANCELLATION_WINDOW_HOURS,
+  MAX_CANCELLATION_WINDOW_HOURS,
+  MIN_CANCELLATION_WINDOW_HOURS,
+  parseCancellationWindowHours,
+} from "@/lib/domain/booking";
 import { logActivity } from "@/lib/services/activity";
 import { formatDayTime } from "@/lib/format";
 
@@ -328,6 +334,43 @@ export async function updateBookingHorizonAction(formData: FormData) {
 
   revalidatePath("/admin/zajecia");
   revalidatePath("/app");
+  backToList();
+}
+
+// Okno bezkosztowego odwołania. Zmiana działa od razu i tylko w przód: już
+// odwołane rezerwacje mają wynik zapisany w bazie, więc skrócenie albo
+// wydłużenie okna nie przelicza wstecz niczyjego przepadłego wejścia.
+export async function updateCancellationWindowAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+
+  const hours = parseCancellationWindowHours(String(formData.get("freeCancellationHours") ?? ""));
+  if (hours === null) {
+    backToList(
+      `Okno odwołania musi być pełną liczbą godzin od ${MIN_CANCELLATION_WINDOW_HOURS} do ${MAX_CANCELLATION_WINDOW_HOURS}.`,
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const before = await tx.clubSettings.findUnique({ where: { id: "singleton" } });
+
+    await tx.clubSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", freeCancellationHours: hours },
+      update: { freeCancellationHours: hours },
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "SETTINGS_UPDATED",
+      summary: `Zmieniono okno bezkosztowego odwołania: ${before?.freeCancellationHours ?? FREE_CANCELLATION_WINDOW_HOURS} → ${hours} godz.`,
+    });
+  });
+
+  // Reguła jest widoczna dla klienta na grafiku i przy indywidualnych, więc
+  // oba ekrany muszą pokazać nową wartość natychmiast.
+  revalidatePath("/admin/zajecia");
+  revalidatePath("/app");
+  revalidatePath("/app/indywidualne");
   backToList();
 }
 

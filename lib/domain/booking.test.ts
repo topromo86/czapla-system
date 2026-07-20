@@ -3,6 +3,7 @@ import {
   calculateAge,
   canCancelFree,
   evaluateBookingEligibility,
+  FREE_CANCELLATION_WINDOW_HOURS,
   hasFreeSpot,
   hasRequiredConsents,
   isAgeEligible,
@@ -10,6 +11,7 @@ import {
   isWithinCheckInWindow,
   nextWaitlistPosition,
   nextWaitlistPromotion,
+  parseCancellationWindowHours,
   requiredConsentKeys,
   resolveCancellationOutcome,
   type PassLike,
@@ -20,36 +22,70 @@ const HOUR = 3_600_000;
 const MIN = 60_000;
 
 describe("canCancelFree", () => {
-  it("true dokładnie na granicy 4h", () => {
-    const now = new Date("2026-01-01T10:00:00Z");
-    const startsAt = new Date(now.getTime() + 4 * HOUR);
-    expect(canCancelFree(startsAt, now)).toBe(true);
+  const now = new Date("2026-01-01T10:00:00Z");
+
+  it("true dokładnie na granicy okna", () => {
+    expect(canCancelFree(new Date(now.getTime() + 6 * HOUR), now, 6)).toBe(true);
   });
 
-  it("false tuż poniżej granicy 4h", () => {
-    const now = new Date("2026-01-01T10:00:00Z");
-    const startsAt = new Date(now.getTime() + 4 * HOUR - MIN);
-    expect(canCancelFree(startsAt, now)).toBe(false);
+  it("false tuż poniżej granicy okna", () => {
+    expect(canCancelFree(new Date(now.getTime() + 6 * HOUR - MIN), now, 6)).toBe(false);
   });
 
   it("true z dużym zapasem", () => {
-    const now = new Date("2026-01-01T10:00:00Z");
-    const startsAt = new Date(now.getTime() + 48 * HOUR);
-    expect(canCancelFree(startsAt, now)).toBe(true);
+    expect(canCancelFree(new Date(now.getTime() + 48 * HOUR), now, 6)).toBe(true);
+  });
+
+  // Bez podanego okna wchodzi wartość awaryjna - ta sama, którą serwis ustawień
+  // zwraca, gdy nie da się odczytać ClubSettings.
+  it("bez parametru używa FREE_CANCELLATION_WINDOW_HOURS", () => {
+    const justInside = new Date(now.getTime() + FREE_CANCELLATION_WINDOW_HOURS * HOUR);
+    const justOutside = new Date(justInside.getTime() - MIN);
+    expect(canCancelFree(justInside, now)).toBe(true);
+    expect(canCancelFree(justOutside, now)).toBe(false);
+  });
+
+  // Regresja na sedno zmiany: przy oknie 24h odwołanie 5h przed startem już
+  // kosztuje wejście, choć przy poprzednim oknie 4h było bezkosztowe.
+  it("okno 24h obejmuje termin, który przy oknie 4h był bezpieczny", () => {
+    const startsAt = new Date(now.getTime() + 5 * HOUR);
+    expect(canCancelFree(startsAt, now, 4)).toBe(true);
+    expect(canCancelFree(startsAt, now, 24)).toBe(false);
   });
 });
 
 describe("resolveCancellationOutcome", () => {
-  it("CANCELLED gdy >= 4h przed startem", () => {
-    const now = new Date("2026-01-01T10:00:00Z");
-    const startsAt = new Date(now.getTime() + 5 * HOUR);
-    expect(resolveCancellationOutcome(startsAt, now)).toBe("CANCELLED");
+  const now = new Date("2026-01-01T10:00:00Z");
+
+  it("CANCELLED gdy odwołanie mieści się w oknie", () => {
+    expect(resolveCancellationOutcome(new Date(now.getTime() + 30 * HOUR), now, 24)).toBe(
+      "CANCELLED",
+    );
   });
 
-  it("NO_SHOW gdy < 4h przed startem", () => {
-    const now = new Date("2026-01-01T10:00:00Z");
-    const startsAt = new Date(now.getTime() + HOUR);
-    expect(resolveCancellationOutcome(startsAt, now)).toBe("NO_SHOW");
+  it("NO_SHOW gdy odwołanie jest poniżej okna", () => {
+    expect(resolveCancellationOutcome(new Date(now.getTime() + HOUR), now, 24)).toBe("NO_SHOW");
+  });
+});
+
+describe("parseCancellationWindowHours", () => {
+  it("przyjmuje pełne godziny z zakresu", () => {
+    expect(parseCancellationWindowHours("24")).toBe(24);
+    expect(parseCancellationWindowHours(" 1 ")).toBe(1);
+    expect(parseCancellationWindowHours("168")).toBe(168);
+  });
+
+  it("odrzuca wartości spoza zakresu", () => {
+    expect(parseCancellationWindowHours("0")).toBeNull();
+    expect(parseCancellationWindowHours("169")).toBeNull();
+    expect(parseCancellationWindowHours("-4")).toBeNull();
+  });
+
+  it("odrzuca ułamki i śmieci", () => {
+    expect(parseCancellationWindowHours("2.5")).toBeNull();
+    expect(parseCancellationWindowHours("2,5")).toBeNull();
+    expect(parseCancellationWindowHours("")).toBeNull();
+    expect(parseCancellationWindowHours("cztery")).toBeNull();
   });
 });
 
