@@ -129,8 +129,10 @@ export async function rateSessionAction(formData: FormData) {
   }
 
   // Opinia jest opcjonalna - sama ocena to nadal jedno kliknięcie (SPEC.md
-  // sekcja 4). Widzi ją wyłącznie właściciel i bez powiązania z osobą, więc
-  // klient może napisać szczerze; patrz app/admin/opinie.
+  // sekcja 4). Czyta ją wyłącznie właściciel, razem z imieniem autora; trener
+  // nie ma do niej dostępu w ogóle. To właśnie obiecujemy klientowi przy polu
+  // opinii i tak samo opisuje to panel app/admin/opinie - te trzy miejsca
+  // muszą mówić to samo, inaczej okłamujemy klubowiczów.
   const comment = String(formData.get("comment") ?? "").trim();
 
   await prisma.rating.upsert({

@@ -345,9 +345,10 @@ export default async function SchedulePage({
                         className="border-line bg-surface-2"
                       />
                       <p className="text-muted-brand text-xs">
-                        <b className="text-text">Opinia jest anonimowa.</b> Widzi ją wyłącznie
-                        właściciel klubu i bez informacji, kto ją napisał - trener nie zobaczy jej
-                        wcale. Po napisaniu kliknij ocenę powyżej, żeby wysłać.
+                        <b className="text-text">Opinia jest anonimowa dla trenera</b> - nie
+                        zobaczy jej wcale, ani treści, ani tego, że ją napisałeś. Czyta ją
+                        wyłącznie właściciel klubu i widzi przy niej Twoje imię. Po napisaniu
+                        kliknij ocenę powyżej, żeby wysłać.
                       </p>
                     </div>
                   </details>

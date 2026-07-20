@@ -22,10 +22,10 @@ export default async function AdminOpinionsPage({
       include: { user: true },
       orderBy: { user: { name: "asc" } },
     }),
-    // ŚWIADOMIE bez memberId i bez relacji `member`: dane o tym, kto wystawił
-    // ocenę, nie opuszczają bazy. Obietnica anonimowości złożona klientowi na
-    // ekranie oceny jest tu egzekwowana na poziomie zapytania, a nie tylko
-    // przez pominięcie pola w widoku.
+    // Autor jest widoczny WYŁĄCZNIE tutaj, na ekranie właściciela. Anonimowość
+    // obiecana klubowiczowi dotyczy trenera: ani ten ekran, ani żaden inny nie
+    // pokazuje mu opinii. Gdyby ten widok kiedykolwiek trafił do roli TRAINER,
+    // trzeba najpierw zmienić obietnicę na ekranie oceny (app/app/page.tsx).
     prisma.rating.findMany({
       where: {
         ...(onlyWithComment ? { comment: { not: null } } : {}),
@@ -42,6 +42,7 @@ export default async function AdminOpinionsPage({
         score: true,
         comment: true,
         createdAt: true,
+        member: { select: { firstName: true, lastName: true } },
         session: {
           select: {
             name: true,
@@ -80,8 +81,8 @@ export default async function AdminOpinionsPage({
       <div>
         <h1 className="font-display text-brand-red text-2xl tracking-wide">Opinie o zajęciach</h1>
         <p className="text-muted-brand mt-1 text-sm">
-          Oceny i komentarze klubowiczów. Widoczne wyłącznie dla Ciebie - trenerzy nie mają do nich
-          dostępu.
+          Oceny i komentarze klubowiczów, z imieniem autora. Widoczne wyłącznie dla Ciebie -
+          klubowicz ma obiecane, że trener nie zobaczy ani treści, ani autora.
         </p>
       </div>
 
@@ -202,7 +203,10 @@ export default async function AdminOpinionsPage({
                     </p>
 
                     <p className="text-muted-brand mt-0.5 font-mono text-xs">
-                      {RATING_LABEL[rating.score]} · wystawiono {formatDayTime(rating.createdAt)}
+                      {RATING_LABEL[rating.score]} · wystawiono {formatDayTime(rating.createdAt)} ·{" "}
+                      <span className="text-text">
+                        {rating.member.firstName} {rating.member.lastName}
+                      </span>
                     </p>
 
                     {rating.comment ? (
@@ -234,38 +238,39 @@ export default async function AdminOpinionsPage({
         >
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              Co widzisz, a czego nie
+              Co tu widzisz
             </p>
             <p>
-              Widzisz ocenę, treść opinii i pełny kontekst zajęć: nazwę, rodzaj, datę z godziną,
-              lokalizację i osobę prowadzącą (z zaznaczeniem zastępstwa). <b>Nie widzisz, kto
-              wystawił ocenę</b> - te dane nie są w ogóle pobierane z bazy na ten ekran.
+              Ocenę, treść opinii, <b>imię i nazwisko autora</b> oraz pełny kontekst zajęć: nazwę,
+              rodzaj, datę z godziną, lokalizację i osobę prowadzącą (z zaznaczeniem zastępstwa).
             </p>
           </div>
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              Trenerzy nie mają tu dostępu
+              „Anonimowa" znaczy: anonimowa dla trenera
             </p>
             <p>
               Ekran jest dostępny wyłącznie dla roli właściciela. Trener widzi swoją średnią ocenę
-              na „Mojej karcie" i w Rankingu, ale nigdy pojedynczych opinii ani ich treści.
+              na „Mojej karcie" i w Rankingu, ale <b>nigdy pojedynczych opinii, ich treści ani
+              tego, kto je napisał</b>. Dokładnie to obiecujemy klubowiczowi przy polu opinii:
+              „anonimowa dla trenera, czyta ją właściciel i widzi Twoje imię".
             </p>
           </div>
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              ❗️ Gdzie anonimowość ma granice
+              ❗️ Na co uważać przy rozmowie z trenerem
             </p>
             <p>
-              Baza nadal wie, kto ocenił które zajęcia - to konieczne, żeby jedna osoba nie
-              wystawiła dziesięciu ocen tym samym zajęciom. Ukrycie działa na poziomie aplikacji,
-              nie kryptografii: osoba z bezpośrednim dostępem do bazy mogłaby to powiązać.
+              Skoro znasz autora, łatwo w rozmowie z trenerem zdradzić go mimowolnie - wystarczy
+              powtórzyć charakterystyczne zdanie albo szczegół z konkretnych zajęć. Jeśli na sali
+              było kilka osób, trener i tak się domyśli. Bezpieczniej mówić o powtarzającym się
+              wzorcu niż cytować jedną opinię.
             </p>
             <p className="mt-2">
-              Drugie ograniczenie jest praktyczne: jeśli na zajęciach było troje ludzi i przyszła
-              jedna opinia, autor bywa rozpoznawalny mimo ukrytego nazwiska. Warto o tym pamiętać,
-              zanim skonfrontujesz trenera z pojedynczym komentarzem.
+              Jeśli klubowicze zaczną się orientować, że opinie wracają do trenerów imiennie,
+              przestaną pisać szczerze - i ten ekran straci wartość.
             </p>
           </div>
         </div>
