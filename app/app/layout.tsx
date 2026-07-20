@@ -3,6 +3,7 @@ import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
 import { SignedInAs } from "../signed-in-as";
+import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,7 @@ export default async function ClientLayout({ children }: { children: React.React
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>

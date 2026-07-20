@@ -6,7 +6,11 @@
 
 /* Design tokens - marka Czapla Boxing (logo klienta). Zdefiniowane raz,
    używane przez Tailwind theme. Nigdy hex bezpośrednio w komponentach.
-   Jeden stały motyw jasny - bez przełącznika jasny/ciemny. */
+
+   Motyw ciemny to WYŁĄCZNIE nadpisanie tych samych tokenów w :root.dark -
+   żaden komponent nie musi wiedzieć o motywie. Klasa `.dark` (a nie
+   data-atrybut), bo taki wariant jest już zadeklarowany wyżej i tego
+   oczekują komponenty shadcn. */
 :root {
   --ink: #f4f5f6; /* tło strony - jasnoszare */
   --surface: #ffffff; /* karty */
@@ -54,6 +58,32 @@
   --chart-3: var(--amber);
   --chart-4: var(--muted-brand);
   --chart-5: var(--brand-red-dim);
+}
+
+/* Motyw ciemny. Nadpisujemy TYLKO tokeny bazowe - mapowania shadcn wyżej
+   (--background: var(--ink) itd.) przeliczą się same, bo custom properties
+   rozwiązują się w miejscu użycia, a `.dark` siedzi na tym samym elemencie
+   <html> co :root.
+   `:root.dark` zamiast samego `.dark` - wyższa specyficzność, więc kolejność
+   reguł w pliku nie decyduje o wyniku.
+
+   Barwy semantyczne (czerwień, jadeit, bursztyn) są tu JAŚNIEJSZE niż w
+   motywie jasnym. Ich wersje z motywu jasnego są ciemne i na ciemnym tle
+   zlewałyby się z podłożem - to nie jest kosmetyka, tylko czytelność
+   statusów "przepadło wejście" czy "aktywny karnet". */
+:root.dark {
+  --ink: #15171a; /* tło strony */
+  --surface: #1d2025; /* karty */
+  --surface-2: #272b31; /* elementy wtórne, pola formularzy */
+  --line: #353a41;
+  --line-soft: #2b2f35;
+  --text: #eceef1;
+  --muted-brand: #98a1ad;
+  --brand-red: #ff4d52; /* jaśniejsza niż #ee1d23 z logo - inaczej ginie na ciemnym */
+  --brand-red-dim: #b81f24;
+  --red: #e56a60;
+  --jade: #3fb37f;
+  --amber: #e0983c;
 }
 
 @theme inline {

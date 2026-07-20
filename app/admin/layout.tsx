@@ -3,6 +3,7 @@ import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
 import { SignedInAs } from "../signed-in-as";
+import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
 
 // Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
@@ -63,6 +64,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={NAV_GROUPS} />
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>

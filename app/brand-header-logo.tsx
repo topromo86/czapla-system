@@ -1,5 +1,14 @@
 import Image from "next/image";
 
+// Logo klienta to PNG z czarnym napisem "CZAPLA BOXING". Na ciemnym tle napis
+// znikał, więc w motywie ciemnym kładziemy je na jasnej podkładce zamiast
+// kombinować z filtrami CSS (te zepsułyby czerwień z logo).
+//
+// Padding jest w obu motywach, żeby przełączenie nie przesuwało nagłówka.
 export function BrandHeaderLogo() {
-  return <Image src="/logo.png" alt="Czapla Boxing" width={100} height={55} priority />;
+  return (
+    <span className="inline-flex rounded-md px-1.5 py-1 dark:bg-white">
+      <Image src="/logo.png" alt="Czapla Boxing" width={100} height={55} priority />
+    </span>
+  );
 }
