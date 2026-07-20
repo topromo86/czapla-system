@@ -128,10 +128,15 @@ export async function rateSessionAction(formData: FormData) {
     throw new Error("Nieprawidłowa ocena.");
   }
 
+  // Opinia jest opcjonalna - sama ocena to nadal jedno kliknięcie (SPEC.md
+  // sekcja 4). Widzi ją wyłącznie właściciel i bez powiązania z osobą, więc
+  // klient może napisać szczerze; patrz app/admin/opinie.
+  const comment = String(formData.get("comment") ?? "").trim();
+
   await prisma.rating.upsert({
     where: { sessionId_memberId: { sessionId, memberId } },
-    create: { sessionId, memberId, score },
-    update: { score },
+    create: { sessionId, memberId, score, comment: comment || null },
+    update: { score, ...(comment ? { comment } : {}) },
   });
 
   redirect(returnTo);

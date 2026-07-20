@@ -8,6 +8,7 @@ import {
   requiredConsentKeys,
 } from "@/lib/domain/booking";
 import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
+import { RATING_LABEL, RATING_SCORES, scoreColor } from "@/lib/domain/rating";
 import {
   bookingHorizonEnd,
   describeHorizon,
@@ -300,23 +301,56 @@ export default async function SchedulePage({
           </h2>
           <ul className="flex flex-col gap-2">
             {pendingRatings.map((a) => (
-              <li
-                key={a.id}
-                className="border-line bg-surface flex items-center justify-between rounded-md border p-3"
-              >
-                <div>
-                  <p className="text-text font-medium">{a.session.name}</p>
-                  <p className="text-muted-brand font-mono text-xs">{formatDay(a.session.startsAt)}</p>
-                </div>
-                <form action={rateSessionAction} className="flex items-center gap-1">
+              <li key={a.id} className="border-line bg-surface rounded-md border p-3">
+                <p className="text-text font-medium">{a.session.name}</p>
+                <p className="text-muted-brand font-mono text-xs">
+                  {formatDay(a.session.startsAt)}
+                </p>
+
+                {/* Opinia jest w tym samym formularzu co oceny, więc sama ocena
+                    to nadal jedno kliknięcie - kto chce, rozwija i dopisuje. */}
+                <form action={rateSessionAction} className="mt-2 flex flex-col gap-2">
                   <input type="hidden" name="memberId" value={activeMember.id} />
                   <input type="hidden" name="sessionId" value={a.sessionId} />
                   <input type="hidden" name="returnTo" value={returnTo} />
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Button key={n} type="submit" name="score" value={String(n)} variant="outline" size="sm">
-                      {n}
-                    </Button>
-                  ))}
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {RATING_SCORES.map((n) => (
+                      <button
+                        key={n}
+                        type="submit"
+                        name="score"
+                        value={String(n)}
+                        title={RATING_LABEL[n]}
+                        className="size-9 rounded-md border font-mono text-sm font-bold text-white transition-transform hover:scale-110"
+                        style={{ backgroundColor: scoreColor(n), borderColor: scoreColor(n) }}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    <span className="text-muted-brand ml-1 text-xs">
+                      1 = {RATING_LABEL[1]}, 5 = {RATING_LABEL[5]}
+                    </span>
+                  </div>
+
+                  <details>
+                    <summary className="text-brand-red cursor-pointer text-sm">
+                      Dodaj opinię (opcjonalnie)
+                    </summary>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <Textarea
+                        name="comment"
+                        rows={3}
+                        placeholder="Co było dobre, co można poprawić?"
+                        className="border-line bg-surface-2"
+                      />
+                      <p className="text-muted-brand text-xs">
+                        <b className="text-text">Opinia jest anonimowa.</b> Widzi ją wyłącznie
+                        właściciel klubu i bez informacji, kto ją napisał - trener nie zobaczy jej
+                        wcale. Po napisaniu kliknij ocenę powyżej, żeby wysłać.
+                      </p>
+                    </div>
+                  </details>
                 </form>
               </li>
             ))}

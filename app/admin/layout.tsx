@@ -35,6 +35,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
     items: [
       { href: "/admin/trenerzy", label: "Trenerzy" },
       { href: "/admin/ranking", label: "Ranking" },
+      { href: "/admin/opinie", label: "Opinie" },
     ],
   },
   {
