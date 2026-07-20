@@ -46,31 +46,24 @@ export async function sendSms(phone: string, message: string): Promise<boolean> 
 }
 
 // Powiadomienie "dziecko weszło na salę" (SPEC.md sekcja 3: "najwyżej
-// oceniana funkcja w zajęciach dziecięcych"). Push jako główny kanał, SMS
-// wyłącznie jako fallback gdy push zawiedzie i klient ma go włączonego.
+// oceniana funkcja w zajęciach dziecięcych").
+//
+// Sama wysyłka i preferencje żyją w lib/services/notification.ts - tutaj
+// zostaje wyłącznie treść. Wcześniej ta funkcja czytała własne pola z User;
+// po ujednoliceniu preferencji byłaby to druga, rozjeżdżająca się ścieżka.
 export async function notifyGuardianCheckIn(
-  guardian: {
-    phone: string | null;
-    pushSubscription: unknown;
-    checkInNotifyPush: boolean;
-    checkInNotifySms: boolean;
-  },
+  guardianUserId: string,
   memberName: string,
+  // Identyfikator zdarzenia dla idempotencji - jedno wejście na te zajęcia
+  // to jedno powiadomienie, nawet gdyby check-in poszedł dwa razy.
+  sessionId: string,
 ): Promise<void> {
-  const payload = {
+  const { notify } = await import("@/lib/services/notification");
+  await notify({
+    userId: guardianUserId,
+    type: "CHECK_IN",
+    subjectId: sessionId,
     title: "Czapla Boxing",
     body: `${memberName} właśnie zameldował(a) się na sali.`,
-  };
-
-  let pushSent = false;
-  if (guardian.checkInNotifyPush && guardian.pushSubscription) {
-    pushSent = await sendPushNotification(
-      guardian.pushSubscription as PushSubscription,
-      payload,
-    );
-  }
-
-  if (!pushSent && guardian.checkInNotifySms && guardian.phone) {
-    await sendSms(guardian.phone, `${payload.title}: ${payload.body}`);
-  }
+  });
 }

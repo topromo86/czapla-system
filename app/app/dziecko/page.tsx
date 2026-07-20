@@ -1,29 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { formatDate } from "@/lib/format";
-import { Button } from "@/components/ui/button";
-import { PushSubscribeButton } from "./push-subscribe-button";
-import { updateNotificationPrefsAction } from "./actions";
+import Link from "next/link";
 
 // "Moje dziecko" (SPEC.md sekcja 3, rola GUARDIAN): ostatnia obecność,
-// trener, kontakt, ustawienia powiadomień. Wyłącznie do odczytu poza samymi
-// ustawieniami powiadomień - reszta danych zmienia trener/admin.
+// trener, kontakt. Wyłącznie do odczytu - dane zmienia trener/admin,
+// a ustawienia powiadomień mieszkają w /app/powiadomienia.
 export default async function MyChildPage() {
   const session = await requireRole("GUARDIAN");
 
-  const [children, guardianUser] = await Promise.all([
-    prisma.member.findMany({
-      where: { guardianUserId: session.user.id },
-      include: {
-        ownerTrainer: { include: { user: true } },
-        attendances: { orderBy: { checkedInAt: "desc" }, take: 1, include: { session: true } },
-      },
-      orderBy: { firstName: "asc" },
-    }),
-    prisma.user.findUniqueOrThrow({ where: { id: session.user.id } }),
-  ]);
-
-  const smsAvailable = Boolean(process.env.SMS_PROVIDER_API_KEY);
+  const children = await prisma.member.findMany({
+    where: { guardianUserId: session.user.id },
+    include: {
+      ownerTrainer: { include: { user: true } },
+      attendances: { orderBy: { checkedInAt: "desc" }, take: 1, include: { session: true } },
+    },
+    orderBy: { firstName: "asc" },
+  });
 
   return (
     <div className="flex flex-col gap-8">
@@ -53,47 +46,14 @@ export default async function MyChildPage() {
         <p className="text-muted-brand text-sm">Nie masz jeszcze przypisanego dziecka w systemie.</p>
       ) : null}
 
-      <section>
+      <section className="border-line bg-surface rounded-md border p-4">
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Powiadomienia: dziecko weszło na salę
+          Powiadomienia
         </h2>
         <p className="text-muted-brand mt-1 text-sm">
-          Dotyczy wszystkich Twoich dzieci w klubie. Push działa od razu po włączeniu na tym
-          urządzeniu; SMS to zapasowy kanał na wypadek, gdyby push nie doszedł.
+          Powiadomienie o wejściu dziecka na salę oraz pozostałe ustawienia znajdziesz w jednym
+          miejscu: <Link href="/app/powiadomienia" className="text-brand-red underline">Powiadomienia</Link>.
         </p>
-
-        <div className="mt-3">
-          <PushSubscribeButton isSubscribed={guardianUser.pushSubscription != null} />
-        </div>
-
-        <form action={updateNotificationPrefsAction} className="mt-4 flex flex-col gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="checkInNotifyPush"
-              defaultChecked={guardianUser.checkInNotifyPush}
-              className="size-4"
-            />
-            Powiadomienia push włączone
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="checkInNotifySms"
-              defaultChecked={guardianUser.checkInNotifySms}
-              className="size-4"
-            />
-            Fallback SMS włączony
-            {!smsAvailable ? (
-              <span className="text-amber font-mono text-xs uppercase">
-                (klub nie ma jeszcze dostawcy SMS - nic nie wyśle)
-              </span>
-            ) : null}
-          </label>
-          <Button type="submit" size="sm" className="self-start">
-            Zapisz ustawienia
-          </Button>
-        </form>
       </section>
     </div>
   );

@@ -23,6 +23,7 @@ export default async function ClientLayout({ children }: { children: React.React
         ...(session.user.role === "GUARDIAN"
           ? [{ href: "/app/dziecko", label: "Moje dziecko" }]
           : []),
+        { href: "/app/powiadomienia", label: "Powiadomienia" },
         { href: "/app/zgody", label: "Zgody" },
       ],
     },

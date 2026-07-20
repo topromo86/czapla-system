@@ -41,12 +41,12 @@ model User {
   createdAt       DateTime  @default(now()) @db.Timestamptz
   updatedAt       DateTime  @updatedAt @db.Timestamptz
 
-  // Powiadomienie "dziecko weszło na salę" (SPEC.md sekcja 3) - dotyczy
-  // wyłącznie GUARDIAN. pushSubscription to surowy obiekt PushSubscription
-  // z przeglądarki (endpoint + klucze), zapisany po zgodzie użytkownika.
-  pushSubscription  Json?
-  checkInNotifyPush Boolean @default(true)
-  checkInNotifySms  Boolean @default(false)
+  // pushSubscription to surowy obiekt PushSubscription z przeglądarki
+  // (endpoint + klucze), zapisany po zgodzie użytkownika. To transport;
+  // o tym, CO wysyłamy, decyduje NotificationPreference.
+  pushSubscription Json?
+
+  notificationPreferences NotificationPreference[]
 
   trainer              Trainer?      @relation("TrainerAccount")
   memberAccount        Member?       @relation("MemberAccount")
@@ -840,4 +840,47 @@ model ActivityLog {
 
   @@index([actorUserId, createdAt])
   @@index([memberId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Powiadomienia
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  SESSION_REMINDER
+  BOOKING_SUGGESTION
+  CHECK_IN
+}
+
+// Preferencja per (użytkownik, typ). Brak wiersza oznacza "wartość domyślna"
+// z lib/domain/notification.ts - dzięki temu nie musimy zakładać wierszy przy
+// tworzeniu konta ani migrować schematu przy dodaniu nowego typu.
+model NotificationPreference {
+  id     String           @id @default(cuid())
+  userId String
+  type   NotificationType
+  push   Boolean          @default(false)
+  sms    Boolean          @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+}
+
+// Ślad wysłanego powiadomienia. Powód istnienia jest jeden: idempotencja
+// jobów. Bez tego przypomnienie o tych samych zajęciach poszłoby przy każdym
+// uruchomieniu cronu, a klient dostałby je pięć razy.
+model NotificationLog {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  // Czego dotyczy - zwykle Session.id. Razem z typem tworzy klucz idempotencji.
+  subjectId String
+  sentAt    DateTime         @default(now()) @db.Timestamptz
+
+  @@unique([userId, type, subjectId])
+  @@index([sentAt])
 }

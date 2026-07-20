@@ -12,11 +12,13 @@ import {
 } from "@/lib/domain/schedule";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
+import { buildSuggestions } from "@/lib/services/suggestions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatDayTime } from "@/lib/format";
 import { WeekPlanner, type PlannerSession } from "./planner";
 import {
+  bookSessionAction,
   rateSessionAction,
   reportAbsencePeriodAction,
   reportSessionAbsenceAction,
@@ -132,6 +134,16 @@ export default async function SchedulePage({
     include: { session: { include: { trainer: { include: { user: true } } } } },
     orderBy: { session: { startsAt: "asc" } },
     take: 20,
+  });
+
+  // Sugestie kolejnych zajęć z historii obecności. Osobne zapytania od
+  // plannera, bo patrzymy szerzej: na wszystkie lokalizacje i cały horyzont
+  // zapisów, a nie tylko na oglądany tydzień i wybrany filtr.
+  const suggestions = await buildSuggestions({
+    memberId: activeMember.id,
+    isMinor: activeMember.isMinor,
+    now,
+    horizonEnd,
   });
 
   const defaultAbsenceUntil = isoDate(addCalendarDays(todayInTimeZone(now), 7));
@@ -351,6 +363,46 @@ export default async function SchedulePage({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {suggestions.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Wróć na swój termin
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {suggestions.map((s) => (
+              <li
+                key={s.sessionId}
+                className="border-line bg-surface flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-text font-medium">{s.name}</p>
+                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                    {formatDayTime(s.startsAt)} · {s.locationName} · {s.trainerName}
+                  </p>
+                  <p className="text-jade mt-1 text-sm">{s.reason}</p>
+                </div>
+                <form action={bookSessionAction} className="shrink-0">
+                  <input type="hidden" name="memberId" value={activeMember.id} />
+                  <input type="hidden" name="sessionId" value={s.sessionId} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <Button type="submit" size="sm">
+                    Zapisz się
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-brand text-xs">
+            Podpowiadamy wyłącznie terminy, na których bywasz regularnie. Nie chcesz ich widzieć w
+            powiadomieniach?{" "}
+            <Link href="/app/powiadomienia" className="hover:text-brand-red underline">
+              Ustawienia powiadomień
+            </Link>
+            .
+          </p>
         </section>
       ) : null}
 

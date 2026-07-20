@@ -39,8 +39,9 @@ export async function checkInAction(formData: FormData) {
   if (booking.member.isMinor && booking.member.guardianUser) {
     try {
       await notifyGuardianCheckIn(
-        booking.member.guardianUser,
+        booking.member.guardianUser.id,
         `${booking.member.firstName} ${booking.member.lastName}`,
+        booking.sessionId,
       );
     } catch {
       // celowo połknięte - patrz komentarz wyżej
