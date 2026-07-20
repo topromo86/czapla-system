@@ -28,6 +28,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
     items: [
       { href: "/admin/kasa", label: "Kasa" },
       { href: "/admin/finanse", label: "Finanse" },
+      { href: "/admin/wynagrodzenia", label: "Wynagrodzenia" },
     ],
   },
   {

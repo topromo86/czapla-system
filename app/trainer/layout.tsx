@@ -33,6 +33,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
       label: "Moje",
       items: [
         { href: "/trainer/karta", label: "Moja karta" },
+        { href: "/trainer/wynagrodzenie", label: "Wynagrodzenie" },
         { href: "/trainer/aktywnosc", label: "Aktywność" },
       ],
     },

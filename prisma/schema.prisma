@@ -81,6 +81,7 @@ model Location {
   cashDays       CashDay[]
 
   availabilityWindows AvailabilityWindow[]
+  costs               ClubCost[]
 }
 
 model Trainer {
@@ -116,6 +117,7 @@ model Trainer {
   retentionTasks         RetentionTask[]
   scores                 TrainerScore[]
   availabilityWindows    AvailabilityWindow[]
+  rates                  TrainerRate[]
 
   @@index([locationId, active])
 }
@@ -199,6 +201,53 @@ model Member {
 enum SessionStatus {
   SCHEDULED
   CANCELLED
+}
+
+// Stawka trenera za poprowadzone zajęcia, osobno dla grupowych i
+// indywidualnych. Z historią (validFrom), a nie jednym polem na Trainerze -
+// podwyżka w połowie miesiąca nie może przeliczyć wstecz już poprowadzonych
+// zajęć. To wypłata dla konkretnego człowieka, po cichu zmieniona kwota za
+// zeszły miesiąc byłaby realnym problemem, nie kosmetyką.
+model TrainerRate {
+  id           String      @id @default(cuid())
+  trainerId    String
+  kind         SessionKind
+  amountGross  Int // grosze za jedne poprowadzone zajęcia
+  validFrom    DateTime    @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@unique([trainerId, kind, validFrom])
+  @@index([trainerId, kind, validFrom])
+}
+
+enum CostKind {
+  RECURRING_MONTHLY
+  ONE_OFF
+}
+
+// Koszty klubu: stałe miesięczne (czynsz, media) i jednorazowe (sprzęt,
+// naprawa). Widoczne wyłącznie dla właściciela.
+model ClubCost {
+  id          String   @id @default(cuid())
+  name        String
+  amountGross Int // grosze
+  kind        CostKind
+  // RECURRING_MONTHLY: pierwszy miesiąc obowiązywania. ONE_OFF: data poniesienia.
+  startsOn    DateTime @db.Date
+  // Tylko dla stałych: ostatni miesiąc obowiązywania, null = nadal obowiązuje.
+  endsOn      DateTime? @db.Date
+  note        String?  @db.Text
+  locationId  String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([kind, startsOn])
 }
 
 enum BookingStatus {
@@ -738,6 +787,8 @@ enum ActivityAction {
   CATEGORY_CHANGED
   ABSENCE_REPORTED
   ENTRY_REFUNDED
+  TRAINER_RATE_CHANGED
+  COST_CHANGED
 }
 
 model ActivityLog {
