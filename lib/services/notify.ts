@@ -32,6 +32,54 @@ export async function sendPushNotification(
   }
 }
 
+// Wysyłka e-mail przez SMTP. Świadomie SMTP, a nie API konkretnego dostawcy:
+// działa z hostingiem klubu, z Gmailem i z każdym dostawcą transakcyjnym,
+// więc wybór nie zamyka drogi do żadnego z nich.
+//
+// Bez kompletu zmiennych nic nie wysyłamy i mówimy o tym wprost - ekran
+// ustawień pokazuje wtedy kanał jako niedostępny, zamiast udawać, że działa.
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD);
+}
+
+export async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+): Promise<boolean> {
+  if (!isEmailConfigured()) {
+    console.warn(`[email] Brak konfiguracji SMTP - nie wysłano do ${to}: ${subject}`);
+    return false;
+  }
+
+  try {
+    // Import w środku funkcji: nodemailer jest zależnością wyłącznie serwerową
+    // i nie ma powodu ciągnąć jej do bundla, gdy poczta jest nieskonfigurowana.
+    const nodemailer = (await import("nodemailer")).default;
+    const port = Number(process.env.SMTP_PORT ?? 587);
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      // 465 to SMTPS (szyfrowanie od pierwszego bajtu), 587 to STARTTLS.
+      secure: port === 465,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+      to,
+      subject,
+      text,
+    });
+    return true;
+  } catch (error) {
+    // Nie rzucamy: nieudany e-mail nie może wywrócić check-inu ani jobu.
+    console.warn(`[email] Wysyłka do ${to} nie powiodła się:`, error);
+    return false;
+  }
+}
+
 // Brak realnego dostawcy SMS (Twilio/Vonage itp., patrz PLAN.md Faza 4) -
 // to wymaga płatnego konta, którego nikt jeszcze nie założył. Funkcja tylko
 // loguje próbę i zwraca false, żeby ekran ustawień mógł uczciwie pokazać

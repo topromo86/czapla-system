@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers, requireSession } from "@/lib/auth/guard";
 import { visibleTypes, wantsNotification } from "@/lib/domain/notification";
 import { getPreferences } from "@/lib/services/notification";
+import { isEmailConfigured } from "@/lib/services/notify";
 import { Button } from "@/components/ui/button";
 import { PROSE_WIDTH } from "../../shell";
 import { PushSubscribeButton } from "./push-subscribe-button";
@@ -31,6 +32,7 @@ export default async function NotificationSettingsPage({
   // Klub nie ma jeszcze dostawcy SMS (lib/services/notify.ts) - mówimy o tym
   // wprost, zamiast pozwolić klientowi włączyć przełącznik, który nic nie robi.
   const smsAvailable = Boolean(process.env.SMS_PROVIDER_API_KEY);
+  const emailAvailable = isEmailConfigured();
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,6 +72,7 @@ export default async function NotificationSettingsPage({
           <ul className="mt-2 flex flex-col gap-2">
             {types.map((meta) => {
               const push = wantsNotification(prefs, meta.type, "PUSH");
+              const email = wantsNotification(prefs, meta.type, "EMAIL");
               const sms = wantsNotification(prefs, meta.type, "SMS");
 
               return (
@@ -88,6 +91,27 @@ export default async function NotificationSettingsPage({
                       />
                       Push
                     </label>
+
+                    {/* "Dziecko weszło na salę" celowo bez maila - ta
+                        informacja ma sens wyłącznie natychmiast. */}
+                    {meta.emailSupported ? (
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="pref"
+                          value={`${meta.type}:EMAIL`}
+                          defaultChecked={email}
+                          disabled={!emailAvailable}
+                          className="size-4"
+                        />
+                        E-mail
+                        {!emailAvailable ? (
+                          <span className="text-amber font-mono text-[10px] tracking-widest uppercase">
+                            niedostępny
+                          </span>
+                        ) : null}
+                      </label>
+                    ) : null}
 
                     <label className="text-muted-brand flex items-center gap-2 text-sm">
                       <input
@@ -128,8 +152,16 @@ export default async function NotificationSettingsPage({
             aplikacja jest zamknięta, ale wymaga włączenia na każdym urządzeniu osobno.
           </p>
           <p>
-            <b className="text-text">SMS</b> wysyłamy tylko wtedy, gdy push nie doszedł - nigdy
-            jako drugi egzemplarz tej samej wiadomości.
+            <b className="text-text">E-mail</b> działa niezależnie od push - jeśli zaznaczysz oba,
+            dostaniesz i powiadomienie na ekranie, i wiadomość w skrzynce. Push znika po chwili,
+            mail zostaje.
+            {emailAvailable
+              ? ""
+              : " Klub nie ma jeszcze skonfigurowanej poczty, więc ten kanał jest na razie nieaktywny."}
+          </p>
+          <p>
+            <b className="text-text">SMS</b> wysyłamy tylko wtedy, gdy pozostałe kanały zawiodły -
+            nigdy jako kolejny egzemplarz tej samej wiadomości, bo kosztuje za sztukę.
             {smsAvailable
               ? ""
               : " Klub nie ma jeszcze podpiętego dostawcy SMS, więc ten kanał jest na razie nieaktywny."}

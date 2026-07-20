@@ -34,13 +34,17 @@ describe("wantsNotification", () => {
   });
 
   it("zapisana preferencja wygrywa z domyślną", () => {
-    const prefs: StoredPreference[] = [{ type: "SESSION_REMINDER", push: false, sms: true }];
+    const prefs: StoredPreference[] = [
+      { type: "SESSION_REMINDER", push: false, email: false, sms: true },
+    ];
     expect(wantsNotification(prefs, "SESSION_REMINDER", "PUSH")).toBe(false);
     expect(wantsNotification(prefs, "SESSION_REMINDER", "SMS")).toBe(true);
   });
 
   it("preferencja jednego typu nie wpływa na inny", () => {
-    const prefs: StoredPreference[] = [{ type: "SESSION_REMINDER", push: false, sms: false }];
+    const prefs: StoredPreference[] = [
+      { type: "SESSION_REMINDER", push: false, email: false, sms: false },
+    ];
     expect(wantsNotification(prefs, "CHECK_IN", "PUSH")).toBe(true);
   });
 });
@@ -49,8 +53,8 @@ describe("parsePreferenceForm", () => {
   it("niezaznaczone typy zapisują się jako wyłączone", () => {
     const result = parsePreferenceForm(["SESSION_REMINDER:PUSH"], false);
     expect(result).toEqual([
-      { type: "SESSION_REMINDER", push: true, sms: false },
-      { type: "BOOKING_SUGGESTION", push: false, sms: false },
+      { type: "SESSION_REMINDER", push: true, email: false, sms: false },
+      { type: "BOOKING_SUGGESTION", push: false, email: false, sms: false },
     ]);
   });
 
@@ -59,6 +63,7 @@ describe("parsePreferenceForm", () => {
     expect(result.find((r) => r.type === "SESSION_REMINDER")).toEqual({
       type: "SESSION_REMINDER",
       push: true,
+      email: false,
       sms: true,
     });
   });
@@ -77,7 +82,47 @@ describe("parsePreferenceForm", () => {
 
   it("ignoruje śmieci w formularzu", () => {
     const result = parsePreferenceForm(["NIE_ISTNIEJE:PUSH", "SESSION_REMINDER:TELEPATIA"], false);
-    expect(result.every((r) => !r.push && !r.sms)).toBe(true);
+    expect(result.every((r) => !r.push && !r.email && !r.sms)).toBe(true);
+  });
+});
+
+describe("kanał e-mail", () => {
+  it("domyślnie wyłączony dla każdego typu", () => {
+    for (const meta of NOTIFICATION_TYPES) {
+      expect(wantsNotification([], meta.type, "EMAIL")).toBe(false);
+    }
+  });
+
+  it("włączony zapisaną preferencją", () => {
+    const prefs: StoredPreference[] = [
+      { type: "SESSION_REMINDER", push: false, email: true, sms: false },
+    ];
+    expect(wantsNotification(prefs, "SESSION_REMINDER", "EMAIL")).toBe(true);
+  });
+
+  // "Dziecko weszło na salę" ma sens wyłącznie natychmiast - mail przeczytany
+  // po godzinie jest bezwartościowy.
+  it("CHECK_IN nie idzie mailem nawet z zapisaną preferencją", () => {
+    const prefs: StoredPreference[] = [{ type: "CHECK_IN", push: true, email: true, sms: false }];
+    expect(wantsNotification(prefs, "CHECK_IN", "EMAIL")).toBe(false);
+    expect(wantsNotification(prefs, "CHECK_IN", "PUSH")).toBe(true);
+  });
+
+  it("formularz nie włączy maila tam, gdzie go nie wysyłamy", () => {
+    const result = parsePreferenceForm(["CHECK_IN:EMAIL"], true);
+    expect(result.find((r) => r.type === "CHECK_IN")?.email).toBe(false);
+  });
+
+  it("formularz włącza mail tam, gdzie jest wspierany", () => {
+    const result = parsePreferenceForm(["SESSION_REMINDER:EMAIL"], false);
+    expect(result.find((r) => r.type === "SESSION_REMINDER")?.email).toBe(true);
+  });
+
+  it("push i e-mail są niezależne - można mieć oba", () => {
+    const result = parsePreferenceForm(["SESSION_REMINDER:PUSH", "SESSION_REMINDER:EMAIL"], false);
+    const pref = result.find((r) => r.type === "SESSION_REMINDER")!;
+    expect(pref.push).toBe(true);
+    expect(pref.email).toBe(true);
   });
 });
 

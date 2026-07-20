@@ -7,7 +7,10 @@
 
 export type NotificationType = "SESSION_REMINDER" | "BOOKING_SUGGESTION" | "CHECK_IN";
 
-export type NotificationChannel = "PUSH" | "SMS";
+// PUSH i EMAIL są kanałami samodzielnymi - zaznaczone dostajesz zawsze.
+// SMS jest wyłącznie zapasowy (wysyłany, gdy pozostałe zawiodą), bo kosztuje
+// za każdą wiadomość. Patrz lib/services/notification.ts.
+export type NotificationChannel = "PUSH" | "EMAIL" | "SMS";
 
 export type NotificationMeta = {
   type: NotificationType;
@@ -19,6 +22,10 @@ export type NotificationMeta = {
   defaultPush: boolean;
   // Dotyczy tylko opiekunów (powiadomienie o dziecku).
   guardianOnly: boolean;
+  // Czy w ogóle wysyłamy ten typ mailem. "Dziecko weszło na salę" ma sens
+  // wyłącznie natychmiast - e-mail przeczytany po godzinie jest bezwartościowy,
+  // a zaśmieca skrzynkę przy każdym treningu. Reszta typów mailem ma sens.
+  emailSupported: boolean;
 };
 
 export const NOTIFICATION_TYPES: readonly NotificationMeta[] = [
@@ -28,6 +35,7 @@ export const NOTIFICATION_TYPES: readonly NotificationMeta[] = [
     description: "Dzień wcześniej przypomnimy o zajęciach, na które jesteś zapisany.",
     defaultPush: true,
     guardianOnly: false,
+    emailSupported: true,
   },
   {
     type: "BOOKING_SUGGESTION",
@@ -35,6 +43,7 @@ export const NOTIFICATION_TYPES: readonly NotificationMeta[] = [
     description: "Gdy Twój stały termin jest wolny, a nie masz na niego zapisu - podpowiemy.",
     defaultPush: false,
     guardianOnly: false,
+    emailSupported: true,
   },
   {
     type: "CHECK_IN",
@@ -42,6 +51,7 @@ export const NOTIFICATION_TYPES: readonly NotificationMeta[] = [
     description: "Powiadomienie w momencie, gdy dziecko zeskanuje kod przy wejściu.",
     defaultPush: true,
     guardianOnly: true,
+    emailSupported: false,
   },
 ] as const;
 
@@ -64,6 +74,7 @@ export function visibleTypes(isGuardian: boolean): NotificationMeta[] {
 export type StoredPreference = {
   type: NotificationType;
   push: boolean;
+  email: boolean;
   sms: boolean;
 };
 
@@ -74,10 +85,19 @@ export function wantsNotification(
   type: NotificationType,
   channel: NotificationChannel,
 ): boolean {
-  const stored = prefs.find((p) => p.type === type);
-  if (stored) return channel === "PUSH" ? stored.push : stored.sms;
+  // Typ, którego nie wysyłamy mailem, nie da się włączyć nawet zapisaną
+  // preferencją - inaczej stary wiersz w bazie ożywiłby wyłączony kanał.
+  if (channel === "EMAIL" && !notificationMeta(type).emailSupported) return false;
 
-  // SMS domyślnie nigdy - kosztuje i nikt go nie zamawiał świadomie.
+  const stored = prefs.find((p) => p.type === type);
+  if (stored) {
+    if (channel === "PUSH") return stored.push;
+    if (channel === "EMAIL") return stored.email;
+    return stored.sms;
+  }
+
+  // E-mail i SMS domyślnie nigdy: e-mail bo to skrzynka klienta, a nie nasza
+  // tablica ogłoszeń, SMS bo kosztuje. Oba wymagają świadomego włączenia.
   return channel === "PUSH" ? notificationMeta(type).defaultPush : false;
 }
 
@@ -90,7 +110,7 @@ export function parsePreferenceForm(
   const byType = new Map<NotificationType, StoredPreference>();
 
   for (const meta of visibleTypes(isGuardian)) {
-    byType.set(meta.type, { type: meta.type, push: false, sms: false });
+    byType.set(meta.type, { type: meta.type, push: false, email: false, sms: false });
   }
 
   for (const raw of selected) {
@@ -102,6 +122,8 @@ export function parsePreferenceForm(
     if (!entry) continue;
     if (channel === "PUSH") entry.push = true;
     if (channel === "SMS") entry.sms = true;
+    // Podrobiony formularz nie włączy maila tam, gdzie go nie wysyłamy.
+    if (channel === "EMAIL" && notificationMeta(type).emailSupported) entry.email = true;
   }
 
   return [...byType.values()];

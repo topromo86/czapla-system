@@ -860,6 +860,7 @@ model NotificationPreference {
   userId String
   type   NotificationType
   push   Boolean          @default(false)
+  email  Boolean          @default(false)
   sms    Boolean          @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz

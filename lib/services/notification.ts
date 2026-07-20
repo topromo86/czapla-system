@@ -6,14 +6,14 @@ import {
   type NotificationType,
   type StoredPreference,
 } from "@/lib/domain/notification";
-import { sendPushNotification, sendSms } from "@/lib/services/notify";
+import { sendEmail, sendPushNotification, sendSms } from "@/lib/services/notify";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export async function getPreferences(userId: string): Promise<StoredPreference[]> {
   const rows = await prisma.notificationPreference.findMany({
     where: { userId },
-    select: { type: true, push: true, sms: true },
+    select: { type: true, push: true, email: true, sms: true },
   });
   return rows as StoredPreference[];
 }
@@ -29,8 +29,8 @@ export async function savePreferences(
   for (const pref of prefs) {
     await db.notificationPreference.upsert({
       where: { userId_type: { userId, type: pref.type } },
-      create: { userId, type: pref.type, push: pref.push, sms: pref.sms },
-      update: { push: pref.push, sms: pref.sms },
+      create: { userId, type: pref.type, push: pref.push, email: pref.email, sms: pref.sms },
+      update: { push: pref.push, email: pref.email, sms: pref.sms },
     });
   }
 }
@@ -51,15 +51,16 @@ export async function notify(input: {
 }): Promise<NotifyResult> {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { phone: true, pushSubscription: true },
+    select: { email: true, phone: true, pushSubscription: true },
   });
   if (!user) return "NO_CHANNEL";
 
   const prefs = await getPreferences(input.userId);
 
   const wantsPush = wantsNotification(prefs, input.type, "PUSH");
+  const wantsEmail = wantsNotification(prefs, input.type, "EMAIL");
   const wantsSms = wantsNotification(prefs, input.type, "SMS");
-  if (!wantsPush && !wantsSms) return "SKIPPED_PREFERENCE";
+  if (!wantsPush && !wantsEmail && !wantsSms) return "SKIPPED_PREFERENCE";
 
   // Rezerwujemy wpis PRZED wysyłką. Przy równoległym uruchomieniu dwóch
   // instancji cronu druga dostanie błąd unikalności i nie wyśle duplikatu.
@@ -72,16 +73,26 @@ export async function notify(input: {
     return "SKIPPED_DUPLICATE";
   }
 
-  let sent = false;
+  // Push i e-mail są kanałami samodzielnymi: kto zaznaczył oba, dostaje oba.
+  // To świadome - push znika po chwili z ekranu, a mail zostaje w skrzynce
+  // i do niego można wrócić.
+  let pushSent = false;
   if (wantsPush && user.pushSubscription) {
-    sent = await sendPushNotification(user.pushSubscription as never, {
+    pushSent = await sendPushNotification(user.pushSubscription as never, {
       title: input.title,
       body: input.body,
     });
   }
 
-  // SMS wyłącznie jako ratunek, gdy push nie doszedł - a nie jako drugi
-  // egzemplarz tej samej wiadomości.
+  let emailSent = false;
+  if (wantsEmail && user.email) {
+    emailSent = await sendEmail(user.email, input.title, input.body);
+  }
+
+  let sent = pushSent || emailSent;
+
+  // SMS wyłącznie jako ratunek, gdy pozostałe kanały zawiodły - a nie jako
+  // kolejny egzemplarz tej samej wiadomości. Kosztuje za sztukę.
   if (!sent && wantsSms && user.phone) {
     sent = await sendSms(user.phone, `${input.title}: ${input.body}`);
   }
