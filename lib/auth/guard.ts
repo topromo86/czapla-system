@@ -88,17 +88,25 @@ export async function requireTrainerSelf() {
   return { session, trainer };
 }
 
-// Trener może działać tylko na sesjach, które prowadzi (albo zastępuje) -
-// ekran "Dziś" (lista obecności, ręczne uzupełnianie).
+// Trener może działać tylko na sesjach, które prowadzi - ekran "Dziś" (lista
+// obecności, ręczne uzupełnianie).
+//
+// Zastępca dostaje dostęp dopiero po potwierdzeniu. Wcześniej widzi zajęcia
+// na swoim ekranie (żeby móc kliknąć "potwierdzam"), ale nie odhacza jeszcze
+// cudzej listy obecności - do tego czasu odpowiada za nie trener pierwotny.
 export async function requireOwnsSession(sessionId: string) {
   const { session, trainer } = await requireTrainerSelf();
   const target = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { trainerId: true, substituteTrainerId: true },
+    select: { trainerId: true, substituteTrainerId: true, substituteStatus: true },
   });
-  if (target?.trainerId === trainer.id || target?.substituteTrainerId === trainer.id) {
-    return session;
-  }
+  if (!target) throw new ForbiddenError("Brak dostępu do tych zajęć.");
+
+  const isOwner = target.trainerId === trainer.id;
+  const isConfirmedSubstitute =
+    target.substituteTrainerId === trainer.id && target.substituteStatus === "ACCEPTED";
+
+  if (isOwner || isConfirmedSubstitute) return session;
   throw new ForbiddenError("Brak dostępu do tych zajęć.");
 }
 

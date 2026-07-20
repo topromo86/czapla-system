@@ -10,6 +10,7 @@ import {
   SESSION_KIND_LABEL,
 } from "@/lib/domain/payroll";
 import { bonusForScore } from "@/lib/domain/scoring";
+import { runsSessionWhere } from "@/lib/domain/substitute";
 import { todayInTimeZone } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
 import { trainerPayout } from "@/lib/services/payroll";
@@ -52,10 +53,7 @@ export default async function TrainerPayoutPage({
   const sessions = await prisma.session.findMany({
     where: {
       startsAt: { gte: range.startsAt, lt: range.endsAt },
-      OR: [
-        { trainerId: trainer.id, substituteTrainerId: null },
-        { substituteTrainerId: trainer.id },
-      ],
+      ...runsSessionWhere(trainer.id),
     },
     include: { location: true },
     orderBy: { startsAt: "asc" },

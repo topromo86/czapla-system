@@ -7,6 +7,7 @@ import {
   type PayrollSession,
   type RateEntry,
 } from "@/lib/domain/payroll";
+import { runsSessionWhere } from "@/lib/domain/substitute";
 
 // Zajęcia, za które płacimy TEMU trenerowi w danym miesiącu.
 //
@@ -23,7 +24,9 @@ export async function trainerSessionsForMonth(
   const sessions = await prisma.session.findMany({
     where: {
       startsAt: { gte: startsAt, lt: endsAt },
-      OR: [{ trainerId, substituteTrainerId: null }, { substituteTrainerId: trainerId }],
+      // Niepotwierdzone zastępstwo nie przenosi wypłaty - patrz
+      // lib/domain/substitute.ts.
+      ...runsSessionWhere(trainerId),
     },
     select: { id: true, kind: true, startsAt: true, endsAt: true, status: true },
     orderBy: { startsAt: "asc" },

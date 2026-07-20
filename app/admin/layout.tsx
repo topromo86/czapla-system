@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
@@ -21,6 +22,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
     label: "Grafik",
     items: [
       { href: "/admin/zajecia", label: "Zajęcia" },
+      { href: "/admin/zastepstwa", label: "Zastępstwa" },
       { href: "/admin/oblozenie", label: "Obłożenie sal" },
     ],
   },
@@ -54,6 +56,31 @@ const NAV_GROUPS: HeaderNavGroup[] = [
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireRole("ADMIN");
 
+  // Licznik przy "Zastępstwa" to powiadomienie właściciela wewnątrz systemu:
+  // push może nie dojść (brak zgody w przeglądarce, brak kluczy VAPID), a to
+  // widać zawsze. Liczymy niepotwierdzone i odrzucone - jedne i drugie
+  // wymagają jego uwagi.
+  const substituteAlerts = await prisma.session.count({
+    where: {
+      substituteStatus: { in: ["PENDING", "DECLINED"] },
+      startsAt: { gte: new Date() },
+      status: "SCHEDULED",
+    },
+  });
+
+  const navGroups: HeaderNavGroup[] = NAV_GROUPS.map((group) =>
+    group.label === "Grafik"
+      ? {
+          ...group,
+          items: group.items.map((item) =>
+            item.href === "/admin/zastepstwa"
+              ? { ...item, badge: substituteAlerts || undefined }
+              : item,
+          ),
+        }
+      : group,
+  );
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-line bg-surface border-b py-3">
@@ -63,7 +90,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <SignedInAs role="Admin" name={session.user.name} />
           </div>
           <div className="flex min-w-0 items-center gap-4">
-            <HeaderNav groups={NAV_GROUPS} />
+            <HeaderNav groups={navGroups} />
             <ThemeToggle />
             <LogoutButton />
           </div>

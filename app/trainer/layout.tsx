@@ -9,15 +9,28 @@ import { LogoutButton } from "../logout-button";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const { session, trainer } = await requireTrainerSelf();
-  const openAlertsCount = await prisma.retentionTask.count({
-    where: { trainerId: trainer.id, closedAt: null },
-  });
+  const [openAlertsCount, pendingSubstitutes] = await Promise.all([
+    prisma.retentionTask.count({ where: { trainerId: trainer.id, closedAt: null } }),
+    // Zastępstwa czekające na jego decyzję. Licznik przy "Dziś", bo tam jest
+    // sekcja z potwierdzeniem - push może nie dojść, to widać zawsze.
+    prisma.session.count({
+      where: {
+        substituteTrainerId: trainer.id,
+        substituteStatus: "PENDING",
+        status: "SCHEDULED",
+        startsAt: { gte: new Date() },
+      },
+    }),
+  ]);
 
   // "Dziś", "Kasa" i "Alerty" zostają na jedno kliknięcie: pierwsze dwa to
   // ekrany używane na sali w biegu, a Alerty niosą licznik, który ma być
   // widoczny bez rozwijania czegokolwiek.
   const navGroups: HeaderNavGroup[] = [
-    { label: "Dziś", items: [{ href: "/trainer", label: "Dziś" }] },
+    {
+      label: "Dziś",
+      items: [{ href: "/trainer", label: "Dziś", badge: pendingSubstitutes || undefined }],
+    },
     { label: "Kasa", items: [{ href: "/trainer/kasa", label: "Kasa" }] },
     {
       label: "Alerty",

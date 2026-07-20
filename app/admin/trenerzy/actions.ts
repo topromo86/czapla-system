@@ -253,11 +253,22 @@ export async function deactivateTrainerAction(formData: FormData) {
         });
       }
       if (sessionIds.length > 0) {
-        // substituteTrainerId czyścimy: po przepisaniu prowadzącym jest nowy
-        // trener, a stare zastępstwo wskazywałoby na wyciszonego.
+        // Zastępstwo czyścimy w całości: po przepisaniu prowadzącym jest nowy
+        // trener, a stare zastępstwo wskazywałoby na wyciszonego. Zerowanie
+        // samego substituteTrainerId zostawiłoby osierocony status, przez
+        // który runsSessionWhere nie zaliczyłby zajęć nikomu.
         await tx.session.updateMany({
           where: { id: { in: sessionIds } },
-          data: { trainerId: targetId, substituteTrainerId: null },
+          data: {
+            trainerId: targetId,
+            substituteTrainerId: null,
+            substituteStatus: null,
+            substituteRequestedAt: null,
+            substituteRespondedAt: null,
+            substituteRequestedById: null,
+            substituteByAdmin: false,
+            substituteDeclineReason: null,
+          },
         });
       }
       if (templateIds.length > 0) {

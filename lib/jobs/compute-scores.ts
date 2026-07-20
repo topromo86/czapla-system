@@ -10,6 +10,7 @@ import {
   ratingToNormalized,
   weightedClubSegmentRet90,
 } from "@/lib/domain/scoring";
+import { runsSessionWhere } from "@/lib/domain/substitute";
 
 export type ComputeScoresResult = { trainersScored: number; notesFlaggedForAudit: number };
 
@@ -83,12 +84,9 @@ export async function computeScores(
     const ratingAgg = await prisma.rating.aggregate({
       where: {
         createdAt: { gte: windowStart },
-        session: {
-          OR: [
-            { trainerId: trainer.id, substituteTrainerId: null },
-            { substituteTrainerId: trainer.id },
-          ],
-        },
+        // Ocena idzie do tego, kto realnie prowadził - niepotwierdzone
+        // zastępstwo zostawia zajęcia trenerowi pierwotnemu.
+        session: runsSessionWhere(trainer.id),
       },
       _avg: { score: true },
     });

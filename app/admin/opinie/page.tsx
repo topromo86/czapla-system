@@ -3,6 +3,7 @@ import { Info } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { averageScoreColor, RATING_LABEL, scoreColor } from "@/lib/domain/rating";
+import { runsSessionWhere } from "@/lib/domain/substitute";
 import { formatDayTime } from "@/lib/format";
 import { PROSE_WIDTH } from "../../shell";
 
@@ -31,9 +32,7 @@ export default async function AdminOpinionsPage({
         ...(onlyWithComment ? { comment: { not: null } } : {}),
         ...(trener
           ? {
-              session: {
-                OR: [{ trainerId: trener, substituteTrainerId: null }, { substituteTrainerId: trener }],
-              },
+              session: runsSessionWhere(trener),
             }
           : {}),
       },
@@ -52,6 +51,7 @@ export default async function AdminOpinionsPage({
             location: { select: { name: true } },
             trainer: { select: { user: { select: { name: true } } } },
             substituteTrainer: { select: { user: { select: { name: true } } } },
+            substituteStatus: true,
           },
         },
       },
@@ -170,9 +170,11 @@ export default async function AdminOpinionsPage({
         </h2>
         <ul className="mt-2 flex flex-col gap-2">
           {ratings.map((rating) => {
-            const leadBy =
-              rating.session.substituteTrainer?.user.name ?? rating.session.trainer.user.name;
-            const isSubstitute = rating.session.substituteTrainer != null;
+            // Tylko potwierdzone zastępstwo znaczy, że prowadził ktoś inny.
+            const isSubstitute = rating.session.substituteStatus === "ACCEPTED";
+            const leadBy = isSubstitute
+              ? (rating.session.substituteTrainer?.user.name ?? rating.session.trainer.user.name)
+              : rating.session.trainer.user.name;
 
             return (
               <li key={rating.id} className="border-line bg-surface rounded-md border p-3">

@@ -374,12 +374,33 @@ model ClassTemplate {
   @@index([locationId, active])
 }
 
+// Zastępstwo wymaga potwierdzenia przez zastępcę. Dopóki jest PENDING,
+// prowadzącym pozostaje trener pierwotny - inaczej niepotwierdzone zastępstwo
+// zostawiłoby zajęcia bez nikogo odpowiedzialnego.
+enum SubstituteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 model Session {
   id                  String        @id @default(cuid())
   templateId          String?
   locationId          String
   trainerId           String
   substituteTrainerId String?
+
+  // Zastępstwo obowiązuje wyłącznie przy ACCEPTED. Patrz lib/domain/substitute.ts -
+  // tam żyje jedyna definicja "kto realnie prowadzi te zajęcia".
+  substituteStatus        SubstituteStatus?
+  substituteRequestedAt   DateTime?         @db.Timestamptz
+  substituteRespondedAt   DateTime?         @db.Timestamptz
+  substituteRequestedById String? // User, który wyznaczył - do powiadomień i audytu
+  // Zastępstwo od admina to polecenie (zastępca je przyjmuje do wiadomości),
+  // od trenera to prośba (zastępca może odmówić). Rozróżnienie musi przetrwać
+  // w bazie, bo od niego zależy, czy pokazujemy przycisk odmowy.
+  substituteByAdmin       Boolean           @default(false)
+  substituteDeclineReason String?
   name                String
   kind                SessionKind   @default(GROUP)
   startsAt            DateTime      @db.Timestamptz
@@ -800,6 +821,10 @@ enum ActivityAction {
   ENTRY_REFUNDED
   TRAINER_RATE_CHANGED
   COST_CHANGED
+  SUBSTITUTE_REQUESTED
+  SUBSTITUTE_ACCEPTED
+  SUBSTITUTE_DECLINED
+  SUBSTITUTE_CANCELLED
 }
 
 model ActivityLog {
