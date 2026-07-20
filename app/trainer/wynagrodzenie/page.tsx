@@ -9,7 +9,9 @@ import {
   parseMonthKey,
   SESSION_KIND_LABEL,
 } from "@/lib/domain/payroll";
+import { bonusForScore } from "@/lib/domain/scoring";
 import { todayInTimeZone } from "@/lib/domain/time";
+import { getClubSettings } from "@/lib/services/settings";
 import { trainerPayout } from "@/lib/services/payroll";
 import { formatDayTime, formatMoney } from "@/lib/format";
 import { PROSE_WIDTH } from "../../shell";
@@ -34,7 +36,17 @@ export default async function TrainerPayoutPage({
     month: today.month,
   };
 
-  const summary = await trainerPayout(trainer.id, selected.year, selected.month, now);
+  const selectedKey = `${selected.year}-${String(selected.month).padStart(2, "0")}`;
+
+  const [summary, settings, scoreRow] = await Promise.all([
+    trainerPayout(trainer.id, selected.year, selected.month, now),
+    getClubSettings(),
+    prisma.trainerScore.findFirst({ where: { trainerId: trainer.id, period: selectedKey } }),
+  ]);
+
+  const score = scoreRow?.score ?? null;
+  const bonusGross = bonusForScore(score, settings.bonusThresholdScore, settings.bonusAmountGross);
+  const payoutWithBonus = summary.totalGross + bonusGross;
 
   const range = monthRange(selected.year, selected.month);
   const sessions = await prisma.session.findMany({
@@ -102,13 +114,67 @@ export default async function TrainerPayoutPage({
             {summary.upcomingCount} zajęć · {formatMinutes(summary.upcomingMinutes)}
           </p>
         </div>
+        {settings.bonusAmountGross > 0 ? (
+          <div>
+            <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Premia</h2>
+            <p
+              className={`font-display text-3xl ${bonusGross > 0 ? "text-jade" : "text-muted-brand"}`}
+            >
+              {formatMoney(bonusGross > 0 ? bonusGross : settings.bonusAmountGross)}
+            </p>
+            <p className="text-muted-brand font-mono text-xs">
+              {bonusGross > 0 ? "wypracowana" : "do wypracowania"}
+            </p>
+          </div>
+        ) : null}
         <div>
           <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
             Szacunkowo na koniec miesiąca
           </h2>
-          <p className="font-display text-brand-red text-3xl">{formatMoney(summary.totalGross)}</p>
+          <p className="font-display text-brand-red text-3xl">{formatMoney(payoutWithBonus)}</p>
+          {bonusGross > 0 ? (
+            <p className="text-muted-brand font-mono text-xs">
+              w tym premia {formatMoney(bonusGross)}
+            </p>
+          ) : null}
         </div>
       </section>
+
+      {settings.bonusAmountGross > 0 ? (
+        <section
+          className={`rounded-md border p-4 ${
+            bonusGross > 0 ? "border-jade/40 bg-jade/5" : "border-line bg-surface"
+          }`}
+        >
+          {bonusGross > 0 ? (
+            <p className="text-text text-sm">
+              <b>Premia wypracowana.</b> Twój wynik za ten miesiąc to {score} pkt, próg wynosi{" "}
+              {settings.bonusThresholdScore} pkt - do wypłaty dochodzi{" "}
+              {formatMoney(settings.bonusAmountGross)}.
+            </p>
+          ) : score != null ? (
+            <p className="text-text text-sm">
+              Twój wynik za ten miesiąc to <b>{score} pkt</b>, próg premii wynosi{" "}
+              {settings.bonusThresholdScore} pkt. Brakuje {settings.bonusThresholdScore - score} pkt
+              do premii {formatMoney(settings.bonusAmountGross)}.
+            </p>
+          ) : scoreRow ? (
+            <p className="text-text text-sm">
+              Wynik za ten miesiąc nie został policzony - za mało danych w Twojej kohorcie. Premia
+              ({formatMoney(settings.bonusAmountGross)}) nie jest doliczana.
+            </p>
+          ) : (
+            <p className="text-text text-sm">
+              Wynik za ten miesiąc <b>jeszcze nie został policzony</b> - liczy się go 1. dnia
+              miesiąca. Premia {formatMoney(settings.bonusAmountGross)} przy progu{" "}
+              {settings.bonusThresholdScore} pkt zostanie doliczona dopiero po przeliczeniu.
+            </p>
+          )}
+          <p className="text-muted-brand mt-1 text-xs">
+            Na co wpływa wynik, sprawdzisz w zakładce „Moja karta".
+          </p>
+        </section>
+      ) : null}
 
       {summary.sessionsWithoutRate > 0 ? (
         <p className="border-amber/40 bg-amber/5 text-text rounded-md border p-3 text-sm">

@@ -15,7 +15,9 @@ import {
   sumCostsForMonth,
   type CostEntry,
 } from "@/lib/domain/payroll";
+import { bonusForScore } from "@/lib/domain/scoring";
 import { todayInTimeZone } from "@/lib/domain/time";
+import { getClubSettings } from "@/lib/services/settings";
 import { trainerPayout } from "@/lib/services/payroll";
 import { formatDate, formatMoney } from "@/lib/format";
 import { PROSE_WIDTH } from "../../shell";
@@ -69,11 +71,27 @@ export default async function AdminPayrollPage({
     }),
   ]);
 
+  // Premia doliczana z wyniku za TEN miesiąc (TrainerScore.period). Wynik za
+  // bieżący miesiąc może jeszcze nie istnieć - job liczy go 1. dnia - i wtedy
+  // premii nie doliczamy, zamiast zgadywać.
+  const settings = await getClubSettings();
+  const scores = await prisma.trainerScore.findMany({ where: { period: selectedKey } });
+  const scoreByTrainer = new Map(scores.map((s) => [s.trainerId, s.score]));
+
   const payouts = await Promise.all(
-    trainers.map(async (trainer) => ({
-      trainer,
-      summary: await trainerPayout(trainer.id, selected.year, selected.month, now),
-    })),
+    trainers.map(async (trainer) => {
+      const summary = await trainerPayout(trainer.id, selected.year, selected.month, now);
+      const score = scoreByTrainer.get(trainer.id) ?? null;
+      const bonusGross = bonusForScore(score, settings.bonusThresholdScore, settings.bonusAmountGross);
+      return {
+        trainer,
+        summary,
+        score,
+        scoreComputed: scoreByTrainer.has(trainer.id),
+        bonusGross,
+        payoutWithBonus: summary.totalGross + bonusGross,
+      };
+    }),
   );
 
   const costEntries: CostEntry[] = costs.map((c) => ({
@@ -94,7 +112,8 @@ export default async function AdminPayrollPage({
   );
 
   const salariesEarned = payouts.reduce((sum, p) => sum + p.summary.earnedGross, 0);
-  const salariesTotal = payouts.reduce((sum, p) => sum + p.summary.totalGross, 0);
+  const salariesTotal = payouts.reduce((sum, p) => sum + p.payoutWithBonus, 0);
+  const bonusesTotal = payouts.reduce((sum, p) => sum + p.bonusGross, 0);
   const revenueGross = revenue._sum?.amountGross ?? 0;
   const missingRates = payouts.reduce((sum, p) => sum + p.summary.sessionsWithoutRate, 0);
 
@@ -160,6 +179,7 @@ export default async function AdminPayrollPage({
           <p className="font-display text-3xl">{formatMoney(salariesEarned)}</p>
           <p className="text-muted-brand font-mono text-xs">
             prognoza na koniec: {formatMoney(salariesTotal)}
+            {bonusesTotal > 0 ? ` (w tym premie ${formatMoney(bonusesTotal)})` : ""}
           </p>
         </div>
         <div>
@@ -189,22 +209,35 @@ export default async function AdminPayrollPage({
           Wypłaty trenerów
         </h2>
         <div className="mt-2 flex flex-col gap-2">
-          {payouts.map(({ trainer, summary }) => (
+          {payouts.map(({ trainer, summary, score, scoreComputed, bonusGross, payoutWithBonus }) => (
             <div key={trainer.id} className="border-line bg-surface rounded-md border p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-text font-medium">{trainer.user.name}</p>
+                  <p className="text-text font-medium">
+                    {trainer.user.name}
+                    {bonusGross > 0 ? (
+                      <span className="bg-brand-red/10 text-brand-red ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
+                        Premia {formatMoney(bonusGross)}
+                      </span>
+                    ) : null}
+                  </p>
                   <p className="text-muted-brand mt-0.5 font-mono text-xs">
                     {trainer.location.name} · odbyte {summary.doneCount} zajęć (
                     {formatMinutes(summary.doneMinutes)}) · zaplanowane {summary.upcomingCount}
                   </p>
+                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                    {scoreComputed
+                      ? `wynik ${score ?? "za mało danych"} · próg premii ${settings.bonusThresholdScore}`
+                      : `wynik za ten miesiąc jeszcze nieobliczony · próg premii ${settings.bonusThresholdScore}`}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="font-display text-brand-red text-2xl">
-                    {formatMoney(summary.totalGross)}
+                    {formatMoney(payoutWithBonus)}
                   </p>
                   <p className="text-muted-brand font-mono text-xs">
                     zarobione {formatMoney(summary.earnedGross)}
+                    {bonusGross > 0 ? ` + premia ${formatMoney(bonusGross)}` : ""}
                   </p>
                 </div>
               </div>

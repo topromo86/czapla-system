@@ -13,9 +13,10 @@ export const SCORE_WEIGHTS = {
   onboardingRate: 0.15,
 } as const;
 
-// SPEC.md nie podaje liczby - "próg premii" jest w checklist Fazy 5 jako
-// osobny punkt, ale bez wartości. Wartość domyślna do świadomej zmiany przez
-// właściciela po zobaczeniu pierwszych realnych wyników (patrz PLAN.md).
+// Wartość startowa progu premii. Obowiązujący próg trzymany jest w
+// ustawieniach klubu (ClubSettings.bonusThresholdScore) i właściciel zmienia
+// go sam na ekranie Rankingu - ta stała służy już tylko jako domyślna przy
+// zakładaniu ustawień i w testach.
 export const BONUS_THRESHOLD_SCORE = 70;
 
 function clamp(value: number, min: number, max: number): number {
@@ -108,8 +109,22 @@ export function computeTrainerScore(input: ScoreInputs): number | null {
   return Math.max(0, Math.round(weighted * 100));
 }
 
-export function isBonusEligible(score: number | null): boolean {
-  return score != null && score >= BONUS_THRESHOLD_SCORE;
+export function isBonusEligible(
+  score: number | null,
+  threshold: number = BONUS_THRESHOLD_SCORE,
+): boolean {
+  return score != null && score >= threshold;
+}
+
+// Premia jest zero-jedynkowa: albo wynik osiągnął próg i cała kwota się
+// należy, albo nie. Bez proporcji - "80% premii za 80% progu" byłoby czymś
+// innym niż premia i trzeba by to uzgodnić z trenerami.
+export function bonusForScore(
+  score: number | null,
+  threshold: number,
+  bonusAmountGross: number,
+): number {
+  return isBonusEligible(score, threshold) ? bonusAmountGross : 0;
 }
 
 // Lider = najwyższy wynik wśród trenerów z policzonym score (null pomijamy).

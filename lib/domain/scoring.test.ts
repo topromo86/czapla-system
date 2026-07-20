@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BONUS_THRESHOLD_SCORE,
+  bonusForScore,
   computeAlertRate,
   computeOnboardingRate,
   computeRet90,
@@ -189,7 +190,39 @@ describe("computeTrainerScore", () => {
   });
 });
 
+describe("bonusForScore", () => {
+  it("cała kwota po osiągnięciu progu", () => {
+    expect(bonusForScore(75, 70, 50000)).toBe(50000);
+  });
+
+  it("dokładnie na progu premia się należy", () => {
+    expect(bonusForScore(70, 70, 50000)).toBe(50000);
+  });
+
+  it("poniżej progu zero, bez proporcji", () => {
+    expect(bonusForScore(69, 70, 50000)).toBe(0);
+  });
+
+  it("brak wyniku to brak premii", () => {
+    expect(bonusForScore(null, 70, 50000)).toBe(0);
+  });
+
+  it("zerowa kwota premii daje zero mimo osiągniętego progu", () => {
+    expect(bonusForScore(90, 70, 0)).toBe(0);
+  });
+
+  it("respektuje próg ustawiony przez właściciela", () => {
+    expect(bonusForScore(75, 80, 50000)).toBe(0);
+    expect(bonusForScore(75, 60, 50000)).toBe(50000);
+  });
+});
+
 describe("isBonusEligible", () => {
+  it("używa progu przekazanego zamiast domyślnego", () => {
+    expect(isBonusEligible(65, 60)).toBe(true);
+    expect(isBonusEligible(65, 80)).toBe(false);
+  });
+
   it("false dla null", () => {
     expect(isBonusEligible(null)).toBe(false);
   });

@@ -280,6 +280,12 @@ model ClubSettings {
   bookingHorizonMode BookingHorizonMode @default(CURRENT_WEEK)
   bookingHorizonDays Int                @default(7)
 
+  // Próg premii (wynik 0-100) i kwota premii w groszach. Wcześniej próg był
+  // stałą w kodzie - właściciel ma go zmieniać sam po zobaczeniu realnych
+  // wyników, bez wdrożenia.
+  bonusThresholdScore Int @default(70)
+  bonusAmountGross    Int @default(0)
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 }

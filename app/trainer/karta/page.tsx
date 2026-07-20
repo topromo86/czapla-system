@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireTrainerSelf } from "@/lib/auth/guard";
-import { BONUS_THRESHOLD_SCORE, MIN_MATURED_COUNT } from "@/lib/domain/scoring";
-import { formatDate } from "@/lib/format";
+import { isBonusEligible as scoreReachesBonus, MIN_MATURED_COUNT } from "@/lib/domain/scoring";
+import { getClubSettings } from "@/lib/services/settings";
+import { formatDate, formatMoney } from "@/lib/format";
 
 function formatPercent(value: number | null): string {
   if (value == null) return "-";
@@ -15,10 +16,13 @@ function formatPercent(value: number | null): string {
 export default async function TrainerScoreCardPage() {
   const { trainer } = await requireTrainerSelf();
 
-  const myLatest = await prisma.trainerScore.findFirst({
-    where: { trainerId: trainer.id },
-    orderBy: { period: "desc" },
-  });
+  const [myLatest, settings] = await Promise.all([
+    prisma.trainerScore.findFirst({
+      where: { trainerId: trainer.id },
+      orderBy: { period: "desc" },
+    }),
+    getClubSettings(),
+  ]);
 
   if (!myLatest) {
     return (
@@ -42,7 +46,7 @@ export default async function TrainerScoreCardPage() {
     if (rank > 0) position = { rank, of: periodScores.length };
   }
 
-  const isBonusEligible = myLatest.score != null && myLatest.score >= BONUS_THRESHOLD_SCORE;
+  const isBonusEligible = scoreReachesBonus(myLatest.score, settings.bonusThresholdScore);
 
   return (
     <div className="flex flex-col gap-8">
@@ -68,11 +72,17 @@ export default async function TrainerScoreCardPage() {
             ) : null}
             {isBonusEligible ? (
               <p className="text-jade mt-2 font-mono text-xs tracking-widest uppercase">
-                Powyżej progu premii ({BONUS_THRESHOLD_SCORE})
+                Powyżej progu premii ({settings.bonusThresholdScore})
+                {settings.bonusAmountGross > 0
+                  ? ` · ${formatMoney(settings.bonusAmountGross)}`
+                  : ""}
               </p>
             ) : (
               <p className="text-muted-brand mt-2 font-mono text-xs tracking-widest uppercase">
-                Próg premii: {BONUS_THRESHOLD_SCORE}
+                Próg premii: {settings.bonusThresholdScore}
+                {settings.bonusAmountGross > 0
+                  ? ` · ${formatMoney(settings.bonusAmountGross)}`
+                  : ""}
               </p>
             )}
           </>

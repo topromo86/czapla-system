@@ -41,8 +41,13 @@ export function ratingToBarRatio(rating: number | null): number {
 // zakres Wyniku), z kreskowanym znacznikiem progu premii - wypełnienie może
 // iść DALEJ niż znacznik, żeby trener widział, że powyżej progu wciąż jest
 // miejsce na wzrost (do 100), a nie że premia to "sufit".
-export function ScoreProgressBar({ score }: { score: number }) {
-  const threshold = BONUS_THRESHOLD_SCORE;
+export function ScoreProgressBar({
+  score,
+  threshold = BONUS_THRESHOLD_SCORE,
+}: {
+  score: number;
+  threshold?: number;
+}) {
   const clamped = Math.min(100, Math.max(0, score));
   const reached = clamped >= threshold;
   const color = reached ? "#1f8a5c" : colorForRatio(clamped / threshold);
