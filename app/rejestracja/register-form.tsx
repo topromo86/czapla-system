@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PASSWORD_MIN_LENGTH } from "@/lib/domain/registration";
+import { calculateAge } from "@/lib/domain/booking";
+import { PASSWORD_MIN_LENGTH, SELF_REGISTER_MIN_AGE } from "@/lib/domain/registration";
 import { GoogleButton } from "../google-button";
 import { registerAction, type RegisterState } from "./actions";
 
@@ -28,6 +29,24 @@ export function RegisterForm({
   googleEnabled?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(registerAction, initialState);
+
+  // Podpowiedź na żywo: gdy wybrana data daje wiek poniżej granicy samodzielnej
+  // rejestracji, od razu mówimy, że to konto małoletniego - zamiast czekać na
+  // odrzucenie po wysłaniu. Ten sam calculateAge co na serwerze, więc granica
+  // jest liczona identycznie.
+  const [isMinor, setIsMinor] = useState(false);
+  function handleBirthDateChange(value: string) {
+    if (!value) {
+      setIsMinor(false);
+      return;
+    }
+    const birthDate = new Date(value);
+    if (Number.isNaN(birthDate.getTime())) {
+      setIsMinor(false);
+      return;
+    }
+    setIsMinor(calculateAge(birthDate, new Date()) < SELF_REGISTER_MIN_AGE);
+  }
 
   return (
     <Card className="border-line bg-surface w-full max-w-md">
@@ -61,7 +80,25 @@ export function RegisterForm({
               <Label htmlFor="birthDate" className={labelClass}>
                 Data urodzenia
               </Label>
-              <Input id="birthDate" name="birthDate" type="date" required className={fieldClass} />
+              <Input
+                id="birthDate"
+                name="birthDate"
+                type="date"
+                required
+                className={fieldClass}
+                aria-describedby={isMinor ? "birthDate-minor" : undefined}
+                onChange={(e) => handleBirthDateChange(e.target.value)}
+              />
+              {isMinor ? (
+                <p
+                  id="birthDate-minor"
+                  role="status"
+                  className="border-amber bg-surface-2 text-text rounded-md border px-2 py-1.5 text-xs"
+                >
+                  <b>Użytkownik niepełnoletni.</b> Samodzielne konto może założyć osoba pełnoletnia -
+                  dla dziecka konto zakłada klub lub opiekun.
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="sex" className={labelClass}>
