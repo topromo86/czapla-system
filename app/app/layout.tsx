@@ -17,12 +17,16 @@ export default async function ClientLayout({ children }: { children: React.React
   // Konto MEMBER bez kartoteki to świeże logowanie Google przed dokończeniem
   // profilu - kierujemy tam, zamiast pokazywać pustą aplikację. Konta zakładane
   // formularzem albo przez klub zawsze mają kartotekę, więc ich to nie dotyczy.
+  // Przy okazji sprawdzamy stan zatwierdzenia - nieletni po samodzielnej
+  // rejestracji czeka na akceptację klubu i ma o tym wiedzieć na każdym ekranie.
+  let ownApproval: "APPROVED" | "PENDING" | "REJECTED" | null = null;
   if (session.user.role === "MEMBER") {
-    const hasMember = await prisma.member.findUnique({
+    const ownMember = await prisma.member.findUnique({
       where: { userId: session.user.id },
-      select: { id: true },
+      select: { approvalStatus: true },
     });
-    if (!hasMember) redirect("/dokoncz-profil");
+    if (!ownMember) redirect("/dokoncz-profil");
+    ownApproval = ownMember.approvalStatus;
   }
 
   const members = await getAccessibleMembers();
@@ -51,6 +55,7 @@ export default async function ClientLayout({ children }: { children: React.React
         ...(session.user.role === "GUARDIAN"
           ? [{ href: "/app/dziecko", label: "Moje dziecko" }]
           : []),
+        { href: "/app/konto", label: "Konto" },
         { href: "/app/powiadomienia", label: "Powiadomienia" },
         { href: "/app/zgody", label: "Zgody" },
       ],
@@ -66,6 +71,25 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      {ownApproval === "PENDING" ? (
+        <div className="border-amber bg-amber/10 border-b">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-2">
+            <p className="text-text text-sm">
+              <b>Konto oczekuje na zatwierdzenie przez klub.</b> Możesz się rozglądać, ale zapis na
+              zajęcia będzie możliwy dopiero po akceptacji. Damy znać, gdy konto zostanie
+              aktywowane.
+            </p>
+          </div>
+        </div>
+      ) : ownApproval === "REJECTED" ? (
+        <div className="border-red bg-red/10 border-b">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-2">
+            <p className="text-text text-sm">
+              <b>Konto nie zostało zatwierdzone.</b> Skontaktuj się z klubem, aby wyjaśnić sprawę.
+            </p>
+          </div>
+        </div>
+      ) : null}
       {showVerifyBanner && account?.email ? (
         <Suspense fallback={null}>
           <EmailVerificationBanner email={account.email} />

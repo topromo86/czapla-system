@@ -95,8 +95,9 @@ export function RegisterForm({
                   role="status"
                   className="border-amber bg-surface-2 text-text rounded-md border px-2 py-1.5 text-xs"
                 >
-                  <b>Użytkownik niepełnoletni.</b> Samodzielne konto może założyć osoba pełnoletnia -
-                  dla dziecka konto zakłada klub lub opiekun.
+                  <b>Użytkownik niepełnoletni.</b> Konto możesz założyć, ale wymaga zatwierdzenia
+                  przez klub - aktywujemy je po akceptacji. Do tego czasu logowanie działa, ale
+                  zapis na zajęcia jest zablokowany.
                 </p>
               ) : null}
             </div>

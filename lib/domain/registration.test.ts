@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isValidEmail,
   normalizeEmail,
+  requiresApproval,
   SELF_REGISTER_MIN_AGE,
   validatePassword,
   validateProfile,
@@ -82,10 +83,16 @@ describe("validateRegistration", () => {
     expect(validateRegistration(baseInput({ birthDate: future }), NOW)).toBe("INVALID_BIRTHDATE");
   });
 
-  // Sedno: małoletni nie zakłada konta sam - potrzebny opiekun.
-  it("odrzuca osobę poniżej progu wieku", () => {
-    const tooYoung = new Date("2015-01-01T00:00:00Z"); // ~11 lat w 2026
-    expect(validateRegistration(baseInput({ birthDate: tooYoung }), NOW)).toBe("TOO_YOUNG");
+  // Zmiana reguły: małoletni MOŻE zarejestrować się sam - walidacja przechodzi,
+  // a osobno requiresApproval kieruje konto do zatwierdzenia przez klub.
+  it("przepuszcza osobę niepełnoletnią (do zatwierdzenia)", () => {
+    const minor = new Date("2015-01-01T00:00:00Z"); // ~11 lat w 2026
+    expect(validateRegistration(baseInput({ birthDate: minor }), NOW)).toBeNull();
+    expect(requiresApproval(minor, NOW)).toBe(true);
+  });
+
+  it("dorosły nie wymaga zatwierdzenia", () => {
+    expect(requiresApproval(adultBirthDate(), NOW)).toBe(false);
   });
 
   it("dokładnie na progu wieku przechodzi", () => {
@@ -139,9 +146,10 @@ describe("validateProfile", () => {
     expect(validateProfile(profile({ homeLocationId: "" }), NOW)).toBe("MISSING_FIELDS");
   });
 
-  it("odrzuca małoletniego", () => {
-    const tooYoung = new Date("2015-01-01T00:00:00Z");
-    expect(validateProfile(profile({ birthDate: tooYoung }), NOW)).toBe("TOO_YOUNG");
+  it("przepuszcza małoletniego (do zatwierdzenia)", () => {
+    const minor = new Date("2015-01-01T00:00:00Z");
+    expect(validateProfile(profile({ birthDate: minor }), NOW)).toBeNull();
+    expect(requiresApproval(minor, NOW)).toBe(true);
   });
 
   it("dokładnie na progu wieku przechodzi", () => {

@@ -82,6 +82,7 @@ export async function bookSessionAction(formData: FormData) {
 
   const result = evaluateBookingEligibility({
     now,
+    memberApproved: member.approvalStatus === "APPROVED",
     memberBirthDate: member.birthDate,
     memberIsMinor: member.isMinor,
     grantedConsentKeys,

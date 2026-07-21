@@ -9,6 +9,7 @@ import { calculateAge } from "@/lib/domain/booking";
 import {
   normalizeEmail,
   PASSWORD_ERROR_MESSAGE,
+  requiresApproval,
   validateRegistration,
   type RegistrationError,
 } from "@/lib/domain/registration";
@@ -31,8 +32,6 @@ const ERROR_MESSAGE: Record<Exclude<RegistrationError, { password: unknown }>, s
   MISSING_FIELDS: "Uzupełnij wszystkie pola.",
   INVALID_EMAIL: "Podaj poprawny adres e-mail.",
   INVALID_BIRTHDATE: "Podaj poprawną datę urodzenia.",
-  TOO_YOUNG:
-    "Konto może założyć samodzielnie osoba pełnoletnia. Dla dziecka konto zakłada klub lub opiekun.",
   PASSWORD_MISMATCH: "Hasła nie są takie same.",
 };
 
@@ -91,7 +90,11 @@ export async function registerAction(
   }
 
   const passwordHash = await hashPassword(password);
-  const isMinor = calculateAge(birthDate, now) < 18; // po walidacji zawsze false, ale spójne z modelem
+  const isMinor = calculateAge(birthDate, now) < 18;
+  // Nieletni rejestrujący się sam trafia do zatwierdzenia przez klub; dorosły
+  // wchodzi od razu jako APPROVED. Ta sama reguła co isMinor (próg 18), ale
+  // wyrażona przez requiresApproval, bo to ona jest bramą rezerwacji.
+  const pendingApproval = requiresApproval(birthDate, now);
 
   const createdUserId = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -110,6 +113,7 @@ export async function registerAction(
         email,
         birthDate,
         isMinor,
+        approvalStatus: pendingApproval ? "PENDING" : "APPROVED",
         sex: sex as Sex,
         homeLocationId,
         ownerTrainerId,
@@ -120,7 +124,9 @@ export async function registerAction(
       actorUserId: user.id,
       action: "MEMBER_CREATED",
       memberId: member.id,
-      summary: `Samodzielna rejestracja: ${firstName} ${lastName} (opiekun: ${trainer.id})`,
+      summary: `Samodzielna rejestracja: ${firstName} ${lastName} (opiekun: ${trainer.id})${
+        pendingApproval ? " - NIELETNI, oczekuje na zatwierdzenie" : ""
+      }`,
     });
     return user.id;
   });

@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@/app/generated/prisma/client";
+import type { Member, Role } from "@/app/generated/prisma/client";
 
 // Jedyne miejsce autoryzacji w aplikacji (CLAUDE.md, sekcja "Konwencje kodu").
 // Trener widzi wyłącznie swoich podopiecznych, rodzic wyłącznie swoje dziecko -
@@ -48,22 +48,26 @@ export async function requireOwnsMember(memberId: string) {
   throw new ForbiddenError("Brak dostępu do tego podopiecznego.");
 }
 
+// Dostęp opiekuna do dziecka. Kluczem jest dopasowanie guardianUserId, a NIE
+// rola: rodzic, który sam trenuje, ma rolę MEMBER, ale nadal jest opiekunem
+// swojego dziecka. Wcześniej wymagaliśmy roli GUARDIAN i taki rodzic tracił
+// dostęp - dlatego patrzymy tylko na powiązanie.
 export async function requireGuardianOfMember(memberId: string) {
   const session = await requireSession();
   if (session.user.role === "ADMIN") return session;
 
-  if (session.user.role === "GUARDIAN") {
-    const member = await prisma.member.findUnique({
-      where: { id: memberId },
-      select: { guardianUserId: true },
-    });
-    if (member?.guardianUserId === session.user.id) return session;
-  }
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: { guardianUserId: true },
+  });
+  if (member?.guardianUserId === session.user.id) return session;
   throw new ForbiddenError("Brak dostępu do tego dziecka.");
 }
 
 // Dostęp klienta (do samego siebie) albo jego opiekuna - ekrany i akcje /app
 // (grafik, zapisy, zgody). ADMIN pomija ograniczenie (wsparcie/diagnostyka).
+// Znów: liczy się powiązanie (userId albo guardianUserId), nie rola - żeby
+// rodzic-klubowicz działał w imieniu dziecka tak samo jak czysty GUARDIAN.
 export async function requireMemberAccess(memberId: string) {
   const session = await requireSession();
   if (session.user.role === "ADMIN") return session;
@@ -72,8 +76,8 @@ export async function requireMemberAccess(memberId: string) {
     where: { id: memberId },
     select: { userId: true, guardianUserId: true },
   });
-  const isSelf = session.user.role === "MEMBER" && member?.userId === session.user.id;
-  const isGuardian = session.user.role === "GUARDIAN" && member?.guardianUserId === session.user.id;
+  const isSelf = member?.userId === session.user.id;
+  const isGuardian = member?.guardianUserId === session.user.id;
   if (isSelf || isGuardian) return session;
 
   throw new ForbiddenError("Brak dostępu do tego konta.");
@@ -110,18 +114,31 @@ export async function requireOwnsSession(sessionId: string) {
   throw new ForbiddenError("Brak dostępu do tych zajęć.");
 }
 
-// Lista Member, w imieniu których zalogowany użytkownik może działać w /app -
-// dla MEMBER to on sam, dla GUARDIAN wszystkie jego dzieci.
-export async function getAccessibleMembers() {
+export type MemberRelation = "self" | "child";
+export type AccessibleMember = Member & { relation: MemberRelation };
+
+// Lista Member, w imieniu których zalogowany użytkownik może działać w /app.
+// Zwraca WŁASNĄ kartotekę (jeśli sam trenuje) ORAZ wszystkie dzieci, których
+// jest opiekunem - dlatego rodzic-klubowicz widzi w jednym miejscu siebie i
+// dziecko. Każdy wpis niesie relację ("self"/"child"), żeby grafik mógł
+// oznaczyć zajęcia dziecka jako dziecka. Własna kartoteka zawsze pierwsza.
+export async function getAccessibleMembers(): Promise<AccessibleMember[]> {
   const session = await requireRole("MEMBER", "GUARDIAN");
 
-  if (session.user.role === "MEMBER") {
-    const member = await prisma.member.findUnique({ where: { userId: session.user.id } });
-    return member ? [member] : [];
-  }
+  const [own, children] = await Promise.all([
+    prisma.member.findUnique({ where: { userId: session.user.id } }),
+    prisma.member.findMany({
+      where: { guardianUserId: session.user.id },
+      orderBy: { firstName: "asc" },
+    }),
+  ]);
 
-  return prisma.member.findMany({
-    where: { guardianUserId: session.user.id },
-    orderBy: { firstName: "asc" },
-  });
+  const result: AccessibleMember[] = [];
+  if (own) result.push({ ...own, relation: "self" });
+  for (const child of children) {
+    // Teoretyczny brzeg: gdyby ktoś był opiekunem samego siebie, nie dublujemy.
+    if (child.id === own?.id) continue;
+    result.push({ ...child, relation: "child" });
+  }
+  return result;
 }

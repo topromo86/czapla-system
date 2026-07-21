@@ -4,10 +4,18 @@ import { calculateAge } from "@/lib/domain/booking";
 
 export const PASSWORD_MIN_LENGTH = 8;
 
-// Wiek graniczny samodzielnej rejestracji. Osoby niepełnoletnie zakłada klub
-// albo opiekun (rola GUARDIAN) - samodzielne konto małoletniego byłoby bez
-// nadzoru opiekuna, którego wymaga cała ścieżka "moje dziecko".
+// Próg pełnoletności. Osoba poniżej może założyć konto samodzielnie, ale
+// wchodzi ono w stan "oczekuje na zatwierdzenie" (ApprovalStatus.PENDING) i
+// klub musi je zaakceptować, zanim cokolwiek zarezerwuje. Dorosły rejestruje
+// się bez tego kroku. Patrz [[requiresApproval]] i booking.ts (NOT_APPROVED).
 export const SELF_REGISTER_MIN_AGE = 18;
+
+// Czy samodzielna rejestracja tej osoby wymaga zatwierdzenia przez admina.
+// Jedno miejsce reguły "nieletni = zatwierdzenie", używane i przez UI (żeby
+// od razu ostrzec), i przez akcje serwerowe (żeby ustawić PENDING).
+export function requiresApproval(birthDate: Date, now: Date): boolean {
+  return calculateAge(birthDate, now) < SELF_REGISTER_MIN_AGE;
+}
 
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
@@ -41,7 +49,6 @@ export type RegistrationError =
   | "MISSING_FIELDS"
   | "INVALID_EMAIL"
   | "INVALID_BIRTHDATE"
-  | "TOO_YOUNG"
   | "PASSWORD_MISMATCH"
   | { password: PasswordError };
 
@@ -75,10 +82,12 @@ export function validateRegistration(
   if (input.sex !== "MALE" && input.sex !== "FEMALE") return "MISSING_FIELDS";
   if (!isValidEmail(input.email)) return "INVALID_EMAIL";
 
+  // Osoba niepełnoletnia MOŻE zarejestrować się sama - konto trafia wtedy do
+  // zatwierdzenia przez klub (patrz requiresApproval + akcja rejestracji).
+  // Tu pilnujemy tylko, że data urodzenia jest realna.
   if (Number.isNaN(input.birthDate.getTime()) || input.birthDate > now) {
     return "INVALID_BIRTHDATE";
   }
-  if (calculateAge(input.birthDate, now) < SELF_REGISTER_MIN_AGE) return "TOO_YOUNG";
 
   const passwordError = validatePassword(input.password);
   if (passwordError) return { password: passwordError };
@@ -90,7 +99,7 @@ export function validateRegistration(
   return null;
 }
 
-export type ProfileError = "MISSING_FIELDS" | "INVALID_BIRTHDATE" | "TOO_YOUNG";
+export type ProfileError = "MISSING_FIELDS" | "INVALID_BIRTHDATE";
 
 export type ProfileInput = {
   firstName: string;
@@ -103,7 +112,8 @@ export type ProfileInput = {
 
 // Dokończenie profilu po logowaniu Google: tożsamość (e-mail, hasło) daje już
 // Google, więc zostają pola, których nie zna - a których wymaga kartoteka.
-// Ta sama reguła wieku co przy rejestracji: samodzielnie tylko pełnoletni.
+// Nieletni też może dokończyć profil; konto trafia do zatwierdzenia (tak samo
+// jak przy rejestracji formularzem, patrz requiresApproval).
 export function validateProfile(input: ProfileInput, now: Date): ProfileError | null {
   if (
     !input.firstName ||
@@ -117,6 +127,5 @@ export function validateProfile(input: ProfileInput, now: Date): ProfileError | 
   if (Number.isNaN(input.birthDate.getTime()) || input.birthDate > now) {
     return "INVALID_BIRTHDATE";
   }
-  if (calculateAge(input.birthDate, now) < SELF_REGISTER_MIN_AGE) return "TOO_YOUNG";
   return null;
 }

@@ -27,6 +27,7 @@ import {
 const RATING_DELAY_MS = 3_600_000;
 
 const ERROR_MESSAGES: Record<string, string> = {
+  NOT_APPROVED: "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
   ALREADY_BOOKED: "Jesteś już zapisany na te zajęcia.",
   SESSION_CANCELLED: "Te zajęcia zostały odwołane.",
   ALREADY_STARTED: "Te zajęcia już się rozpoczęły.",
@@ -136,6 +137,26 @@ export default async function SchedulePage({
     take: 20,
   });
 
+  // Przegląd rodzinny: gdy do konta należy więcej niż jedna osoba (rodzic +
+  // dziecko/dzieci), pokazujemy najbliższe zajęcia wszystkich w jednym miejscu,
+  // a zajęcia dziecka wyraźnie oznaczamy. To odpowiedź na "rodzic widzi swoje
+  // zajęcia oraz dziecka, oznaczone jako zajęcia dziecka". Widok tylko do
+  // odczytu - zapisy i odwołania robi się w widoku danej osoby (przełącznik).
+  const familyBookings =
+    members.length > 1
+      ? await prisma.booking.findMany({
+          where: {
+            memberId: { in: members.map((m) => m.id) },
+            status: { in: ["BOOKED", "WAITLIST"] },
+            session: { startsAt: { gte: now }, status: { not: "CANCELLED" } },
+          },
+          include: { session: { include: { trainer: { include: { user: true } } } } },
+          orderBy: { session: { startsAt: "asc" } },
+          take: 30,
+        })
+      : [];
+  const memberById = new Map(members.map((m) => [m.id, m]));
+
   // Sugestie kolejnych zajęć z historii obecności. Osobne zapytania od
   // plannera, bo patrzymy szerzej: na wszystkie lokalizacje i cały horyzont
   // zapisów, a nie tylko na oglądany tydzień i wybrany filtr.
@@ -230,9 +251,50 @@ export default async function SchedulePage({
               }`}
             >
               {m.firstName}
+              {m.relation === "child" ? (
+                <span className="text-muted-brand ml-1 text-xs">(dziecko)</span>
+              ) : null}
             </Link>
           ))}
         </div>
+      ) : null}
+
+      {familyBookings.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Najbliższe zajęcia rodziny
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {familyBookings.map((b) => {
+              const owner = memberById.get(b.memberId);
+              const isChild = owner?.relation === "child";
+              return (
+                <li
+                  key={b.id}
+                  className={`rounded-md border p-3 ${
+                    isChild ? "border-amber/50 bg-amber/5" : "border-line bg-surface"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-text font-medium">{b.session.name}</p>
+                    <span
+                      className={`font-mono text-xs ${isChild ? "text-amber" : "text-muted-brand"}`}
+                    >
+                      {isChild ? `Dziecko: ${owner?.firstName}` : "Ty"}
+                    </span>
+                  </div>
+                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                    {formatDayTime(b.session.startsAt)} · {b.session.trainer.user.name}
+                    {b.status === "WAITLIST" ? " · lista rezerwowa" : ""}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-muted-brand text-xs">
+            Zapisy i odwołania dla każdej osoby zrobisz, przełączając się na nią powyżej.
+          </p>
+        </section>
       ) : null}
 
       <div className="flex flex-col gap-2">

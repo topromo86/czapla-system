@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { calculateAge } from "@/lib/domain/booking";
-import { validateProfile, type ProfileError } from "@/lib/domain/registration";
+import { requiresApproval, validateProfile, type ProfileError } from "@/lib/domain/registration";
 import { logActivity } from "@/lib/services/activity";
 import type { Sex } from "@/app/generated/prisma/client";
 
@@ -13,8 +13,6 @@ export type ProfileState = { error?: string };
 const ERROR_MESSAGE: Record<ProfileError, string> = {
   MISSING_FIELDS: "Uzupełnij wszystkie pola.",
   INVALID_BIRTHDATE: "Podaj poprawną datę urodzenia.",
-  TOO_YOUNG:
-    "Profil samodzielnie zakłada osoba pełnoletnia. Dla dziecka konto zakłada klub lub opiekun.",
 };
 
 export async function completeProfileAction(
@@ -56,6 +54,7 @@ export async function completeProfileAction(
   }
 
   const isMinor = calculateAge(birthDate, now) < 18;
+  const pendingApproval = requiresApproval(birthDate, now);
 
   await prisma.$transaction(async (tx) => {
     const member = await tx.member.create({
@@ -66,6 +65,7 @@ export async function completeProfileAction(
         email: session.user.email ?? null,
         birthDate,
         isMinor,
+        approvalStatus: pendingApproval ? "PENDING" : "APPROVED",
         sex: sex as Sex,
         homeLocationId,
         ownerTrainerId,
@@ -76,7 +76,9 @@ export async function completeProfileAction(
       actorUserId: session.user.id,
       action: "MEMBER_CREATED",
       memberId: member.id,
-      summary: `Dokończenie profilu (konto Google): ${firstName} ${lastName} (opiekun: ${trainer.id})`,
+      summary: `Dokończenie profilu (konto Google): ${firstName} ${lastName} (opiekun: ${trainer.id})${
+        pendingApproval ? " - NIELETNI, oczekuje na zatwierdzenie" : ""
+      }`,
     });
   });
 

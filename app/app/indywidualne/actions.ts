@@ -70,6 +70,7 @@ export async function bookIndividualSlotAction(formData: FormData) {
   // trening indywidualny nie jest furtką obok CLAUDE.md reguła 9.
   const eligibility = evaluateBookingEligibility({
     now,
+    memberApproved: member.approvalStatus === "APPROVED",
     memberBirthDate: member.birthDate,
     memberIsMinor: member.isMinor,
     grantedConsentKeys: new Set(consents.map((c) => c.consentType.key)),

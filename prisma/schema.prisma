@@ -49,6 +49,7 @@ model User {
   notificationPreferences NotificationPreference[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  guardianLinkRequests    GuardianLinkRequest[]    @relation("GuardianLinkRequester")
 
   trainer              Trainer?      @relation("TrainerAccount")
   memberAccount        Member?       @relation("MemberAccount")
@@ -111,11 +112,11 @@ model Trainer {
   user     User     @relation("TrainerAccount", fields: [userId], references: [id], onDelete: Restrict)
   location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
-  ownedMembers           Member[]        @relation("OwnerTrainer")
-  sparringClearedMembers Member[]        @relation("SparringClearer")
+  ownedMembers           Member[]             @relation("OwnerTrainer")
+  sparringClearedMembers Member[]             @relation("SparringClearer")
   classTemplates         ClassTemplate[]
-  sessions               Session[]       @relation("SessionTrainer")
-  substituteSessions     Session[]       @relation("SessionSubstitute")
+  sessions               Session[]            @relation("SessionTrainer")
+  substituteSessions     Session[]            @relation("SessionSubstitute")
   retentionTasks         RetentionTask[]
   scores                 TrainerScore[]
   availabilityWindows    AvailabilityWindow[]
@@ -141,30 +142,47 @@ enum MemberStatus {
   CHURNED
 }
 
+// Stan akceptacji konta. Domyślnie APPROVED - dotyczy wszystkich kartotek
+// zakładanych przez klub oraz samodzielnej rejestracji osób pełnoletnich.
+// Samodzielna rejestracja osoby niepełnoletniej ląduje w PENDING i wymaga
+// zatwierdzenia przez admina, zanim będzie mogła cokolwiek zarezerwować.
+// REJECTED to świadoma odmowa - konto zostaje, ale pozostaje zablokowane.
+enum ApprovalStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
 enum Sex {
   MALE
   FEMALE
 }
 
 model Member {
-  id                         String       @id @default(cuid())
-  userId                     String?      @unique
+  id                         String         @id @default(cuid())
+  userId                     String?        @unique
   guardianUserId             String?
   ownerTrainerId             String
   homeLocationId             String
   firstName                  String
   lastName                   String
   email                      String? // kontakt na kartotece; osobny od loginu (User.email), nie musi byc unikalny
-  birthDate                  DateTime     @db.Date
+  birthDate                  DateTime       @db.Date
   isMinor                    Boolean // wyliczane z birthDate, przeliczane jobem
   sex                        Sex? // nieobowiązkowe - nieznane dla ręcznie dodanych starych kartotek
   weightKg                   Float?
-  level                      MemberLevel  @default(WHITE)
+  level                      MemberLevel    @default(WHITE)
   goal                       String?
-  status                     MemberStatus @default(ACTIVE)
-  joinedAt                   DateTime?    @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta. null = jeszcze nie dołączył(a)
-  churnedAt                  DateTime?    @db.Timestamptz
-  sparringClearedAt          DateTime?    @db.Timestamptz
+  status                     MemberStatus   @default(ACTIVE)
+  // Osobne od status: to nie retencja, tylko brama wejścia. Kartoteki zakładane
+  // przez klub są APPROVED od razu; samodzielna rejestracja nieletniego czeka
+  // w PENDING na zatwierdzenie admina. Kto zatwierdził i kiedy - do audytu.
+  approvalStatus             ApprovalStatus @default(APPROVED)
+  approvedAt                 DateTime?      @db.Timestamptz
+  approvedByUserId           String?
+  joinedAt                   DateTime?      @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta. null = jeszcze nie dołączył(a)
+  churnedAt                  DateTime?      @db.Timestamptz
+  sparringClearedAt          DateTime?      @db.Timestamptz
   sparringClearedByTrainerId String?
 
   createdAt DateTime @default(now()) @db.Timestamptz
@@ -176,23 +194,25 @@ model Member {
   homeLocation             Location @relation(fields: [homeLocationId], references: [id], onDelete: Restrict)
   sparringClearedByTrainer Trainer? @relation("SparringClearer", fields: [sparringClearedByTrainerId], references: [id], onDelete: SetNull)
 
-  bookings          Booking[]
-  attendances       Attendance[]
-  notes             Note[]
-  onboardingSteps   OnboardingStep[]
-  retentionTasks    RetentionTask[]
-  churnSurveys      ChurnSurvey[]
-  ratings           Rating[]
-  passes            Pass[]
-  payments          Payment[]
-  consents          Consent[]
-  referralsMade     Referral[]       @relation("ReferralReferrer")
-  referralsReceived Referral[]       @relation("ReferralReferee")
-  activityLogs      ActivityLog[]
-  measurements      Measurement[]
-  absenceReports    AbsenceReport[]
+  bookings             Booking[]
+  attendances          Attendance[]
+  notes                Note[]
+  onboardingSteps      OnboardingStep[]
+  retentionTasks       RetentionTask[]
+  churnSurveys         ChurnSurvey[]
+  ratings              Rating[]
+  passes               Pass[]
+  payments             Payment[]
+  consents             Consent[]
+  referralsMade        Referral[]            @relation("ReferralReferrer")
+  referralsReceived    Referral[]            @relation("ReferralReferee")
+  activityLogs         ActivityLog[]
+  measurements         Measurement[]
+  absenceReports       AbsenceReport[]
+  guardianLinkRequests GuardianLinkRequest[] @relation("GuardianLinkMember")
 
   @@index([ownerTrainerId, status])
+  @@index([approvalStatus])
   @@index([status, joinedAt])
   @@index([guardianUserId])
 }
@@ -212,11 +232,11 @@ enum SessionStatus {
 // zajęć. To wypłata dla konkretnego człowieka, po cichu zmieniona kwota za
 // zeszły miesiąc byłaby realnym problemem, nie kosmetyką.
 model TrainerRate {
-  id           String      @id @default(cuid())
-  trainerId    String
-  kind         SessionKind
-  amountGross  Int // grosze za jedne poprowadzone zajęcia
-  validFrom    DateTime    @db.Timestamptz
+  id          String      @id @default(cuid())
+  trainerId   String
+  kind        SessionKind
+  amountGross Int // grosze za jedne poprowadzone zajęcia
+  validFrom   DateTime    @db.Timestamptz
 
   createdAt DateTime @default(now()) @db.Timestamptz
 
@@ -234,15 +254,15 @@ enum CostKind {
 // Koszty klubu: stałe miesięczne (czynsz, media) i jednorazowe (sprzęt,
 // naprawa). Widoczne wyłącznie dla właściciela.
 model ClubCost {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   amountGross Int // grosze
   kind        CostKind
   // RECURRING_MONTHLY: pierwszy miesiąc obowiązywania. ONE_OFF: data poniesienia.
-  startsOn    DateTime @db.Date
+  startsOn    DateTime  @db.Date
   // Tylko dla stałych: ostatni miesiąc obowiązywania, null = nadal obowiązuje.
   endsOn      DateTime? @db.Date
-  note        String?  @db.Text
+  note        String?   @db.Text
   locationId  String?
 
   createdAt DateTime @default(now()) @db.Timestamptz
@@ -302,10 +322,10 @@ model ClubSettings {
 // Osobna tabela, a nie enum - właściciel dodaje i zmienia rodzaje sam, bez
 // migracji bazy. Po tym polu działa filtrowanie plannera.
 model ClassCategory {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  sortOrder Int     @default(0)
-  active    Boolean @default(true)
+  id           String  @id @default(cuid())
+  name         String  @unique
+  sortOrder    Int     @default(0)
+  active       Boolean @default(true)
   // Rodzaj przypisywany automatycznie treningom indywidualnym - dokładnie
   // jeden taki wiersz, pilnowane częściowym indeksem unikalnym w migracji.
   isIndividual Boolean @default(false)
@@ -387,7 +407,7 @@ enum SubstituteStatus {
 }
 
 model Session {
-  id                  String        @id @default(cuid())
+  id                  String  @id @default(cuid())
   templateId          String?
   locationId          String
   trainerId           String
@@ -404,13 +424,13 @@ model Session {
   // w bazie, bo od niego zależy, czy pokazujemy przycisk odmowy.
   substituteByAdmin       Boolean           @default(false)
   substituteDeclineReason String?
-  name                String
-  kind                SessionKind   @default(GROUP)
-  startsAt            DateTime      @db.Timestamptz
-  endsAt              DateTime      @db.Timestamptz
-  capacity            Int
-  status              SessionStatus @default(SCHEDULED)
-  cancelledReason     String?
+  name                    String
+  kind                    SessionKind       @default(GROUP)
+  startsAt                DateTime          @db.Timestamptz
+  endsAt                  DateTime          @db.Timestamptz
+  capacity                Int
+  status                  SessionStatus     @default(SCHEDULED)
+  cancelledReason         String?
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
@@ -442,9 +462,9 @@ model Booking {
 
   // Powód odwołania podany przez klienta - trener widzi na rozpisce, czemu
   // kogoś nie ma, zamiast pustego miejsca.
-  absenceReason      AbsenceReason?
-  cancellationNote   String?        @db.Text
-  absenceReportId    String?
+  absenceReason    AbsenceReason?
+  cancellationNote String?        @db.Text
+  absenceReportId  String?
 
   // Karnet, z którego realnie zdjęto wejście przy spóźnionym odwołaniu.
   // Zapisany wprost, żeby zwrot trafił dokładnie tam, skąd wejście zeszło -
@@ -453,11 +473,11 @@ model Booking {
   entryRefundedAt       DateTime? @db.Timestamptz
   entryRefundedByUserId String?
 
-  session       Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  member        Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  absenceReport AbsenceReport? @relation(fields: [absenceReportId], references: [id], onDelete: SetNull)
-  chargedPass   Pass?          @relation("BookingChargedPass", fields: [chargedPassId], references: [id], onDelete: SetNull)
-  entryRefundedBy User?        @relation("BookingEntryRefundedBy", fields: [entryRefundedByUserId], references: [id], onDelete: SetNull)
+  session         Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member          Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  absenceReport   AbsenceReport? @relation(fields: [absenceReportId], references: [id], onDelete: SetNull)
+  chargedPass     Pass?          @relation("BookingChargedPass", fields: [chargedPassId], references: [id], onDelete: SetNull)
+  entryRefundedBy User?          @relation("BookingEntryRefundedBy", fields: [entryRefundedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, memberId])
   @@index([memberId])
@@ -917,4 +937,37 @@ model NotificationLog {
 
   @@unique([userId, type, subjectId])
   @@index([sentAt])
+}
+
+// ---------------------------------------------------------------------------
+// Powiązanie rodzic - dziecko
+// ---------------------------------------------------------------------------
+
+enum LinkRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Prośba rodzica o wgląd w grafik dziecka. Dostęp do danych dziecka jest
+// wrażliwy, więc rodzic tylko PROSI (podaje e-mail dziecka), a powiązanie
+// aktywuje admin - dopiero zatwierdzenie ustawia Member.guardianUserId.
+// childEmail to wpis rodzica; memberId dowiązujemy, gdy uda się dopasować
+// kartotekę po tym adresie (login dziecka albo e-mail kontaktowy).
+model GuardianLinkRequest {
+  id               String            @id @default(cuid())
+  requesterUserId  String
+  childEmail       String
+  memberId         String?
+  status           LinkRequestStatus @default(PENDING)
+  note             String?
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  resolvedAt       DateTime?         @db.Timestamptz
+  resolvedByUserId String?
+
+  requester User    @relation("GuardianLinkRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  member    Member? @relation("GuardianLinkMember", fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([requesterUserId])
 }

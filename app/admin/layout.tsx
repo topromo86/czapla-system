@@ -16,6 +16,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
     items: [
       { href: "/admin", label: "Karnety" },
       { href: "/admin/klienci/nowy", label: "Dodaj klienta" },
+      { href: "/admin/zatwierdzenia", label: "Zatwierdzenia" },
     ],
   },
   {

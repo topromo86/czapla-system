@@ -111,6 +111,7 @@ export type SessionLike = {
 
 export type BookingEligibilityInput = {
   now: Date;
+  memberApproved: boolean;
   memberBirthDate: Date;
   memberIsMinor: boolean;
   grantedConsentKeys: ReadonlySet<string>;
@@ -120,6 +121,7 @@ export type BookingEligibilityInput = {
 };
 
 export type BookingRejectionReason =
+  | "NOT_APPROVED"
   | "SESSION_CANCELLED"
   | "ALREADY_STARTED"
   | "MISSING_CONSENTS"
@@ -134,6 +136,12 @@ export type BookingEligibilityResult =
 export function evaluateBookingEligibility(
   input: BookingEligibilityInput,
 ): BookingEligibilityResult {
+  // Konto niezatwierdzone (samodzielna rejestracja nieletniego czekająca na
+  // akceptację klubu, albo odrzucona) nie rezerwuje niczego - to brama wejścia,
+  // sprawdzana server-side tak samo jak zgody.
+  if (!input.memberApproved) {
+    return { ok: false, reason: "NOT_APPROVED" };
+  }
   if (input.session.status === "CANCELLED") {
     return { ok: false, reason: "SESSION_CANCELLED" };
   }

@@ -245,6 +245,7 @@ describe("evaluateBookingEligibility", () => {
 
   const baseInput = {
     now,
+    memberApproved: true,
     memberBirthDate: new Date("1990-01-01"),
     memberIsMinor: false,
     grantedConsentKeys: allConsents,
@@ -256,6 +257,11 @@ describe("evaluateBookingEligibility", () => {
   it("ok, bez listy rezerwowej gdy jest miejsce", () => {
     const result = evaluateBookingEligibility(baseInput);
     expect(result).toEqual({ ok: true, willWaitlist: false });
+  });
+
+  it("odrzuca konto niezatwierdzone (przed wszystkim innym)", () => {
+    const result = evaluateBookingEligibility({ ...baseInput, memberApproved: false });
+    expect(result).toEqual({ ok: false, reason: "NOT_APPROVED" });
   });
 
   it("ok z listą rezerwową gdy komplet", () => {
