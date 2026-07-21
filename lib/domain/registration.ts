@@ -42,6 +42,7 @@ export type RegistrationError =
   | "INVALID_EMAIL"
   | "INVALID_BIRTHDATE"
   | "TOO_YOUNG"
+  | "PASSWORD_MISMATCH"
   | { password: PasswordError };
 
 export type RegistrationInput = {
@@ -49,6 +50,7 @@ export type RegistrationInput = {
   lastName: string;
   email: string;
   password: string;
+  confirmPassword: string;
   birthDate: Date;
   sex: string;
   homeLocationId: string;
@@ -80,6 +82,10 @@ export function validateRegistration(
 
   const passwordError = validatePassword(input.password);
   if (passwordError) return { password: passwordError };
+
+  // Sprawdzamy zgodność dopiero po walidacji siły - inaczej "hasła się nie
+  // zgadzają" przy dwóch identycznych, ale za krótkich hasłach myliłoby.
+  if (input.password !== input.confirmPassword) return "PASSWORD_MISMATCH";
 
   return null;
 }

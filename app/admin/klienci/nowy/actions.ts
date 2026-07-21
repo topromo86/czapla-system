@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { calculateAge } from "@/lib/domain/booking";
+import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { logActivity } from "@/lib/services/activity";
 import { registerReferralIfCodeProvided } from "@/lib/services/referral";
 import type { Sex } from "@/app/generated/prisma/client";
@@ -18,6 +19,7 @@ export async function createMemberAction(formData: FormData) {
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").trim();
   const birthDateStr = String(formData.get("birthDate") ?? "");
   const sex = String(formData.get("sex") ?? "");
   const weightKgRaw = formData.get("weightKg");
@@ -35,6 +37,12 @@ export async function createMemberAction(formData: FormData) {
     throw new Error("Nieprawidłowa płeć.");
   }
 
+  // E-mail nieobowiązkowy, ale jeśli podany - musi być poprawny.
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  if (email && !isValidEmail(email)) {
+    throw new Error("Podaj poprawny adres e-mail.");
+  }
+
   const birthDate = new Date(birthDateStr);
   const now = new Date();
   if (Number.isNaN(birthDate.getTime()) || birthDate > now) {
@@ -48,6 +56,7 @@ export async function createMemberAction(formData: FormData) {
       data: {
         firstName,
         lastName,
+        email,
         birthDate,
         isMinor,
         sex: sex as Sex,

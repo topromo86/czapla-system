@@ -55,6 +55,16 @@ export default async function NewClientPage() {
         </div>
 
         <div>
+          <Label htmlFor="email">E-mail (opcjonalnie)</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            className="border-line bg-surface-2"
+          />
+        </div>
+
+        <div>
           <Label htmlFor="weightKg">Waga (kg, opcjonalnie)</Label>
           <Input
             id="weightKg"

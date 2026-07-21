@@ -45,9 +45,11 @@ export async function resetPasswordAction(
 ): Promise<ResetState> {
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   const passwordError = validatePassword(password);
   if (passwordError) return { error: PASSWORD_ERROR_MESSAGE[passwordError] };
+  if (password !== confirmPassword) return { error: "Hasła nie są takie same." };
 
   const result = await resetPassword(token, await hashPassword(password));
   if (result === "INVALID_OR_EXPIRED") {

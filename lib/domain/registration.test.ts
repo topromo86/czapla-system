@@ -20,6 +20,7 @@ function baseInput(over: Partial<RegistrationInput> = {}): RegistrationInput {
     lastName: "Kowalski",
     email: "jan@example.com",
     password: "haslo1234",
+    confirmPassword: "haslo1234",
     birthDate: adultBirthDate(),
     sex: "MALE",
     homeLocationId: "loc1",
@@ -92,7 +93,24 @@ describe("validateRegistration", () => {
   });
 
   it("zwraca błąd hasła jako obiekt", () => {
-    const result = validateRegistration(baseInput({ password: "abc" }), NOW);
+    const result = validateRegistration(baseInput({ password: "abc", confirmPassword: "abc" }), NOW);
+    expect(result).toEqual({ password: "TOO_SHORT" });
+  });
+
+  it("odrzuca niezgodne powtórzenie hasła", () => {
+    const result = validateRegistration(
+      baseInput({ password: "haslo1234", confirmPassword: "haslo9999" }),
+      NOW,
+    );
+    expect(result).toBe("PASSWORD_MISMATCH");
+  });
+
+  // Zbyt krótkie, ale zgodne hasło ma zgłosić słabość, nie niezgodność.
+  it("słabość hasła ma pierwszeństwo przed zgodnością", () => {
+    const result = validateRegistration(
+      baseInput({ password: "abc", confirmPassword: "xyz" }),
+      NOW,
+    );
     expect(result).toEqual({ password: "TOO_SHORT" });
   });
 });

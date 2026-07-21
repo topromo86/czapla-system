@@ -153,6 +153,7 @@ model Member {
   homeLocationId             String
   firstName                  String
   lastName                   String
+  email                      String? // kontakt na kartotece; osobny od loginu (User.email), nie musi byc unikalny
   birthDate                  DateTime     @db.Date
   isMinor                    Boolean // wyliczane z birthDate, przeliczane jobem
   sex                        Sex? // nieobowiązkowe - nieznane dla ręcznie dodanych starych kartotek

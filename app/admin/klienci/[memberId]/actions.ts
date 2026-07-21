@@ -71,6 +71,7 @@ export async function updateMemberAction(formData: FormData) {
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").trim();
   const birthDateStr = String(formData.get("birthDate") ?? "");
   const sex = String(formData.get("sex") ?? "");
   const weightKgRaw = formData.get("weightKg");
@@ -93,6 +94,11 @@ export async function updateMemberAction(formData: FormData) {
     throw new Error("Nieprawidłowy status.");
   }
 
+  const memberEmail = emailRaw ? normalizeEmail(emailRaw) : null;
+  if (memberEmail && !isValidEmail(memberEmail)) {
+    throw new Error("Podaj poprawny adres e-mail.");
+  }
+
   const birthDate = new Date(birthDateStr);
   const now = new Date();
   if (Number.isNaN(birthDate.getTime()) || birthDate > now) {
@@ -109,6 +115,7 @@ export async function updateMemberAction(formData: FormData) {
       data: {
         firstName,
         lastName,
+        email: memberEmail,
         birthDate,
         isMinor,
         sex: sex as Sex,

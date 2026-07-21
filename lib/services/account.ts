@@ -36,7 +36,7 @@ export async function provisionLoginAccount(input: {
 
   const member = await prisma.member.findUnique({
     where: { id: input.memberId },
-    select: { id: true, userId: true, firstName: true, lastName: true },
+    select: { id: true, userId: true, firstName: true, lastName: true, email: true },
   });
   if (!member) return { ok: false, error: "MEMBER_NOT_FOUND" };
   if (member.userId) return { ok: false, error: "ALREADY_HAS_ACCOUNT" };
@@ -56,7 +56,12 @@ export async function provisionLoginAccount(input: {
         passwordHash,
       },
     });
-    await tx.member.update({ where: { id: member.id }, data: { userId: user.id } });
+    await tx.member.update({
+      where: { id: member.id },
+      // Uzupełniamy kontakt na kartotece tym adresem, jeśli był pusty - żeby
+      // login i kontakt się nie rozjechały od startu.
+      data: { userId: user.id, ...(member.email ? {} : { email }) },
+    });
   });
 
   const emailed = await sendEmail(

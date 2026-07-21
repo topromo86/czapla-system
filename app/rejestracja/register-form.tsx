@@ -159,6 +159,21 @@ export function RegisterForm({
             </p>
           </div>
 
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="confirmPassword" className={labelClass}>
+              Powtórz hasło
+            </Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              className={fieldClass}
+            />
+          </div>
+
           {state.error ? (
             <p role="alert" className="text-red text-sm">
               {state.error}

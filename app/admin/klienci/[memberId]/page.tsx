@@ -225,6 +225,17 @@ export default async function AdminMemberCardPage({
             </div>
           </div>
 
+          <div>
+            <Label htmlFor="email">E-mail (kontakt)</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={member.email ?? ""}
+              className="border-line bg-surface-2"
+            />
+          </div>
+
           <div className="flex gap-3">
             <div className="flex-1">
               <Label htmlFor="birthDate">Data urodzenia</Label>
@@ -410,6 +421,7 @@ export default async function AdminMemberCardPage({
                   name="email"
                   type="email"
                   required
+                  defaultValue={member.email ?? ""}
                   className="border-line bg-surface-2 w-64"
                 />
               </div>

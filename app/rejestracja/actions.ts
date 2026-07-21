@@ -23,6 +23,7 @@ const ERROR_MESSAGE: Record<Exclude<RegistrationError, { password: unknown }>, s
   INVALID_BIRTHDATE: "Podaj poprawną datę urodzenia.",
   TOO_YOUNG:
     "Konto może założyć samodzielnie osoba pełnoletnia. Dla dziecka konto zakłada klub lub opiekun.",
+  PASSWORD_MISMATCH: "Hasła nie są takie same.",
 };
 
 export async function registerAction(
@@ -31,6 +32,7 @@ export async function registerAction(
 ): Promise<RegisterState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   const birthDateStr = String(formData.get("birthDate") ?? "");
@@ -42,7 +44,17 @@ export async function registerAction(
   const birthDate = new Date(birthDateStr);
 
   const validation = validateRegistration(
-    { firstName, lastName, email, password, birthDate, sex, homeLocationId, ownerTrainerId },
+    {
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+      birthDate,
+      sex,
+      homeLocationId,
+      ownerTrainerId,
+    },
     now,
   );
   if (validation) {
@@ -85,6 +97,7 @@ export async function registerAction(
         userId: user.id,
         firstName,
         lastName,
+        email,
         birthDate,
         isMinor,
         sex: sex as Sex,
