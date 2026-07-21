@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PASSWORD_MIN_LENGTH } from "@/lib/domain/registration";
+import { GoogleButton } from "../google-button";
 import { registerAction, type RegisterState } from "./actions";
 
 const initialState: RegisterState = {};
@@ -20,9 +21,11 @@ type Option = { id: string; name: string };
 export function RegisterForm({
   locations,
   trainers,
+  googleEnabled,
 }: {
   locations: Option[];
   trainers: Option[];
+  googleEnabled?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(registerAction, initialState);
 
@@ -191,6 +194,19 @@ export function RegisterForm({
             </Link>
           </p>
         </form>
+
+        {googleEnabled ? (
+          <>
+            <div className="my-4 flex items-center gap-3">
+              <span className="border-line h-px flex-1 border-t" />
+              <span className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
+                albo
+              </span>
+              <span className="border-line h-px flex-1 border-t" />
+            </div>
+            <GoogleButton label="Zarejestruj przez Google" />
+          </>
+        ) : null}
       </CardContent>
     </Card>
   );

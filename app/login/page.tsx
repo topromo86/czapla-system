@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { isGoogleConfigured } from "@/auth";
 import { ThemeToggle } from "../theme-toggle";
 import { LoginForm } from "./login-form";
 
@@ -30,7 +31,7 @@ export default async function LoginPage({
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <LoginForm notice={notice} />
+      <LoginForm notice={notice} googleEnabled={isGoogleConfigured()} />
       <p className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
         v{process.env.npm_package_version ?? "0.1.0"} · built by{" "}
         <a

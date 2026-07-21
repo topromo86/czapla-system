@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, isGoogleConfigured } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { RegisterForm } from "./register-form";
 
@@ -27,6 +27,7 @@ export default async function RegisterPage() {
       <RegisterForm
         locations={locations}
         trainers={trainers.map((t) => ({ id: t.id, name: t.user.name }))}
+        googleEnabled={isGoogleConfigured()}
       />
     </main>
   );

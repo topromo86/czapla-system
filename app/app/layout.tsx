@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { getAccessibleMembers, requireSession } from "@/lib/auth/guard";
+import { prisma } from "@/lib/prisma";
 import { BrandHeaderLogo } from "../brand-header-logo";
 import { HeaderNav, type HeaderNavGroup } from "../header-nav";
 import { PAGE_SHELL } from "../shell";
@@ -8,6 +10,18 @@ import { LogoutButton } from "../logout-button";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+
+  // Konto MEMBER bez kartoteki to świeże logowanie Google przed dokończeniem
+  // profilu - kierujemy tam, zamiast pokazywać pustą aplikację. Konta zakładane
+  // formularzem albo przez klub zawsze mają kartotekę, więc ich to nie dotyczy.
+  if (session.user.role === "MEMBER") {
+    const hasMember = await prisma.member.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+    if (!hasMember) redirect("/dokoncz-profil");
+  }
+
   const members = await getAccessibleMembers();
 
   // Zapisy zostają na jedno kliknięcie - to po nie klient wchodzi do apki.

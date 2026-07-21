@@ -1,0 +1,84 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth/guard";
+import { calculateAge } from "@/lib/domain/booking";
+import { validateProfile, type ProfileError } from "@/lib/domain/registration";
+import { logActivity } from "@/lib/services/activity";
+import type { Sex } from "@/app/generated/prisma/client";
+
+export type ProfileState = { error?: string };
+
+const ERROR_MESSAGE: Record<ProfileError, string> = {
+  MISSING_FIELDS: "Uzupełnij wszystkie pola.",
+  INVALID_BIRTHDATE: "Podaj poprawną datę urodzenia.",
+  TOO_YOUNG:
+    "Profil samodzielnie zakłada osoba pełnoletnia. Dla dziecka konto zakłada klub lub opiekun.",
+};
+
+export async function completeProfileAction(
+  _prev: ProfileState,
+  formData: FormData,
+): Promise<ProfileState> {
+  const session = await requireRole("MEMBER");
+
+  // Konto mogło już mieć kartotekę (np. dwa razy otwarte okno) - wtedy nic nie
+  // dublujemy, tylko kierujemy dalej.
+  const existing = await prisma.member.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+  if (existing) redirect("/app");
+
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const sex = String(formData.get("sex") ?? "");
+  const homeLocationId = String(formData.get("homeLocationId") ?? "");
+  const ownerTrainerId = String(formData.get("ownerTrainerId") ?? "");
+  const now = new Date();
+  const birthDate = new Date(String(formData.get("birthDate") ?? ""));
+
+  const validation = validateProfile(
+    { firstName, lastName, birthDate, sex, homeLocationId, ownerTrainerId },
+    now,
+  );
+  if (validation) return { error: ERROR_MESSAGE[validation] };
+
+  // Trener i lokalizacja muszą być realne i aktywne - nie ufamy wartości z
+  // <select>, tak samo jak przy rejestracji.
+  const [trainer, location] = await Promise.all([
+    prisma.trainer.findFirst({ where: { id: ownerTrainerId, active: true } }),
+    prisma.location.findUnique({ where: { id: homeLocationId } }),
+  ]);
+  if (!trainer || !location) {
+    return { error: "Wybierz lokalizację i trenera z listy." };
+  }
+
+  const isMinor = calculateAge(birthDate, now) < 18;
+
+  await prisma.$transaction(async (tx) => {
+    const member = await tx.member.create({
+      data: {
+        userId: session.user.id,
+        firstName,
+        lastName,
+        email: session.user.email ?? null,
+        birthDate,
+        isMinor,
+        sex: sex as Sex,
+        homeLocationId,
+        ownerTrainerId,
+        joinedAt: null,
+      },
+    });
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "MEMBER_CREATED",
+      memberId: member.id,
+      summary: `Dokończenie profilu (konto Google): ${firstName} ${lastName} (opiekun: ${trainer.id})`,
+    });
+  });
+
+  redirect("/app");
+}

@@ -89,3 +89,34 @@ export function validateRegistration(
 
   return null;
 }
+
+export type ProfileError = "MISSING_FIELDS" | "INVALID_BIRTHDATE" | "TOO_YOUNG";
+
+export type ProfileInput = {
+  firstName: string;
+  lastName: string;
+  birthDate: Date;
+  sex: string;
+  homeLocationId: string;
+  ownerTrainerId: string;
+};
+
+// Dokończenie profilu po logowaniu Google: tożsamość (e-mail, hasło) daje już
+// Google, więc zostają pola, których nie zna - a których wymaga kartoteka.
+// Ta sama reguła wieku co przy rejestracji: samodzielnie tylko pełnoletni.
+export function validateProfile(input: ProfileInput, now: Date): ProfileError | null {
+  if (
+    !input.firstName ||
+    !input.lastName ||
+    !input.homeLocationId ||
+    !input.ownerTrainerId ||
+    (input.sex !== "MALE" && input.sex !== "FEMALE")
+  ) {
+    return "MISSING_FIELDS";
+  }
+  if (Number.isNaN(input.birthDate.getTime()) || input.birthDate > now) {
+    return "INVALID_BIRTHDATE";
+  }
+  if (calculateAge(input.birthDate, now) < SELF_REGISTER_MIN_AGE) return "TOO_YOUNG";
+  return null;
+}

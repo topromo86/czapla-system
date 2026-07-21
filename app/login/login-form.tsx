@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleButton } from "../google-button";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm({ notice }: { notice?: string }) {
+export function LoginForm({ notice, googleEnabled }: { notice?: string; googleEnabled?: boolean }) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
 
   return (
@@ -83,6 +84,19 @@ export function LoginForm({ notice }: { notice?: string }) {
             </Link>
           </div>
         </form>
+
+        {googleEnabled ? (
+          <>
+            <div className="my-4 flex items-center gap-3">
+              <span className="border-line h-px flex-1 border-t" />
+              <span className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
+                albo
+              </span>
+              <span className="border-line h-px flex-1 border-t" />
+            </div>
+            <GoogleButton label="Zaloguj przez Google" />
+          </>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -4,7 +4,9 @@ import {
   normalizeEmail,
   SELF_REGISTER_MIN_AGE,
   validatePassword,
+  validateProfile,
   validateRegistration,
+  type ProfileInput,
   type RegistrationInput,
 } from "./registration";
 
@@ -112,5 +114,39 @@ describe("validateRegistration", () => {
       NOW,
     );
     expect(result).toEqual({ password: "TOO_SHORT" });
+  });
+});
+
+describe("validateProfile", () => {
+  function profile(over: Partial<ProfileInput> = {}): ProfileInput {
+    return {
+      firstName: "Jan",
+      lastName: "Kowalski",
+      birthDate: adultBirthDate(),
+      sex: "MALE",
+      homeLocationId: "loc1",
+      ownerTrainerId: "tr1",
+      ...over,
+    };
+  }
+
+  it("przepuszcza kompletny profil", () => {
+    expect(validateProfile(profile(), NOW)).toBeNull();
+  });
+
+  it("wymaga trenera i lokalizacji", () => {
+    expect(validateProfile(profile({ ownerTrainerId: "" }), NOW)).toBe("MISSING_FIELDS");
+    expect(validateProfile(profile({ homeLocationId: "" }), NOW)).toBe("MISSING_FIELDS");
+  });
+
+  it("odrzuca małoletniego", () => {
+    const tooYoung = new Date("2015-01-01T00:00:00Z");
+    expect(validateProfile(profile({ birthDate: tooYoung }), NOW)).toBe("TOO_YOUNG");
+  });
+
+  it("dokładnie na progu wieku przechodzi", () => {
+    const exactly = new Date(NOW);
+    exactly.setUTCFullYear(exactly.getUTCFullYear() - SELF_REGISTER_MIN_AGE);
+    expect(validateProfile(profile({ birthDate: exactly }), NOW)).toBeNull();
   });
 });
