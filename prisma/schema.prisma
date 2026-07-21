@@ -48,6 +48,7 @@ model User {
 
   notificationPreferences NotificationPreference[]
   passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   trainer              Trainer?      @relation("TrainerAccount")
   memberAccount        Member?       @relation("MemberAccount")
@@ -846,6 +847,21 @@ model ActivityLog {
 
 // Token resetu hasła. Trzymamy WYŁĄCZNIE hash tokenu (jak hasła) - wyciek bazy
 // nie może pozwolić na przejęcie kont. Surowy token żyje tylko w linku e-mail.
+// Token potwierdzenia adresu e-mail przy rejestracji. Jak przy resecie hasla:
+// trzymamy tylko hash, surowy token zyje wylacznie w linku.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz
+  usedAt    DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String

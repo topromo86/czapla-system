@@ -37,9 +37,10 @@ export async function createMemberAction(formData: FormData) {
     throw new Error("Nieprawidłowa płeć.");
   }
 
-  // E-mail nieobowiązkowy, ale jeśli podany - musi być poprawny.
-  const email = emailRaw ? normalizeEmail(emailRaw) : null;
-  if (email && !isValidEmail(email)) {
+  // E-mail obowiązkowy - kartoteka bez kontaktu jest niepełna (powiadomienia,
+  // późniejsze założenie konta logowania).
+  const email = normalizeEmail(emailRaw);
+  if (!email || !isValidEmail(email)) {
     throw new Error("Podaj poprawny adres e-mail.");
   }
 

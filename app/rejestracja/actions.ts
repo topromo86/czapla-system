@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,8 +13,17 @@ import {
   type RegistrationError,
 } from "@/lib/domain/registration";
 import { hashPassword } from "@/lib/services/password-reset";
+import { startEmailVerification } from "@/lib/services/email-verification";
 import { logActivity } from "@/lib/services/activity";
 import type { Sex } from "@/app/generated/prisma/client";
+
+// Adres aplikacji z nagłówków - link weryfikacyjny wskazuje na ten sam host.
+async function baseUrl(): Promise<string> {
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
 
 export type RegisterState = { error?: string };
 
@@ -83,7 +93,7 @@ export async function registerAction(
   const passwordHash = await hashPassword(password);
   const isMinor = calculateAge(birthDate, now) < 18; // po walidacji zawsze false, ale spójne z modelem
 
-  await prisma.$transaction(async (tx) => {
+  const createdUserId = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         email,
@@ -112,6 +122,17 @@ export async function registerAction(
       memberId: member.id,
       summary: `Samodzielna rejestracja: ${firstName} ${lastName} (opiekun: ${trainer.id})`,
     });
+    return user.id;
+  });
+
+  // Weryfikacja adresu: link idzie mailem, gdy poczta działa; bez SMTP konto
+  // jest od razu zweryfikowane, żeby brak poczty nie blokował rejestracji.
+  // Poza transakcją - nieudany mail nie może cofnąć założenia konta.
+  await startEmailVerification({
+    userId: createdUserId,
+    email,
+    name: `${firstName} ${lastName}`,
+    baseUrl: await baseUrl(),
   });
 
   try {

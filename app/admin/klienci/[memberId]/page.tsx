@@ -231,6 +231,7 @@ export default async function AdminMemberCardPage({
               id="email"
               name="email"
               type="email"
+              required
               defaultValue={member.email ?? ""}
               className="border-line bg-surface-2"
             />

@@ -55,11 +55,12 @@ export default async function NewClientPage() {
         </div>
 
         <div>
-          <Label htmlFor="email">E-mail (opcjonalnie)</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input
             id="email"
             name="email"
             type="email"
+            required
             className="border-line bg-surface-2"
           />
         </div>

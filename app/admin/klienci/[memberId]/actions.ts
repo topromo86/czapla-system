@@ -94,8 +94,8 @@ export async function updateMemberAction(formData: FormData) {
     throw new Error("Nieprawidłowy status.");
   }
 
-  const memberEmail = emailRaw ? normalizeEmail(emailRaw) : null;
-  if (memberEmail && !isValidEmail(memberEmail)) {
+  const memberEmail = normalizeEmail(emailRaw);
+  if (!memberEmail || !isValidEmail(memberEmail)) {
     throw new Error("Podaj poprawny adres e-mail.");
   }
 
