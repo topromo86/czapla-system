@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,12 @@ import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { anonymizeMemberAction, markReferralRewardedAction, updateMemberAction } from "./actions";
+import {
+  anonymizeMemberAction,
+  markReferralRewardedAction,
+  provisionLoginAccountAction,
+  updateMemberAction,
+} from "./actions";
 
 const REFERRAL_STATUS_LABEL: Record<string, string> = {
   SENT: "Wysłany",
@@ -44,15 +50,19 @@ function formatTenure(joinedAt: Date | null, now: Date): string {
 
 export default async function AdminMemberCardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ memberId: string }>;
+  searchParams: Promise<{ konto?: string; "konto-blad"?: string }>;
 }) {
   const { memberId } = await params;
+  const query = await searchParams;
 
   const [member, locations, trainers] = await Promise.all([
     prisma.member.findUnique({
       where: { id: memberId },
       include: {
+        user: { select: { email: true } },
         ownerTrainer: { include: { user: true } },
         homeLocation: true,
         passes: { orderBy: { endsAt: "desc" }, include: { plan: true } },
@@ -71,6 +81,19 @@ export default async function AdminMemberCardPage({
 
   const now = new Date();
   const age = calculateAge(member.birthDate, now);
+
+  // Hasło świeżo założonego konta - jednorazowo z ciasteczka (nie z URL).
+  let provisioned: { email: string; password: string; emailed: boolean } | null = null;
+  if (query.konto === "utworzone") {
+    const raw = (await cookies()).get("provisioned-account")?.value;
+    if (raw) {
+      try {
+        provisioned = JSON.parse(raw);
+      } catch {
+        provisioned = null;
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -328,6 +351,72 @@ export default async function AdminMemberCardPage({
             Zapisz zmiany
           </Button>
         </form>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Konto logowania
+        </h2>
+
+        {query["konto-blad"] ? (
+          <p className="border-red bg-surface text-text mt-2 rounded-md border p-3 text-sm">
+            <b className="text-red">Błąd:</b> {query["konto-blad"]}
+          </p>
+        ) : null}
+
+        {provisioned ? (
+          <div className="border-jade bg-surface mt-2 rounded-md border p-3 text-sm">
+            <p className="text-text font-medium">Konto założone.</p>
+            <div className="text-muted-brand mt-2 flex flex-col gap-1 font-mono text-xs">
+              <span>
+                Login: <b className="text-text">{provisioned.email}</b>
+              </span>
+              <span>
+                Hasło tymczasowe: <b className="text-text">{provisioned.password}</b>
+              </span>
+            </div>
+            <p className="text-muted-brand mt-2">
+              {provisioned.emailed
+                ? "Dane wysłane też mailem. "
+                : "Poczta nieaktywna - przekaż hasło klientowi osobiście. "}
+              Zapisz hasło teraz - zniknie po chwili.
+            </p>
+          </div>
+        ) : member.userId ? (
+          <p className="text-muted-brand mt-2 text-sm">
+            Klient ma konto logowania
+            {member.user?.email ? (
+              <>
+                {" "}
+                (<b className="text-text">{member.user.email}</b>)
+              </>
+            ) : null}
+            . Hasło zmienia sam przez &bdquo;Nie pamiętasz hasła?&rdquo; na ekranie logowania.
+          </p>
+        ) : (
+          <form action={provisionLoginAccountAction} className="mt-2 flex flex-col gap-3">
+            <input type="hidden" name="memberId" value={member.id} />
+            <p className="text-muted-brand text-sm">
+              Ten klient nie ma jeszcze konta w aplikacji. Podaj e-mail - wygenerujemy hasło,
+              wyślemy je na ten adres i pokażemy tutaj.
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="provision-email" className="font-mono text-xs tracking-widest uppercase">
+                  E-mail klienta
+                </Label>
+                <Input
+                  id="provision-email"
+                  name="email"
+                  type="email"
+                  required
+                  className="border-line bg-surface-2 w-64"
+                />
+              </div>
+              <Button type="submit">Załóż konto i wyślij hasło</Button>
+            </div>
+          </form>
+        )}
       </section>
 
       <section>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm() {
+export function LoginForm({ notice }: { notice?: string }) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
 
   return (
@@ -26,6 +27,11 @@ export function LoginForm() {
         </p>
       </CardHeader>
       <CardContent>
+        {notice ? (
+          <p className="border-jade bg-surface-2 text-text mb-4 rounded-md border p-3 text-sm">
+            {notice}
+          </p>
+        ) : null}
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="email" className="font-mono text-xs tracking-widest uppercase">
@@ -61,6 +67,21 @@ export function LoginForm() {
           <Button type="submit" disabled={isPending} className="mt-2">
             {isPending ? "Logowanie..." : "Zaloguj się"}
           </Button>
+
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <Link
+              href="/rejestracja"
+              className="text-brand-red font-mono text-xs tracking-widest uppercase hover:underline"
+            >
+              Zarejestruj się
+            </Link>
+            <Link
+              href="/reset-hasla"
+              className="text-muted-brand hover:text-brand-red text-xs underline"
+            >
+              Nie pamiętasz hasła?
+            </Link>
+          </div>
         </form>
       </CardContent>
     </Card>

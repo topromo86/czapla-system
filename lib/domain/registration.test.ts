@@ -1,0 +1,98 @@
+import { describe, expect, it } from "vitest";
+import {
+  isValidEmail,
+  normalizeEmail,
+  SELF_REGISTER_MIN_AGE,
+  validatePassword,
+  validateRegistration,
+  type RegistrationInput,
+} from "./registration";
+
+const NOW = new Date("2026-07-21T10:00:00Z");
+
+function adultBirthDate(): Date {
+  return new Date("2000-01-01T00:00:00Z");
+}
+
+function baseInput(over: Partial<RegistrationInput> = {}): RegistrationInput {
+  return {
+    firstName: "Jan",
+    lastName: "Kowalski",
+    email: "jan@example.com",
+    password: "haslo1234",
+    birthDate: adultBirthDate(),
+    sex: "MALE",
+    homeLocationId: "loc1",
+    ownerTrainerId: "tr1",
+    ...over,
+  };
+}
+
+describe("normalizeEmail", () => {
+  it("przycina i sprowadza do małych liter", () => {
+    expect(normalizeEmail("  JAN@Example.PL ")).toBe("jan@example.pl");
+  });
+});
+
+describe("isValidEmail", () => {
+  it("przyjmuje poprawne adresy", () => {
+    expect(isValidEmail("jan@example.pl")).toBe(true);
+  });
+  it("odrzuca bez małpy albo bez domeny", () => {
+    expect(isValidEmail("jan.example.pl")).toBe(false);
+    expect(isValidEmail("jan@localhost")).toBe(false);
+    expect(isValidEmail("")).toBe(false);
+  });
+});
+
+describe("validatePassword", () => {
+  it("przyjmuje długość + litera + cyfra", () => {
+    expect(validatePassword("haslo1234")).toBeNull();
+  });
+  it("odrzuca za krótkie", () => {
+    expect(validatePassword("ab1")).toBe("TOO_SHORT");
+  });
+  it("odrzuca bez litery", () => {
+    expect(validatePassword("12345678")).toBe("NO_LETTER");
+  });
+  it("odrzuca bez cyfry", () => {
+    expect(validatePassword("bezcyfry")).toBe("NO_DIGIT");
+  });
+});
+
+describe("validateRegistration", () => {
+  it("przepuszcza poprawny formularz", () => {
+    expect(validateRegistration(baseInput(), NOW)).toBeNull();
+  });
+
+  it("wymaga wszystkich pól", () => {
+    expect(validateRegistration(baseInput({ firstName: "" }), NOW)).toBe("MISSING_FIELDS");
+    expect(validateRegistration(baseInput({ ownerTrainerId: "" }), NOW)).toBe("MISSING_FIELDS");
+  });
+
+  it("odrzuca zły e-mail", () => {
+    expect(validateRegistration(baseInput({ email: "zly" }), NOW)).toBe("INVALID_EMAIL");
+  });
+
+  it("odrzuca datę z przyszłości", () => {
+    const future = new Date(NOW.getTime() + 86_400_000);
+    expect(validateRegistration(baseInput({ birthDate: future }), NOW)).toBe("INVALID_BIRTHDATE");
+  });
+
+  // Sedno: małoletni nie zakłada konta sam - potrzebny opiekun.
+  it("odrzuca osobę poniżej progu wieku", () => {
+    const tooYoung = new Date("2015-01-01T00:00:00Z"); // ~11 lat w 2026
+    expect(validateRegistration(baseInput({ birthDate: tooYoung }), NOW)).toBe("TOO_YOUNG");
+  });
+
+  it("dokładnie na progu wieku przechodzi", () => {
+    const exactly = new Date(NOW);
+    exactly.setUTCFullYear(exactly.getUTCFullYear() - SELF_REGISTER_MIN_AGE);
+    expect(validateRegistration(baseInput({ birthDate: exactly }), NOW)).toBeNull();
+  });
+
+  it("zwraca błąd hasła jako obiekt", () => {
+    const result = validateRegistration(baseInput({ password: "abc" }), NOW);
+    expect(result).toEqual({ password: "TOO_SHORT" });
+  });
+});

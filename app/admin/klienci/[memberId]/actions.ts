@@ -1,13 +1,62 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { calculateAge } from "@/lib/domain/booking";
+import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { logActivity } from "@/lib/services/activity";
+import { provisionLoginAccount } from "@/lib/services/account";
 import { Prisma } from "@/app/generated/prisma/client";
 import type { MemberLevel, MemberStatus, Sex } from "@/app/generated/prisma/client";
+
+const PROVISION_ERROR: Record<string, string> = {
+  MEMBER_NOT_FOUND: "Nie znaleziono klienta.",
+  ALREADY_HAS_ACCOUNT: "Ten klient ma już konto logowania.",
+  EMAIL_TAKEN: "Konto z tym adresem już istnieje.",
+  INVALID_EMAIL: "Podaj poprawny adres e-mail.",
+};
+
+// Zakłada konto logowania dla istniejącej kartoteki: generuje hasło, wysyła je
+// mailem i pokazuje adminowi na ekranie (na wypadek, gdyby mail nie doszedł).
+//
+// Hasło przekazujemy przez ciasteczko, a NIE przez parametr w URL - inaczej
+// wylądowałoby w historii przeglądarki i logach dostępu serwera.
+export async function provisionLoginAccountAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const memberId = String(formData.get("memberId"));
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
+  const back = `/admin/klienci/${memberId}`;
+
+  if (!isValidEmail(email)) {
+    redirect(`${back}?konto-blad=${encodeURIComponent(PROVISION_ERROR.INVALID_EMAIL)}`);
+  }
+
+  const result = await provisionLoginAccount({ memberId, email });
+  if (!result.ok) {
+    redirect(`${back}?konto-blad=${encodeURIComponent(PROVISION_ERROR[result.error])}`);
+  }
+
+  await logActivity(prisma, {
+    actorUserId: session.user.id,
+    action: "MEMBER_UPDATED",
+    memberId,
+    summary: `Założono konto logowania (${email})${result.emailed ? " - wysłano dane mailem" : " - mail nieaktywny, hasło przekazane ręcznie"}`,
+  });
+
+  const jar = await cookies();
+  // Krótkie życie: hasło jest jednorazowe do przekazania, nie do trzymania.
+  jar.set("provisioned-account", JSON.stringify({ email, password: result.password, emailed: result.emailed }), {
+    httpOnly: true,
+    maxAge: 60,
+    path: back,
+  });
+
+  revalidatePath(back);
+  redirect(`${back}?konto=utworzone`);
+}
 
 const LEVELS: readonly MemberLevel[] = ["WHITE", "YELLOW", "ORANGE", "GREEN"];
 const STATUSES: readonly MemberStatus[] = ["ACTIVE", "FROZEN", "CHURNED"];

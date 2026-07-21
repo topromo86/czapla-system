@@ -1,0 +1,116 @@
+"use server";
+
+import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
+import { signIn } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { calculateAge } from "@/lib/domain/booking";
+import {
+  normalizeEmail,
+  PASSWORD_ERROR_MESSAGE,
+  validateRegistration,
+  type RegistrationError,
+} from "@/lib/domain/registration";
+import { hashPassword } from "@/lib/services/password-reset";
+import { logActivity } from "@/lib/services/activity";
+import type { Sex } from "@/app/generated/prisma/client";
+
+export type RegisterState = { error?: string };
+
+const ERROR_MESSAGE: Record<Exclude<RegistrationError, { password: unknown }>, string> = {
+  MISSING_FIELDS: "Uzupełnij wszystkie pola.",
+  INVALID_EMAIL: "Podaj poprawny adres e-mail.",
+  INVALID_BIRTHDATE: "Podaj poprawną datę urodzenia.",
+  TOO_YOUNG:
+    "Konto może założyć samodzielnie osoba pełnoletnia. Dla dziecka konto zakłada klub lub opiekun.",
+};
+
+export async function registerAction(
+  _prev: RegisterState,
+  formData: FormData,
+): Promise<RegisterState> {
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
+  const password = String(formData.get("password") ?? "");
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const birthDateStr = String(formData.get("birthDate") ?? "");
+  const sex = String(formData.get("sex") ?? "");
+  const homeLocationId = String(formData.get("homeLocationId") ?? "");
+  const ownerTrainerId = String(formData.get("ownerTrainerId") ?? "");
+
+  const now = new Date();
+  const birthDate = new Date(birthDateStr);
+
+  const validation = validateRegistration(
+    { firstName, lastName, email, password, birthDate, sex, homeLocationId, ownerTrainerId },
+    now,
+  );
+  if (validation) {
+    if (typeof validation === "object") {
+      return { error: PASSWORD_ERROR_MESSAGE[validation.password] };
+    }
+    return { error: ERROR_MESSAGE[validation] };
+  }
+
+  // Trener i lokalizacja z formularza muszą być prawdziwe i aktywne - inaczej
+  // ktoś podrobiłby ownerTrainerId i osierocił kartotekę u nieistniejącego
+  // opiekuna. Sprawdzamy po stronie serwera, nie ufając <select>.
+  const [trainer, location] = await Promise.all([
+    prisma.trainer.findFirst({ where: { id: ownerTrainerId, active: true } }),
+    prisma.location.findUnique({ where: { id: homeLocationId } }),
+  ]);
+  if (!trainer || !location) {
+    return { error: "Wybierz lokalizację i trenera z listy." };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existing) {
+    return { error: "Konto z tym adresem już istnieje. Spróbuj się zalogować albo zresetuj hasło." };
+  }
+
+  const passwordHash = await hashPassword(password);
+  const isMinor = calculateAge(birthDate, now) < 18; // po walidacji zawsze false, ale spójne z modelem
+
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email,
+        name: `${firstName} ${lastName}`,
+        role: "MEMBER",
+        passwordHash,
+      },
+    });
+    const member = await tx.member.create({
+      data: {
+        userId: user.id,
+        firstName,
+        lastName,
+        birthDate,
+        isMinor,
+        sex: sex as Sex,
+        homeLocationId,
+        ownerTrainerId,
+        joinedAt: null,
+      },
+    });
+    await logActivity(tx, {
+      actorUserId: user.id,
+      action: "MEMBER_CREATED",
+      memberId: member.id,
+      summary: `Samodzielna rejestracja: ${firstName} ${lastName} (opiekun: ${trainer.id})`,
+    });
+  });
+
+  try {
+    await signIn("credentials", { email, password, redirect: false });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      // Konto powstało, ale auto-logowanie się nie powiodło - klient po prostu
+      // zaloguje się ręcznie. Nie blokujemy, kierujemy na logowanie.
+      redirect("/login?zarejestrowano=1");
+    }
+    throw err;
+  }
+
+  redirect("/app");
+}
