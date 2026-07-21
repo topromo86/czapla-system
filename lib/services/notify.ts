@@ -38,45 +38,131 @@ export async function sendPushNotification(
 //
 // Bez kompletu zmiennych nic nie wysyłamy i mówimy o tym wprost - ekran
 // ustawień pokazuje wtedy kanał jako niedostępny, zamiast udawać, że działa.
-export function isEmailConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD);
+export type SmtpConfig = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  from: string;
+};
+
+// Jedno miejsce odczytu konfiguracji SMTP ze środowiska. Zwraca null, gdy
+// brakuje któregoś z obowiązkowych pól - reszta kodu nie musi znać nazw
+// zmiennych ani powtarzać walidacji.
+export function readSmtpConfig(): SmtpConfig | null {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const password = process.env.SMTP_PASSWORD;
+  if (!host || !user || !password) return null;
+
+  return {
+    host,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user,
+    password,
+    // Gdy nadawca nie podany wprost, używamy loginu - większość hostingów i
+    // tak wymaga, żeby From zgadzał się z kontem uwierzytelniającym.
+    from: process.env.SMTP_FROM ?? user,
+  };
 }
 
-export async function sendEmail(
-  to: string,
-  subject: string,
-  text: string,
-): Promise<boolean> {
-  if (!isEmailConfigured()) {
+export function isEmailConfigured(): boolean {
+  return readSmtpConfig() !== null;
+}
+
+// Status pól konfiguracji na potrzeby ekranu admina. Świadomie NIE zwracamy
+// wartości hasła - tylko informację, czy jest ustawione. Host, port i nadawca
+// nie są tajne i pokazanie ich pomaga zweryfikować literówkę.
+export type SmtpFieldStatus = {
+  key: string;
+  label: string;
+  required: boolean;
+  set: boolean;
+  // Podgląd wartości; dla hasła zawsze pusty.
+  value: string | null;
+};
+
+export function describeSmtpStatus(): SmtpFieldStatus[] {
+  const host = process.env.SMTP_HOST ?? "";
+  const port = process.env.SMTP_PORT ?? "";
+  const user = process.env.SMTP_USER ?? "";
+  const password = process.env.SMTP_PASSWORD ?? "";
+  const from = process.env.SMTP_FROM ?? "";
+
+  return [
+    { key: "SMTP_HOST", label: "Serwer poczty", required: true, set: !!host, value: host || null },
+    {
+      key: "SMTP_PORT",
+      label: "Port",
+      required: false,
+      set: !!port,
+      value: port || "587 (domyślnie)",
+    },
+    { key: "SMTP_USER", label: "Login", required: true, set: !!user, value: user || null },
+    { key: "SMTP_PASSWORD", label: "Hasło", required: true, set: !!password, value: null },
+    {
+      key: "SMTP_FROM",
+      label: "Adres nadawcy",
+      required: false,
+      set: !!from,
+      value: from || (user ? `${user} (użyty login)` : null),
+    },
+  ];
+}
+
+async function buildTransport(config: SmtpConfig) {
+  // Import w środku funkcji: nodemailer jest zależnością wyłącznie serwerową
+  // i nie ma powodu ciągnąć jej do bundla, gdy poczta jest nieskonfigurowana.
+  const nodemailer = (await import("nodemailer")).default;
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    // 465 to SMTPS (szyfrowanie od pierwszego bajtu), 587 to STARTTLS.
+    secure: config.port === 465,
+    auth: { user: config.user, pass: config.password },
+  });
+}
+
+export async function sendEmail(to: string, subject: string, text: string): Promise<boolean> {
+  const config = readSmtpConfig();
+  if (!config) {
     console.warn(`[email] Brak konfiguracji SMTP - nie wysłano do ${to}: ${subject}`);
     return false;
   }
 
   try {
-    // Import w środku funkcji: nodemailer jest zależnością wyłącznie serwerową
-    // i nie ma powodu ciągnąć jej do bundla, gdy poczta jest nieskonfigurowana.
-    const nodemailer = (await import("nodemailer")).default;
-    const port = Number(process.env.SMTP_PORT ?? 587);
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port,
-      // 465 to SMTPS (szyfrowanie od pierwszego bajtu), 587 to STARTTLS.
-      secure: port === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-    });
-
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
-      to,
-      subject,
-      text,
-    });
+    const transporter = await buildTransport(config);
+    await transporter.sendMail({ from: config.from, to, subject, text });
     return true;
   } catch (error) {
     // Nie rzucamy: nieudany e-mail nie może wywrócić check-inu ani jobu.
     console.warn(`[email] Wysyłka do ${to} nie powiodła się:`, error);
     return false;
+  }
+}
+
+// Wariant dla ekranu konfiguracji: zamiast połykać błąd, zwraca jego treść.
+// Przy stawianiu poczty komunikat "hasło odrzucone" albo "host nieznany" jest
+// dokładnie tym, czego admin potrzebuje - inaczej zostaje z samym "nie działa".
+export async function sendEmailDiagnostic(
+  to: string,
+  subject: string,
+  text: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const config = readSmtpConfig();
+  if (!config) {
+    return { ok: false, error: "Brak konfiguracji SMTP - uzupełnij zmienne środowiskowe." };
+  }
+
+  try {
+    const transporter = await buildTransport(config);
+    // verify() sprawdza połączenie i logowanie osobno od samej wysyłki, więc
+    // przy błędzie od razu wiadomo, czy problem jest w haśle, czy w treści.
+    await transporter.verify();
+    await transporter.sendMail({ from: config.from, to, subject, text });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

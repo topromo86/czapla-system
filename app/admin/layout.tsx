@@ -51,6 +51,10 @@ const NAV_GROUPS: HeaderNavGroup[] = [
     ],
   },
   { label: "Aktywność", items: [{ href: "/admin/aktywnosc", label: "Aktywność" }] },
+  {
+    label: "Ustawienia",
+    items: [{ href: "/admin/ustawienia/email", label: "Poczta e-mail" }],
+  },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
