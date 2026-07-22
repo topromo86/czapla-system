@@ -33,7 +33,8 @@ export default async function LoginPage({
       </div>
       <LoginForm notice={notice} googleEnabled={isGoogleConfigured()} />
       <p className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
-        v{process.env.npm_package_version ?? "0.1.0"} · built by{" "}
+        <span className="text-text normal-case">toFitCONTROL</span> · v
+        {process.env.npm_package_version ?? "0.1.0"} · built by{" "}
         <a
           href="https://topromo.pl"
           target="_blank"
