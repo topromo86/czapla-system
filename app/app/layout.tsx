@@ -10,6 +10,7 @@ import { PAGE_SHELL } from "../shell";
 import { SignedInAs } from "../signed-in-as";
 import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
+import { PanelFooter } from "../site-footer";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -117,6 +118,7 @@ export default async function ClientLayout({ children }: { children: React.React
       ) : (
         <main className={`${PAGE_SHELL} flex-1 py-4`}>{children}</main>
       )}
+      <PanelFooter />
     </div>
   );
 }
