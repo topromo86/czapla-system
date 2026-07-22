@@ -4,6 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { calculateAge } from "@/lib/domain/booking";
 import { daysSince } from "@/lib/domain/retention";
+import { MEMBER_LEVELS, MEMBER_LEVEL_LABEL } from "@/lib/domain/member-level";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +21,6 @@ const REFERRAL_STATUS_LABEL: Record<string, string> = {
   REGISTERED: "Zarejestrowany",
   CONVERTED: "Zrealizowany",
   REWARDED: "Nagrodzony",
-};
-
-const LEVEL_LABEL: Record<string, string> = {
-  WHITE: "Biały",
-  YELLOW: "Żółty",
-  ORANGE: "Pomarańczowy",
-  GREEN: "Zielony",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -106,7 +100,7 @@ export default async function AdminMemberCardPage({
         </h1>
         <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
           {age} lat · {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
-          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {LEVEL_LABEL[member.level]} · Status{" "}
+          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} · Status{" "}
           {STATUS_LABEL[member.status]}
         </p>
         <p className="text-muted-brand mt-1 text-sm">
@@ -274,9 +268,9 @@ export default async function AdminMemberCardPage({
                 defaultValue={member.level}
                 className="border-line bg-surface-2 text-text w-full rounded-md border px-2 py-2 text-sm"
               >
-                {Object.entries(LEVEL_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
+                {MEMBER_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
                   </option>
                 ))}
               </select>

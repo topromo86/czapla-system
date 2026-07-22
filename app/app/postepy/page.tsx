@@ -2,16 +2,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
 import { computeWeeklyStreak, weeklyAttendanceCounts } from "@/lib/domain/progress";
+import { MEMBER_LEVEL_LABEL } from "@/lib/domain/member-level";
 import { todayInTimeZone } from "@/lib/domain/time";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-
-const LEVEL_LABEL: Record<string, string> = {
-  WHITE: "Biały",
-  YELLOW: "Żółty",
-  ORANGE: "Pomarańczowy",
-  GREEN: "Zielony",
-};
+import { LevelLegend } from "../../level-legend";
 
 const WEEKS_BACK = 12;
 const MAX_BAR_HEIGHT_PX = 64;
@@ -78,7 +73,7 @@ export default async function ProgressPage({
         <div className="border-line bg-surface flex-1 rounded-md border p-4 text-center">
           <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">Poziom</p>
           <p className="text-brand-red font-display mt-1 text-2xl">
-            {LEVEL_LABEL[activeMember.level] ?? activeMember.level}
+            {MEMBER_LEVEL_LABEL[activeMember.level] ?? activeMember.level}
           </p>
         </div>
         <div className="border-line bg-surface flex-1 rounded-md border p-4 text-center">
@@ -86,6 +81,15 @@ export default async function ProgressPage({
           <p className="text-brand-red font-display mt-1 text-2xl">
             {streak} {streak === 1 ? "tydzień" : "tygodni"}
           </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Poziomy w klubie
+        </h2>
+        <div className="mt-2">
+          <LevelLegend current={activeMember.level} />
         </div>
       </section>
 

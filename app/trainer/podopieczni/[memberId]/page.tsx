@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwnsMember } from "@/lib/auth/guard";
 import { calculateAge } from "@/lib/domain/booking";
 import { daysSince } from "@/lib/domain/retention";
+import { MEMBER_LEVEL_LABEL } from "@/lib/domain/member-level";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,7 +79,7 @@ export default async function MemberCardPage({
         <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
           {age} lat ·{" "}
           {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
-          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {member.level} · Status{" "}
+          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} · Status{" "}
           {member.status}
         </p>
         <p className="text-muted-brand mt-1 text-sm">Opiekun: {member.ownerTrainer.user.name}</p>
