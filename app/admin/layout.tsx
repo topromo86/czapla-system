@@ -6,6 +6,7 @@ import { PAGE_SHELL } from "../shell";
 import { SignedInAs } from "../signed-in-as";
 import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
+import { PanelFooter } from "../site-footer";
 
 // Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
 // przestawała się mieścić w nagłówku. Każdy ekran jest najwyżej dwa
@@ -102,6 +103,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
       <main className={`${PAGE_SHELL} flex-1 py-4`}>{children}</main>
+      <PanelFooter />
     </div>
   );
 }

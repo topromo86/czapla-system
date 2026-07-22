@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { isGoogleConfigured } from "@/auth";
 import { ThemeToggle } from "../theme-toggle";
+import { SiteFooter } from "../site-footer";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -32,18 +33,7 @@ export default async function LoginPage({
         <ThemeToggle />
       </div>
       <LoginForm notice={notice} googleEnabled={isGoogleConfigured()} />
-      <p className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
-        <span className="text-text normal-case">toFitCONTROL</span> · v
-        {process.env.npm_package_version ?? "0.1.0"} · built by{" "}
-        <a
-          href="https://topromo.pl"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-brand-red underline"
-        >
-          toPROMO Group Sp. z o.o.
-        </a>
-      </p>
+      <SiteFooter />
     </main>
   );
 }
