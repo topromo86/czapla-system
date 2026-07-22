@@ -9,7 +9,7 @@ const VERSION = process.env.npm_package_version ?? "0.1.0";
 export function SiteFooter({ className }: { className?: string }) {
   return (
     <p
-      className={`text-muted-brand font-mono text-[10px] tracking-widest uppercase ${className ?? ""}`}
+      className={`text-muted-brand text-center font-mono text-[10px] tracking-widest uppercase ${className ?? ""}`}
     >
       <span className="text-text normal-case">toFitCONTROL</span> · v{VERSION} · built by{" "}
       <a
