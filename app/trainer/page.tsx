@@ -8,6 +8,7 @@ import { formatDayTime } from "@/lib/format";
 import {
   assignSubstituteAction,
   cancelSessionAction,
+  confirmConsentDeliveryAction,
   markManualAttendanceAction,
   respondToSubstituteAction,
 } from "./actions";
@@ -177,23 +178,43 @@ export default async function TrainerTodayPage() {
           <ul className="mt-3 flex flex-col gap-2">
             {s.bookings.map((b) => {
               const attendance = s.attendances.find((a) => a.memberId === b.memberId);
+              const consentsMissing = b.member.consentsDeliveredAt == null;
               return (
-                <li key={b.id} className="flex items-center justify-between">
-                  <span className="text-text text-sm">
-                    {b.member.firstName} {b.member.lastName}
-                  </span>
-                  {attendance ? (
-                    <span className="text-jade font-mono text-xs tracking-widest uppercase">
-                      Obecny ({attendance.method === "QR" ? "QR" : "ręcznie"})
+                <li key={b.id} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-text text-sm">
+                      {b.member.firstName} {b.member.lastName}
                     </span>
-                  ) : (
-                    <form action={markManualAttendanceAction}>
-                      <input type="hidden" name="bookingId" value={b.id} />
-                      <Button type="submit" variant="outline" size="sm">
-                        Zaznacz obecność
-                      </Button>
-                    </form>
-                  )}
+                    {attendance ? (
+                      <span className="text-jade font-mono text-xs tracking-widest uppercase">
+                        Obecny ({attendance.method === "QR" ? "QR" : "ręcznie"})
+                      </span>
+                    ) : (
+                      <form action={markManualAttendanceAction}>
+                        <input type="hidden" name="bookingId" value={b.id} />
+                        <Button type="submit" variant="outline" size="sm">
+                          Zaznacz obecność
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Nowy klient bez dostarczonych podpisanych zgód: trener ma
+                      odebrać wydruk i tu potwierdzić - do tego czasu klient nie
+                      zapisze się na kolejne zajęcia. */}
+                  {consentsMissing ? (
+                    <div className="border-amber bg-amber/5 flex flex-wrap items-center justify-between gap-2 rounded-md border px-2 py-1.5">
+                      <span className="text-amber text-xs">
+                        Nowy - odbierz podpisane zgody do przekazania klubowi.
+                      </span>
+                      <form action={confirmConsentDeliveryAction}>
+                        <input type="hidden" name="memberId" value={b.memberId} />
+                        <Button type="submit" size="sm">
+                          Potwierdź odbiór zgód
+                        </Button>
+                      </form>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

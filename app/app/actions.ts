@@ -80,9 +80,18 @@ export async function bookSessionAction(formData: FormData) {
 
   const bookedCount = session.bookings.filter((b) => b.status === "BOOKED").length;
 
+  // Czy klient ma już inną aktywną rezerwację - decyduje o bramie "pierwszych
+  // zajęć" dla kont bez dostarczonych podpisanych zgód. Liczymy wszystko poza
+  // odwołanymi (obecność/nieobecność też liczy się jako wykorzystane wejście).
+  const otherActiveBookings = await prisma.booking.count({
+    where: { memberId, status: { not: "CANCELLED" }, sessionId: { not: sessionId } },
+  });
+
   const result = evaluateBookingEligibility({
     now,
     memberApproved: member.approvalStatus === "APPROVED",
+    consentsDelivered: member.consentsDeliveredAt != null,
+    hasOtherActiveBooking: otherActiveBookings > 0,
     memberBirthDate: member.birthDate,
     memberIsMinor: member.isMinor,
     grantedConsentKeys,

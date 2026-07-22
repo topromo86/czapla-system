@@ -249,6 +249,8 @@ describe("evaluateBookingEligibility", () => {
     memberBirthDate: new Date("1990-01-01"),
     memberIsMinor: false,
     grantedConsentKeys: allConsents,
+    consentsDelivered: true,
+    hasOtherActiveBooking: false,
     activePass,
     session,
     bookedCount: 5,
@@ -262,6 +264,33 @@ describe("evaluateBookingEligibility", () => {
   it("odrzuca konto niezatwierdzone (przed wszystkim innym)", () => {
     const result = evaluateBookingEligibility({ ...baseInput, memberApproved: false });
     expect(result).toEqual({ ok: false, reason: "NOT_APPROVED" });
+  });
+
+  it("bez dostarczonych zgód przepuszcza PIERWSZE zajęcia", () => {
+    const result = evaluateBookingEligibility({
+      ...baseInput,
+      consentsDelivered: false,
+      hasOtherActiveBooking: false,
+    });
+    expect(result).toEqual({ ok: true, willWaitlist: false });
+  });
+
+  it("bez dostarczonych zgód blokuje KOLEJNE zajęcia", () => {
+    const result = evaluateBookingEligibility({
+      ...baseInput,
+      consentsDelivered: false,
+      hasOtherActiveBooking: true,
+    });
+    expect(result).toEqual({ ok: false, reason: "CONSENTS_NOT_DELIVERED" });
+  });
+
+  it("dostarczone zgody znoszą limit pierwszych zajęć", () => {
+    const result = evaluateBookingEligibility({
+      ...baseInput,
+      consentsDelivered: true,
+      hasOtherActiveBooking: true,
+    });
+    expect(result).toEqual({ ok: true, willWaitlist: false });
   });
 
   it("ok z listą rezerwową gdy komplet", () => {

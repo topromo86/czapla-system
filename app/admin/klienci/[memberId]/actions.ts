@@ -9,6 +9,7 @@ import { calculateAge } from "@/lib/domain/booking";
 import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { logActivity } from "@/lib/services/activity";
 import { provisionLoginAccount } from "@/lib/services/account";
+import { confirmConsentDelivery } from "@/lib/services/consent-delivery";
 import { Prisma } from "@/app/generated/prisma/client";
 import type { MemberLevel, MemberStatus, Sex } from "@/app/generated/prisma/client";
 
@@ -221,4 +222,13 @@ export async function anonymizeMemberAction(formData: FormData) {
   });
 
   redirect(`/admin/klienci/${memberId}`);
+}
+
+// Potwierdzenie odbioru podpisanych zgód przez admina (np. dostarczone do
+// recepcji). Zdejmuje bramę "tylko pierwsze zajęcia".
+export async function confirmConsentDeliveryAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const memberId = String(formData.get("memberId"));
+  await confirmConsentDelivery({ memberId, byUserId: session.user.id });
+  revalidatePath(`/admin/klienci/${memberId}`);
 }

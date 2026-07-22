@@ -28,6 +28,8 @@ const RATING_DELAY_MS = 3_600_000;
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_APPROVED: "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
+  CONSENTS_NOT_DELIVERED:
+    "Dostarcz podpisane zgody trenerowi lub w recepcji - do potwierdzenia odbioru możesz zapisać się tylko na pierwsze zajęcia.",
   ALREADY_BOOKED: "Jesteś już zapisany na te zajęcia.",
   SESSION_CANCELLED: "Te zajęcia zostały odwołane.",
   ALREADY_STARTED: "Te zajęcia już się rozpoczęły.",

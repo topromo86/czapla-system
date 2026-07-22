@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   anonymizeMemberAction,
+  confirmConsentDeliveryAction,
   markReferralRewardedAction,
   provisionLoginAccountAction,
   updateMemberAction,
@@ -113,6 +114,38 @@ export default async function AdminMemberCardPage({
           {member.goal ? member.goal : <span className="text-red">brak ustalonego celu</span>}
         </p>
         <p className="text-muted-brand mt-1 text-sm">{formatTenure(member.joinedAt, now)}</p>
+      </section>
+
+      <section
+        className={`rounded-md border p-4 ${
+          member.consentsDeliveredAt ? "border-line bg-surface" : "border-amber bg-amber/5"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+              Podpisane zgody
+            </h2>
+            {member.consentsDeliveredAt ? (
+              <p className="text-jade mt-1 text-sm">
+                Odbiór potwierdzony: {formatDate(member.consentsDeliveredAt)}.
+              </p>
+            ) : (
+              <p className="text-amber mt-1 text-sm">
+                Brak podpisanego wydruku. Do potwierdzenia klient zapisze się tylko na pierwsze
+                zajęcia.
+              </p>
+            )}
+          </div>
+          {!member.consentsDeliveredAt ? (
+            <form action={confirmConsentDeliveryAction}>
+              <input type="hidden" name="memberId" value={member.id} />
+              <Button type="submit" size="sm">
+                Potwierdź odbiór zgód
+              </Button>
+            </form>
+          ) : null}
+        </div>
       </section>
 
       <section>

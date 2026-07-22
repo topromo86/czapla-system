@@ -115,6 +115,13 @@ export type BookingEligibilityInput = {
   memberBirthDate: Date;
   memberIsMinor: boolean;
   grantedConsentKeys: ReadonlySet<string>;
+  // Czy podpisane (papierowe) zgody zostały dostarczone i potwierdzone przez
+  // trenera/admina. Do czasu potwierdzenia klient może zapisać się tylko na
+  // pierwsze zajęcia (patrz hasOtherActiveBooking).
+  consentsDelivered: boolean;
+  // Czy klient ma już inną aktywną (nieodwołaną) rezerwację. Pierwsze zajęcia
+  // wolno zarezerwować bez dostarczonych zgód; kolejne - dopiero po odbiorze.
+  hasOtherActiveBooking: boolean;
   activePass: PassLike | null;
   session: SessionLike;
   bookedCount: number;
@@ -125,6 +132,7 @@ export type BookingRejectionReason =
   | "SESSION_CANCELLED"
   | "ALREADY_STARTED"
   | "MISSING_CONSENTS"
+  | "CONSENTS_NOT_DELIVERED"
   | "NO_ACTIVE_PASS"
   | "AGE_NOT_ELIGIBLE";
 
@@ -152,6 +160,13 @@ export function evaluateBookingEligibility(
   const required = requiredConsentKeys(input.memberIsMinor);
   if (!hasRequiredConsents(input.grantedConsentKeys, required)) {
     return { ok: false, reason: "MISSING_CONSENTS" };
+  }
+
+  // Papierowa brama: zgody zaakceptowane w aplikacji to nie wszystko - podpisany
+  // wydruk trzeba dostarczyć trenerowi/adminowi. Do potwierdzenia odbioru wolno
+  // zapisać się tylko na PIERWSZE zajęcia; kolejne dopiero po odbiorze.
+  if (!input.consentsDelivered && input.hasOtherActiveBooking) {
+    return { ok: false, reason: "CONSENTS_NOT_DELIVERED" };
   }
 
   if (!input.activePass || !isPassUsable(input.activePass, input.now)) {

@@ -16,6 +16,8 @@ const REJECTION_MESSAGE: Record<string, string> = {
   SESSION_CANCELLED: "Ten termin został odwołany.",
   ALREADY_STARTED: "Ten termin już minął.",
   MISSING_CONSENTS: "Najpierw uzupełnij zgody w zakładce Zgody.",
+  CONSENTS_NOT_DELIVERED:
+    "Dostarcz podpisane zgody trenerowi lub w recepcji - do potwierdzenia odbioru dostępne są tylko pierwsze zajęcia.",
   NO_ACTIVE_PASS: "Do zapisu potrzebny jest aktywny karnet.",
   AGE_NOT_ELIGIBLE: "Ten trening nie jest dostępny dla tego wieku.",
 };
@@ -58,19 +60,23 @@ export async function bookIndividualSlotAction(formData: FormData) {
 
   const member = await prisma.member.findUniqueOrThrow({ where: { id: memberId } });
 
-  const [consents, activePass] = await Promise.all([
+  const [consents, activePass, otherActiveBookings] = await Promise.all([
     prisma.consent.findMany({
       where: { memberId, revokedAt: null },
       include: { consentType: true },
     }),
     prisma.pass.findFirst({ where: { memberId, status: "ACTIVE" }, orderBy: { endsAt: "desc" } }),
+    prisma.booking.count({ where: { memberId, status: { not: "CANCELLED" } } }),
   ]);
 
-  // Ten sam komplet reguł co przy zajęciach grupowych (zgody, karnet, wiek) -
-  // trening indywidualny nie jest furtką obok CLAUDE.md reguła 9.
+  // Ten sam komplet reguł co przy zajęciach grupowych (zgody, karnet, wiek,
+  // dostarczone zgody) - trening indywidualny nie jest furtką obok CLAUDE.md
+  // reguła 9.
   const eligibility = evaluateBookingEligibility({
     now,
     memberApproved: member.approvalStatus === "APPROVED",
+    consentsDelivered: member.consentsDeliveredAt != null,
+    hasOtherActiveBooking: otherActiveBookings > 0,
     memberBirthDate: member.birthDate,
     memberIsMinor: member.isMinor,
     grantedConsentKeys: new Set(consents.map((c) => c.consentType.key)),

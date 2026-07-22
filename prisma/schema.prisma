@@ -180,6 +180,12 @@ model Member {
   approvalStatus             ApprovalStatus @default(APPROVED)
   approvedAt                 DateTime?      @db.Timestamptz
   approvedByUserId           String?
+  // Odbiór PODPISANYCH (papierowych) zgód, potwierdzony przez trenera/admina.
+  // Zgody akceptuje się w aplikacji, ale wydruk trzeba dostarczyć podpisany.
+  // Dopóki to null, klient może zapisać się tylko na pierwsze zajęcia - patrz
+  // booking.ts (CONSENTS_NOT_DELIVERED). null = niedostarczone.
+  consentsDeliveredAt        DateTime?      @db.Timestamptz
+  consentsConfirmedByUserId  String?
   joinedAt                   DateTime?      @db.Timestamptz // pierwsza opłacona transakcja lub pierwsza obecność - NIE data założenia konta. null = jeszcze nie dołączył(a)
   churnedAt                  DateTime?      @db.Timestamptz
   sparringClearedAt          DateTime?      @db.Timestamptz

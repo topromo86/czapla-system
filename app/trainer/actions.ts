@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain/substitute";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
 import { markJoinedIfNeeded } from "@/lib/services/member";
+import { confirmConsentDelivery } from "@/lib/services/consent-delivery";
 import { logActivity } from "@/lib/services/activity";
 import {
   notifyAdminsAboutSubstitute,
@@ -290,4 +291,17 @@ export async function respondToSubstituteAction(formData: FormData) {
 
   revalidatePath("/trainer");
   revalidatePath("/admin/zastepstwa");
+}
+
+// Potwierdzenie odbioru podpisanych zgód od klienta - zdejmuje bramę "tylko
+// pierwsze zajęcia". Trener to zaufany personel, więc potwierdza dowolnego
+// klienta obecnego na jego zajęciach (autoryzacja: rola TRAINER).
+export async function confirmConsentDeliveryAction(formData: FormData) {
+  const { session } = await requireTrainerSelf();
+  const memberId = String(formData.get("memberId"));
+
+  await confirmConsentDelivery({ memberId, byUserId: session.user.id });
+
+  revalidatePath("/trainer");
+  revalidatePath("/trainer/podopieczni");
 }

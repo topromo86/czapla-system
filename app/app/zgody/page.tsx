@@ -56,6 +56,30 @@ export default async function ConsentsPage({
         </div>
       ) : null}
 
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-md border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Podpisany wydruk
+          </h2>
+          <Link href={`/zgody-druk/${activeMember.id}`}>
+            <Button type="button" size="sm">
+              Drukuj zgody do podpisu
+            </Button>
+          </Link>
+        </div>
+        {activeMember.consentsDeliveredAt ? (
+          <p className="text-jade text-sm">
+            Podpisane zgody potwierdzone przez klub: {formatDate(activeMember.consentsDeliveredAt)}.
+          </p>
+        ) : (
+          <p className="text-muted-brand text-sm">
+            Zaakceptuj zgody poniżej, wydrukuj, podpisz i dostarcz trenerowi lub do recepcji. Do
+            potwierdzenia odbioru {activeMember.firstName} może zapisać się tylko na{" "}
+            <b className="text-text">pierwsze zajęcia</b> - kolejne odblokują się po odbiorze.
+          </p>
+        )}
+      </section>
+
       <ul className="flex flex-col gap-3">
         {applicable.map((ct) => {
           const granted = grantedByType.get(ct.id);
