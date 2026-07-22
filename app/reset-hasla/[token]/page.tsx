@@ -6,7 +6,7 @@ import { isResetTokenValid } from "@/lib/services/password-reset";
 import { ResetForm } from "./reset-form";
 
 export const metadata: Metadata = {
-  title: "Ustaw nowe hasło - Czapla Boxing",
+  title: "Ustaw nowe hasło - toFitCONTROL",
 };
 
 export default async function ResetTokenPage({

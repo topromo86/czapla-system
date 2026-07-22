@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { verifyEmailToken } from "@/lib/services/email-verification";
 
 export const metadata: Metadata = {
-  title: "Potwierdzenie e-maila - Czapla Boxing",
+  title: "Potwierdzenie e-maila - toFitCONTROL",
 };
 
 export default async function VerifyEmailPage({

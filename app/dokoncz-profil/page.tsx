@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CompleteProfileForm } from "./complete-form";
 
 export const metadata: Metadata = {
-  title: "Dokończ profil - Czapla Boxing",
+  title: "Dokończ profil - toFitCONTROL",
 };
 
 // Dwie pierwsze części pełnego imienia lądują w imieniu/nazwisku; klient i tak

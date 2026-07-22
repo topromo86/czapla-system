@@ -4,7 +4,7 @@ import { ThemeToggle } from "../theme-toggle";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Logowanie - Czapla Boxing",
+  title: "Logowanie - toFitCONTROL",
 };
 
 const NOTICE: Record<string, string> = {

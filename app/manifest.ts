@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Czapla Boxing",
-    short_name: "Czapla Boxing",
-    description: "System zarządzania klubem bokserskim Czapla Boxing - Mikołów i Tychy",
+    name: "toFitCONTROL",
+    short_name: "toFitCONTROL",
+    description: "toFitCONTROL - system zarządzania klubem sportowym",
     start_url: "/",
     display: "standalone",
     background_color: "#f4f5f6",

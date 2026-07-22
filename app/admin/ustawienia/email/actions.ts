@@ -25,8 +25,8 @@ export async function sendTestEmailAction() {
   const now = new Date().toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
   const result = await sendEmailDiagnostic(
     config.from,
-    "Czapla Boxing - test poczty",
-    `To jest testowa wiadomość z systemu Czapla Boxing.\n\n` +
+    "toFitCONTROL - test poczty",
+    `To jest testowa wiadomość z systemu toFitCONTROL.\n\n` +
       `Jeśli ją widzisz, wysyłka e-mail działa poprawnie.\n\n` +
       `Wysłano: ${now}\n` +
       `Nadawca: ${config.from}\n` +

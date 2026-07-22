@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = {
-  title: "Rejestracja - Czapla Boxing",
+  title: "Rejestracja - toFitCONTROL",
 };
 
 export default async function RegisterPage() {

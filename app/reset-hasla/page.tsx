@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ResetRequestForm } from "./reset-request-form";
 
 export const metadata: Metadata = {
-  title: "Reset hasła - Czapla Boxing",
+  title: "Reset hasła - toFitCONTROL",
 };
 
 export default function ResetRequestPage() {
