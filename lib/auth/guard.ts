@@ -83,10 +83,13 @@ export async function requireMemberAccess(memberId: string) {
   throw new ForbiddenError("Brak dostępu do tego konta.");
 }
 
-// Rekord trenera dla ekranów /trainer - ściśle rola TRAINER (bez wyjątku dla
-// ADMIN, w odróżnieniu od requireOwnsMember - /admin ma własne ekrany).
+// Rekord trenera dla ekranów /trainer. Dopuszczamy też ADMINA, ale WYŁĄCZNIE
+// jeśli ma własny rekord trenera - to przypadek właściciela-trenera (Daniel),
+// który jednym kontem przełącza się między panelem admina a panelem trenera
+// (patrz AccountViewSwitch). Zwykły admin bez rekordu trenera nadal odbija się
+// tutaj o "brak rekordu trenera", więc /trainer nie otwiera się każdemu adminowi.
 export async function requireTrainerSelf() {
-  const session = await requireRole("TRAINER");
+  const session = await requireRole("TRAINER", "ADMIN");
   const trainer = await prisma.trainer.findUnique({ where: { userId: session.user.id } });
   if (!trainer) throw new ForbiddenError("Brak rekordu trenera dla tego konta.");
   return { session, trainer };

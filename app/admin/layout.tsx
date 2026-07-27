@@ -7,6 +7,7 @@ import { SignedInAs } from "../signed-in-as";
 import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
 import { PanelFooter } from "../site-footer";
+import { AccountViewSwitch } from "../account-view-switch";
 
 // Pogrupowane tematycznie - płaska lista urosła do kilkunastu pozycji i
 // przestawała się mieścić w nagłówku. Każdy ekran jest najwyżej dwa
@@ -74,6 +75,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     },
   });
 
+  // Właściciel-trener (ADMIN z własnym rekordem trenera) dostaje przełącznik
+  // widoku admin/trener. Zwykły admin bez rekordu trenera - nie.
+  const ownTrainer = await prisma.trainer.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+
   const navGroups: HeaderNavGroup[] = NAV_GROUPS.map((group) =>
     group.label === "Grafik"
       ? {
@@ -97,6 +105,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />
+            {ownTrainer ? <AccountViewSwitch current="admin" /> : null}
             <ThemeToggle />
             <LogoutButton />
           </div>

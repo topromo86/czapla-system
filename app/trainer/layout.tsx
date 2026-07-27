@@ -7,6 +7,7 @@ import { SignedInAs } from "../signed-in-as";
 import { ThemeToggle } from "../theme-toggle";
 import { LogoutButton } from "../logout-button";
 import { PanelFooter } from "../site-footer";
+import { AccountViewSwitch } from "../account-view-switch";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const { session, trainer } = await requireTrainerSelf();
@@ -64,6 +65,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
           </div>
           <div className="flex min-w-0 items-center gap-4">
             <HeaderNav groups={navGroups} />
+            {session.user.role === "ADMIN" ? <AccountViewSwitch current="trainer" /> : null}
             <ThemeToggle />
             <LogoutButton />
           </div>
