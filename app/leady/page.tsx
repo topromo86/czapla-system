@@ -7,6 +7,7 @@ import {
   LEAD_STATUS_ORDER,
 } from "@/lib/domain/lead-import";
 import { formatDayTime } from "@/lib/format";
+import { isMetaLeadsConfigured } from "@/lib/services/meta-leads";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { importCsvAction } from "./actions";
@@ -44,6 +45,7 @@ export default async function LeadsListPage({
     ? (params.status as LeadStatus)
     : null;
   const importMsg = IMPORT_MESSAGE(params);
+  const metaConfigured = isMetaLeadsConfigured();
 
   const leads = await prisma.lead.findMany({
     where: activeStatus ? { status: activeStatus } : {},
@@ -96,6 +98,23 @@ export default async function LeadsListPage({
             Importuj leady
           </Button>
         </form>
+
+        {/* Gniazdo na automatyczny import z Meta Lead Ads (API). Aktywuje się po
+            podłączeniu tokenu w zmiennych środowiskowych. */}
+        <div className="border-line-soft mt-1 flex items-center gap-2 border-t pt-3">
+          <span
+            className={`inline-block size-2 rounded-full ${metaConfigured ? "bg-jade" : "bg-muted-brand"}`}
+          />
+          <p className="text-muted-brand text-xs">
+            Automatyczny import z Meta (API Lead Ads):{" "}
+            <b className={metaConfigured ? "text-jade" : "text-text"}>
+              {metaConfigured ? "skonfigurowany" : "nieaktywny"}
+            </b>
+            . {metaConfigured
+              ? "Leady mogą być pobierane bez eksportu CSV."
+              : "Gniazdo gotowe - podłączenie konta Meta doda automatyczne pobieranie leadów."}
+          </p>
+        </div>
       </section>
 
       {/* Filtry statusu */}

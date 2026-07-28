@@ -5,7 +5,11 @@
 // nadaje, jest gorszy niż brak ekranu - klient włącza, czeka i traci zaufanie
 // do całej reszty. Dodając nowy typ, dodaj najpierw nadawcę.
 
-export type NotificationType = "SESSION_REMINDER" | "BOOKING_SUGGESTION" | "CHECK_IN";
+export type NotificationType =
+  | "BOOKING_CONFIRMATION"
+  | "SESSION_REMINDER"
+  | "BOOKING_SUGGESTION"
+  | "CHECK_IN";
 
 // PUSH i EMAIL są kanałami samodzielnymi - zaznaczone dostajesz zawsze.
 // SMS jest wyłącznie zapasowy (wysyłany, gdy pozostałe zawiodą), bo kosztuje
@@ -29,6 +33,14 @@ export type NotificationMeta = {
 };
 
 export const NOTIFICATION_TYPES: readonly NotificationMeta[] = [
+  {
+    type: "BOOKING_CONFIRMATION",
+    label: "Potwierdzenie zapisu",
+    description: "Zaraz po zapisaniu się na zajęcia wyślemy potwierdzenie z terminem.",
+    defaultPush: true,
+    guardianOnly: false,
+    emailSupported: true,
+  },
   {
     type: "SESSION_REMINDER",
     label: "Przypomnienie o zajęciach",

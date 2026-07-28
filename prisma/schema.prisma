@@ -930,6 +930,7 @@ model PasswordResetToken {
 // ---------------------------------------------------------------------------
 
 enum NotificationType {
+  BOOKING_CONFIRMATION
   SESSION_REMINDER
   BOOKING_SUGGESTION
   CHECK_IN
@@ -1077,6 +1078,8 @@ enum LeadActivityKind {
   STATUS_CHANGED
   REMINDER_SET
   NOTE_ADDED
+  SUMMARY
+  WELCOME_SMS
   CONVERTED
 }
 

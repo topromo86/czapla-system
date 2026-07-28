@@ -53,6 +53,7 @@ describe("parsePreferenceForm", () => {
   it("niezaznaczone typy zapisują się jako wyłączone", () => {
     const result = parsePreferenceForm(["SESSION_REMINDER:PUSH"], false);
     expect(result).toEqual([
+      { type: "BOOKING_CONFIRMATION", push: false, email: false, sms: false },
       { type: "SESSION_REMINDER", push: true, email: false, sms: false },
       { type: "BOOKING_SUGGESTION", push: false, email: false, sms: false },
     ]);

@@ -20,6 +20,7 @@ import { zonedTimeToUtc } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
 import { logActivity } from "@/lib/services/activity";
+import { notify } from "@/lib/services/notification";
 import { formatDate, formatDayTime } from "@/lib/format";
 
 function readReturnTo(formData: FormData): string {
@@ -57,7 +58,7 @@ export async function bookSessionAction(formData: FormData) {
     prisma.member.findUniqueOrThrow({ where: { id: memberId } }),
     prisma.session.findUniqueOrThrow({
       where: { id: sessionId },
-      include: { template: true, bookings: true },
+      include: { template: true, bookings: true, location: true },
     }),
   ]);
 
@@ -119,6 +120,26 @@ export async function bookSessionAction(formData: FormData) {
     create: { sessionId, memberId, status, waitlistPosition },
     update: { status, waitlistPosition, cancelledAt: null },
   });
+
+  // Potwierdzenie zapisu (Etap 3). Tylko dla realnej rezerwacji, nie listy
+  // rezerwowej - "potwierdzamy" dopiero pewne miejsce. Idzie przez notify, więc
+  // respektuje preferencje klienta (opcja wyłączenia w /app/powiadomienia) i nie
+  // zdublikuje się przy ponownym zapisie na te same zajęcia (NotificationLog).
+  // Dla niepełnoletnich potwierdzenie trafia do opiekuna.
+  if (status === "BOOKED") {
+    const targetUserId = member.isMinor
+      ? member.guardianUserId
+      : (member.userId ?? member.guardianUserId);
+    if (targetUserId) {
+      await notify({
+        userId: targetUserId,
+        type: "BOOKING_CONFIRMATION",
+        subjectId: sessionId,
+        title: "Zapis potwierdzony",
+        body: `${session.name}, ${formatDayTime(session.startsAt)} - ${session.location.name}.`,
+      });
+    }
+  }
 
   redirect(returnTo);
 }

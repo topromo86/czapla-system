@@ -1,5 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv, parseLeadsCsv, splitFullName } from "./lead-import";
+import {
+  buildWelcomeSms,
+  normalizePhone,
+  parseCsv,
+  parseLeadsCsv,
+  splitFullName,
+} from "./lead-import";
+
+describe("normalizePhone", () => {
+  it("usuwa spacje, myślniki i nawiasy", () => {
+    expect(normalizePhone("+48 555-111 222")).toBe("+48555111222");
+    expect(normalizePhone("(48) 555 111 222")).toBe("48555111222");
+  });
+
+  it("akceptuje numer bez plusa", () => {
+    expect(normalizePhone("555111222")).toBe("555111222");
+  });
+
+  it("odrzuca za krótkie i za długie", () => {
+    expect(normalizePhone("12345")).toBeNull();
+    expect(normalizePhone("1234567890123456")).toBeNull();
+  });
+
+  it("odrzuca litery i śmieci", () => {
+    expect(normalizePhone("zadzwon-do-mnie")).toBeNull();
+    expect(normalizePhone("")).toBeNull();
+  });
+});
+
+describe("buildWelcomeSms", () => {
+  it("zawiera imię, gdy podane", () => {
+    const msg = buildWelcomeSms("Marek");
+    expect(msg).toContain("Cześć Marek!");
+    expect(msg).toContain("Czapla Boxing");
+  });
+
+  it("działa bez imienia", () => {
+    const msg = buildWelcomeSms("");
+    expect(msg.startsWith("Cześć!")).toBe(true);
+  });
+
+  it("mieści się w rozsądnej długości SMS", () => {
+    expect(buildWelcomeSms("Aleksandra").length).toBeLessThanOrEqual(160);
+  });
+});
 
 describe("splitFullName", () => {
   it("dzieli imię i nazwisko", () => {

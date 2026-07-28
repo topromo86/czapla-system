@@ -5,11 +5,18 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireLeadAccess } from "@/lib/auth/guard";
 import { zonedTimeToUtc } from "@/lib/domain/time";
-import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/lib/domain/lead-import";
+import {
+  buildWelcomeSms,
+  LEAD_STATUS_LABEL,
+  LEAD_STATUS_ORDER,
+  normalizePhone,
+  splitFullName,
+} from "@/lib/domain/lead-import";
 import { calculateAge } from "@/lib/domain/booking";
 import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { importLeadsFromCsv, logLeadActivity } from "@/lib/services/lead";
 import { logActivity } from "@/lib/services/activity";
+import { sendSms } from "@/lib/services/notify";
 import type { LeadStatus, Sex } from "@/app/generated/prisma/client";
 
 // Import CSV: plik z inputa albo wklejony tekst. Po imporcie wracamy na listę
@@ -203,6 +210,68 @@ export async function convertLeadToMemberAction(formData: FormData) {
   revalidatePath(`/leady/${leadId}`);
   revalidatePath("/leady");
   redirect(`/admin/klienci/${newMemberId}`);
+}
+
+// Etap 4: podsumowanie rozmowy + opcjonalny SMS powitalny. Podsumowanie
+// zapisujemy jako notatkę - dzięki temu jest widoczne także z karty klienta po
+// konwersji (Etap 2). SMS idzie przez gniazdo sendSms; dopóki nie podłączono
+// dostawcy, próba jest uczciwie logowana jako "nie wysłano" zamiast udawać
+// sukces.
+export async function saveCallSummaryAction(formData: FormData) {
+  const session = await requireLeadAccess();
+  const leadId = String(formData.get("leadId"));
+  const summary = String(formData.get("summary") ?? "").trim();
+  const phoneRaw = String(formData.get("phone") ?? "").trim();
+  const sendWelcome = formData.get("sendWelcome") === "on";
+
+  function fail(message: string): never {
+    redirect(`/leady/${leadId}?blad=${encodeURIComponent(message)}`);
+  }
+
+  if (!summary) fail("Podsumowanie rozmowy nie może być puste.");
+
+  const lead = await prisma.lead.findUniqueOrThrow({
+    where: { id: leadId },
+    select: { fullName: true, phone: true },
+  });
+
+  // Numer do SMS: z formularza (jeśli podano), inaczej ten z leada.
+  const phone = phoneRaw ? normalizePhone(phoneRaw) : lead.phone;
+  if (phoneRaw && !phone) fail("Podany numer telefonu jest niepoprawny.");
+  if (sendWelcome && !phone) fail("Aby wysłać SMS powitalny, podaj poprawny numer telefonu.");
+
+  await prisma.$transaction(async (tx) => {
+    if (phone && phone !== lead.phone) {
+      await tx.lead.update({ where: { id: leadId }, data: { phone } });
+    }
+    await tx.leadNote.create({
+      data: { leadId, authorUserId: session.user.id, body: `Podsumowanie rozmowy:\n${summary}` },
+    });
+    await logLeadActivity(tx, {
+      leadId,
+      actorUserId: session.user.id,
+      kind: "SUMMARY",
+      summary: "Zapisano podsumowanie rozmowy",
+    });
+  });
+
+  if (sendWelcome && phone) {
+    const { firstName } = splitFullName(lead.fullName);
+    const sent = await sendSms(phone, buildWelcomeSms(firstName));
+    await prisma.$transaction(async (tx) => {
+      await logLeadActivity(tx, {
+        leadId,
+        actorUserId: session.user.id,
+        kind: "WELCOME_SMS",
+        summary: sent
+          ? `Wysłano SMS powitalny na ${phone}`
+          : `SMS powitalny na ${phone} - dostawca SMS nieaktywny, nie wysłano`,
+      });
+    });
+  }
+
+  revalidatePath(`/leady/${leadId}`);
+  redirect(`/leady/${leadId}`);
 }
 
 export async function addLeadNoteAction(formData: FormData) {

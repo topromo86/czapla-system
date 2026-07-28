@@ -54,6 +54,24 @@ export function splitFullName(fullName: string): { firstName: string; lastName: 
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
+// Numer telefonu do wysyłki SMS - podstawowa normalizacja i walidacja. Nie
+// weryfikujemy operatora (to zrobi dostawca SMS), sprawdzamy tylko, czy to w
+// ogóle sensowny numer: opcjonalny "+", cyfry, 9-15 znaków (E.164). Spacje,
+// myślniki i nawiasy z formularza usuwamy. Zwraca null dla śmieci.
+export function normalizePhone(raw: string): string | null {
+  const cleaned = raw.replace(/[\s()-]/g, "");
+  if (!/^\+?\d{9,15}$/.test(cleaned)) return null;
+  return cleaned;
+}
+
+// Treść SMS powitalnego po rozmowie z leadem. Krótko (jeden segment SMS to 160
+// znaków), z imieniem, jeśli je znamy. Brand klienta to "Czapla Boxing".
+export function buildWelcomeSms(firstName: string): string {
+  const name = firstName.trim();
+  const hello = name.length > 0 ? `Cześć ${name}!` : "Cześć!";
+  return `${hello} Dziękujemy za rozmowę. Czekamy na Ciebie w Czapla Boxing - odezwij się, gdy zdecydujesz się na trening. Do zobaczenia!`;
+}
+
 // Parser CSV z obsługą cudzysłowów, przecinków i nowych linii w polach oraz
 // podwojonego cudzysłowu ("") jako znaku dosłownego. Zwraca wiersze surowych pól.
 export function parseCsv(input: string): string[][] {

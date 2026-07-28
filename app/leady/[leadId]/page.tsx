@@ -18,6 +18,7 @@ import {
   assignLeadAction,
   clearReminderAction,
   convertLeadToMemberAction,
+  saveCallSummaryAction,
   setReminderAction,
   updateStatusAction,
 } from "../actions";
@@ -347,6 +348,50 @@ export default async function LeadCardPage({
             </Button>
           </form>
         </div>
+      </section>
+
+      {/* Podsumowanie rozmowy + SMS powitalny (Etap 4) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Podsumowanie rozmowy
+        </h2>
+        <form action={saveCallSummaryAction} className="flex flex-col gap-3">
+          <input type="hidden" name="leadId" value={lead.id} />
+          <Textarea
+            name="summary"
+            rows={3}
+            required
+            placeholder="Co ustalono w rozmowie - zainteresowanie, plan, kolejny krok…"
+            className="border-line bg-surface-2"
+          />
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="summaryPhone" className="font-mono text-xs tracking-widest uppercase">
+                Numer telefonu
+              </Label>
+              <Input
+                id="summaryPhone"
+                name="phone"
+                type="tel"
+                defaultValue={lead.phone ?? ""}
+                placeholder="+48…"
+                className="border-line bg-surface-2 w-48"
+              />
+            </div>
+            <label className="flex items-center gap-2 pb-2 text-sm">
+              <input type="checkbox" name="sendWelcome" className="size-4" />
+              <span className="text-text">Wyślij SMS powitalny</span>
+            </label>
+          </div>
+          <p className="text-muted-brand text-xs">
+            Podsumowanie zapisze się w notatkach i będzie widoczne także z karty klienta po
+            założeniu konta. SMS powitalny wyśle się, gdy podłączony jest dostawca SMS - w
+            przeciwnym razie próba zostanie odnotowana w historii.
+          </p>
+          <Button type="submit" size="sm" className="self-start">
+            Zapisz podsumowanie
+          </Button>
+        </form>
       </section>
 
       {/* Notatki */}
