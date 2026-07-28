@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv, parseLeadsCsv } from "./lead-import";
+import { parseCsv, parseLeadsCsv, splitFullName } from "./lead-import";
+
+describe("splitFullName", () => {
+  it("dzieli imię i nazwisko", () => {
+    expect(splitFullName("Anna Kowalska")).toEqual({ firstName: "Anna", lastName: "Kowalska" });
+  });
+
+  it("wieloczłonowe nazwisko trafia w całości do lastName", () => {
+    expect(splitFullName("Anna Kowalska-Nowak Wiśniewska")).toEqual({
+      firstName: "Anna",
+      lastName: "Kowalska-Nowak Wiśniewska",
+    });
+  });
+
+  it("samo imię zostawia puste nazwisko", () => {
+    expect(splitFullName("Madonna")).toEqual({ firstName: "Madonna", lastName: "" });
+  });
+
+  it("przycina i normalizuje wielokrotne spacje", () => {
+    expect(splitFullName("  Jan   Nowak  ")).toEqual({ firstName: "Jan", lastName: "Nowak" });
+  });
+
+  it("pusty string daje puste pola", () => {
+    expect(splitFullName("   ")).toEqual({ firstName: "", lastName: "" });
+  });
+});
 
 describe("parseCsv", () => {
   it("dzieli proste wiersze i kolumny", () => {

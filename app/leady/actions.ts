@@ -6,8 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { requireLeadAccess } from "@/lib/auth/guard";
 import { zonedTimeToUtc } from "@/lib/domain/time";
 import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/lib/domain/lead-import";
+import { calculateAge } from "@/lib/domain/booking";
+import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { importLeadsFromCsv, logLeadActivity } from "@/lib/services/lead";
-import type { LeadStatus } from "@/app/generated/prisma/client";
+import { logActivity } from "@/lib/services/activity";
+import type { LeadStatus, Sex } from "@/app/generated/prisma/client";
 
 // Import CSV: plik z inputa albo wklejony tekst. Po imporcie wracamy na listę
 // z krótkim podsumowaniem (dodano / duplikaty / pominięto).
@@ -110,6 +113,96 @@ export async function assignLeadAction(formData: FormData) {
   });
   revalidatePath(`/leady/${leadId}`);
   redirect(`/leady/${leadId}`);
+}
+
+// Etap 2 leadów: konwersja lead -> klient. Lead ma tylko imię+kontakt, więc
+// obsługujący uzupełnia dane wymagane przez kartotekę (data urodzenia, płeć,
+// trener-opiekun, lokalizacja). Po utworzeniu Member wiążemy go z leadem
+// (convertedMemberId) - dzięki temu historia leada jest dostępna także z karty
+// klienta. joinedAt NIE ustawiamy: to pierwsza płatność/obecność, nie moment
+// założenia kartoteki (SPEC.md sekcja 1).
+export async function convertLeadToMemberAction(formData: FormData) {
+  const session = await requireLeadAccess();
+  const leadId = String(formData.get("leadId"));
+
+  function fail(message: string): never {
+    redirect(`/leady/${leadId}?blad=${encodeURIComponent(message)}`);
+  }
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    select: { id: true, fullName: true, convertedMemberId: true },
+  });
+  if (!lead) redirect("/leady");
+  // Jeden lead = jedno konto. Gdy już skonwertowany, nie tworzymy drugiego.
+  if (lead.convertedMemberId) redirect(`/leady/${leadId}`);
+
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const birthDateStr = String(formData.get("birthDate") ?? "");
+  const sex = String(formData.get("sex") ?? "");
+  const weightKgRaw = formData.get("weightKg");
+  const goal = String(formData.get("goal") ?? "").trim();
+  const homeLocationId = String(formData.get("homeLocationId") ?? "");
+  const ownerTrainerId = String(formData.get("ownerTrainerId") ?? "");
+
+  if (!firstName || !lastName || !birthDateStr || !homeLocationId || !ownerTrainerId) {
+    fail("Uzupełnij wszystkie wymagane pola (imię, nazwisko, data urodzenia, lokalizacja, trener).");
+  }
+  if (sex !== "MALE" && sex !== "FEMALE") fail("Wybierz płeć.");
+
+  const email = normalizeEmail(emailRaw);
+  if (!email || !isValidEmail(email)) fail("Podaj poprawny adres e-mail.");
+
+  const birthDate = new Date(birthDateStr);
+  const now = new Date();
+  if (Number.isNaN(birthDate.getTime()) || birthDate > now) fail("Nieprawidłowa data urodzenia.");
+  const isMinor = calculateAge(birthDate, now) < 18;
+  const weightKg = weightKgRaw && String(weightKgRaw).length > 0 ? Number(weightKgRaw) : null;
+
+  let newMemberId = "";
+  await prisma.$transaction(async (tx) => {
+    const member = await tx.member.create({
+      data: {
+        firstName,
+        lastName,
+        email,
+        birthDate,
+        isMinor,
+        sex: sex as Sex,
+        weightKg,
+        goal: goal || null,
+        homeLocationId,
+        ownerTrainerId,
+        joinedAt: null,
+      },
+    });
+    newMemberId = member.id;
+
+    await tx.lead.update({
+      where: { id: leadId },
+      data: { convertedMemberId: member.id, status: "CONVERTED" as LeadStatus },
+    });
+
+    await logLeadActivity(tx, {
+      leadId,
+      actorUserId: session.user.id,
+      kind: "CONVERTED",
+      summary: `Utworzono konto klienta: ${firstName} ${lastName}`,
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "MEMBER_CREATED",
+      memberId: member.id,
+      summary: `Dodano klienta ${firstName} ${lastName} (z leada: ${lead.fullName})`,
+    });
+  });
+
+  revalidatePath(`/leady/${leadId}`);
+  revalidatePath("/leady");
+  redirect(`/admin/klienci/${newMemberId}`);
 }
 
 export async function addLeadNoteAction(formData: FormData) {

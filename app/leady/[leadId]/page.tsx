@@ -2,25 +2,41 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireLeadAccess } from "@/lib/auth/guard";
-import { LEAD_SOURCE_LABEL, LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/lib/domain/lead-import";
+import {
+  LEAD_SOURCE_LABEL,
+  LEAD_STATUS_LABEL,
+  LEAD_STATUS_ORDER,
+  splitFullName,
+} from "@/lib/domain/lead-import";
 import { formatDate, formatDayTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   addLeadNoteAction,
   assignLeadAction,
   clearReminderAction,
+  convertLeadToMemberAction,
   setReminderAction,
   updateStatusAction,
 } from "../actions";
 
 const selectClass = "border-line bg-surface-2 text-text rounded-md border px-2 py-1.5 text-sm";
+const fieldClass = "border-line bg-surface-2 text-text w-full rounded-md border px-2 py-2 text-sm";
 
-export default async function LeadCardPage({ params }: { params: Promise<{ leadId: string }> }) {
+export default async function LeadCardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ leadId: string }>;
+  searchParams: Promise<{ blad?: string }>;
+}) {
   await requireLeadAccess();
   const { leadId } = await params;
+  const { blad } = await searchParams;
 
-  const [lead, assignees] = await Promise.all([
+  const [lead, assignees, locations, trainers] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: leadId },
       include: {
@@ -38,10 +54,17 @@ export default async function LeadCardPage({ params }: { params: Promise<{ leadI
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.location.findMany({ orderBy: { name: "asc" } }),
+    prisma.trainer.findMany({
+      where: { active: true },
+      include: { user: true, location: true },
+      orderBy: { user: { name: "asc" } },
+    }),
   ]);
   if (!lead) notFound();
 
   const raw = (lead.rawData ?? {}) as Record<string, string>;
+  const suggestedName = splitFullName(lead.fullName);
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,6 +78,12 @@ export default async function LeadCardPage({ params }: { params: Promise<{ leadI
           {lead.campaign ? ` · ${lead.campaign}` : ""} · zaimportowano {formatDate(lead.importedAt)}
         </p>
       </div>
+
+      {blad ? (
+        <p role="alert" className="border-red/40 bg-red/10 text-red rounded-md border p-3 text-sm">
+          {blad}
+        </p>
+      ) : null}
 
       {/* Dane kontaktowe */}
       <section className="border-line bg-surface grid grid-cols-1 gap-2 rounded-md border p-4 text-sm sm:grid-cols-2">
@@ -105,6 +134,147 @@ export default async function LeadCardPage({ params }: { params: Promise<{ leadI
           </details>
         ) : null}
       </section>
+
+      {/* Konwersja lead -> klient (Etap 2) */}
+      {lead.convertedMember ? null : (
+        <section className="border-jade/40 bg-jade/5 flex flex-col gap-2 rounded-md border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-text font-mono text-xs tracking-widest uppercase">
+                Utwórz konto klienta
+              </h2>
+              <p className="text-muted-brand mt-1 text-sm">
+                Lead potwierdził? Załóż kartotekę - historia tego leada zostanie z nią powiązana i
+                będzie widoczna z karty klienta.
+              </p>
+            </div>
+          </div>
+
+          <details className="group mt-1">
+            <summary className="bg-jade hover:bg-jade/90 inline-flex w-fit cursor-pointer list-none items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
+              Utwórz konto
+            </summary>
+
+            <form action={convertLeadToMemberAction} className="mt-3 flex flex-col gap-4">
+              <input type="hidden" name="leadId" value={lead.id} />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="firstName">Imię</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    required
+                    defaultValue={suggestedName.firstName}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Nazwisko</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    required
+                    defaultValue={suggestedName.lastName}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="convEmail">E-mail (kontakt)</Label>
+                <Input
+                  id="convEmail"
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={lead.email ?? ""}
+                  className="border-line bg-surface-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="birthDate">Data urodzenia</Label>
+                  <Input
+                    id="birthDate"
+                    name="birthDate"
+                    type="date"
+                    required
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sex">Płeć</Label>
+                  <select id="sex" name="sex" required defaultValue="" className={fieldClass}>
+                    <option value="" disabled>
+                      Wybierz…
+                    </option>
+                    <option value="FEMALE">Kobieta</option>
+                    <option value="MALE">Mężczyzna</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="homeLocationId">Lokalizacja domowa</Label>
+                  <select id="homeLocationId" name="homeLocationId" required defaultValue="" className={fieldClass}>
+                    <option value="" disabled>
+                      Wybierz…
+                    </option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="ownerTrainerId">Trener-opiekun</Label>
+                  <select id="ownerTrainerId" name="ownerTrainerId" required defaultValue="" className={fieldClass}>
+                    <option value="" disabled>
+                      Wybierz…
+                    </option>
+                    {trainers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.user.name} ({t.location.name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="weightKg">Waga (kg, opcjonalnie)</Label>
+                  <Input
+                    id="weightKg"
+                    name="weightKg"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="goal">Cel (opcjonalnie)</Label>
+                  <Input id="goal" name="goal" className="border-line bg-surface-2" />
+                </div>
+              </div>
+
+              <p className="text-muted-brand text-xs">
+                Każdy klient ma jednego trenera-opiekuna (CLAUDE.md reguła 1). Konto logowania i
+                karnet założysz później z karty klienta.
+              </p>
+
+              <Button type="submit" className="self-start">
+                Utwórz konto i przejdź do karty
+              </Button>
+            </form>
+          </details>
+        </section>
+      )}
 
       {/* Status */}
       <section className="flex flex-col gap-2">

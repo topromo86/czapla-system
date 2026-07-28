@@ -43,6 +43,17 @@ export type ParsedLead = {
 
 export type ParseResult = { leads: ParsedLead[]; skipped: number };
 
+// Rozbicie pełnego imienia z leada na imię i nazwisko dla kartoteki klienta
+// (Member trzyma je osobno). Pierwsze słowo to imię, reszta to nazwisko -
+// obsługuje wieloczłonowe nazwiska ("Anna Kowalska-Nowak"). To tylko wstępne
+// wypełnienie formularza konwersji; obsługujący może poprawić przed zapisem.
+export function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
 // Parser CSV z obsługą cudzysłowów, przecinków i nowych linii w polach oraz
 // podwojonego cudzysłowu ("") jako znaku dosłownego. Zwraca wiersze surowych pól.
 export function parseCsv(input: string): string[][] {

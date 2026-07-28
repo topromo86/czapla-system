@@ -4,8 +4,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { calculateAge } from "@/lib/domain/booking";
 import { daysSince } from "@/lib/domain/retention";
+import { LEAD_SOURCE_LABEL } from "@/lib/domain/lead-import";
 import { MEMBER_LEVELS, MEMBER_LEVEL_LABEL } from "@/lib/domain/member-level";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDayTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +64,17 @@ export default async function AdminMemberCardPage({
         passes: { orderBy: { endsAt: "desc" }, include: { plan: true } },
         notes: { orderBy: { createdAt: "desc" }, take: 5, include: { authorUser: true } },
         referralsMade: { orderBy: { createdAt: "desc" }, include: { refereeMember: true } },
+        // Etap 2 leadów: jeśli klient powstał z leada, pokazujemy jego pochodzenie
+        // i pełną historię kontaktu sprzed założenia konta.
+        convertedLead: {
+          include: {
+            notes: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+            activities: {
+              include: { actor: { select: { name: true } } },
+              orderBy: { createdAt: "desc" },
+            },
+          },
+        },
       },
     }),
     prisma.location.findMany({ orderBy: { name: "asc" } }),
@@ -147,6 +159,68 @@ export default async function AdminMemberCardPage({
           ) : null}
         </div>
       </section>
+
+      {member.convertedLead ? (
+        <section className="border-line bg-surface rounded-md border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+              Pozyskany z leada
+            </h2>
+            <Link
+              href={`/leady/${member.convertedLead.id}`}
+              className="text-brand-red text-xs underline"
+            >
+              Otwórz kartę leada →
+            </Link>
+          </div>
+          <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
+            {LEAD_SOURCE_LABEL[member.convertedLead.source]}
+            {member.convertedLead.campaign ? ` · ${member.convertedLead.campaign}` : ""} ·
+            zaimportowano {formatDate(member.convertedLead.importedAt)}
+          </p>
+          {member.convertedLead.phone ? (
+            <p className="text-muted-brand mt-1 text-sm">
+              Telefon z leada:{" "}
+              <a href={`tel:${member.convertedLead.phone}`} className="text-brand-red">
+                {member.convertedLead.phone}
+              </a>
+            </p>
+          ) : null}
+
+          {member.convertedLead.notes.length > 0 ? (
+            <div className="mt-3">
+              <p className="text-muted-brand font-mono text-[10px] tracking-widest uppercase">
+                Notatki z rozmów ({member.convertedLead.notes.length})
+              </p>
+              <ul className="mt-1 flex flex-col gap-2">
+                {member.convertedLead.notes.map((n) => (
+                  <li key={n.id} className="border-line bg-surface-2 rounded-md border p-2">
+                    <p className="text-text text-sm whitespace-pre-wrap">{n.body}</p>
+                    <p className="text-muted-brand mt-1 font-mono text-[10px] uppercase">
+                      {n.author.name} · {formatDayTime(n.createdAt)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <details className="mt-3">
+            <summary className="text-muted-brand cursor-pointer font-mono text-[10px] tracking-widest uppercase">
+              Historia kontaktu ({member.convertedLead.activities.length})
+            </summary>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {member.convertedLead.activities.map((a) => (
+                <li key={a.id} className="text-muted-brand flex flex-wrap gap-x-2 text-xs">
+                  <span className="font-mono">{formatDayTime(a.createdAt)}</span>
+                  <span className="text-text">{a.summary}</span>
+                  {a.actor ? <span>· {a.actor.name}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      ) : null}
 
       <section>
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
