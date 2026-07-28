@@ -1,25 +1,32 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Archivo, IBM_Plex_Mono } from "next/font/google";
+import { Anton, Archivo, IBM_Plex_Mono, Inter, Oswald, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { getClubSettings } from "@/lib/services/settings";
 import { RegisterServiceWorker } from "./register-service-worker";
 import { THEME_INIT_SCRIPT } from "./theme-toggle";
 
-const anton = Anton({
-  variable: "--font-anton",
-  subsets: ["latin", "latin-ext"],
-  weight: "400",
-});
-
-const archivo = Archivo({
-  variable: "--font-archivo",
-  subsets: ["latin", "latin-ext"],
-});
-
+// Wszystkie rodziny ładujemy zawsze (każda pod swoją zmienną CSS). O tym, KTÓRA
+// jest aktywna, decyduje atrybut data-font na <html> (patrz globals.css) -
+// ustawiany z ustawień klubu, więc admin przełącza zestaw dla wszystkich.
+const anton = Anton({ variable: "--font-anton", subsets: ["latin", "latin-ext"], weight: "400" });
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin", "latin-ext"] });
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-ibm-plex-mono",
   subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600"],
 });
+const oswald = Oswald({ variable: "--font-oswald", subsets: ["latin", "latin-ext"] });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"] });
+const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin", "latin-ext"] });
+
+const FONT_VARS = [
+  anton.variable,
+  archivo.variable,
+  ibmPlexMono.variable,
+  oswald.variable,
+  inter.variable,
+  playfair.variable,
+].join(" ");
 
 export const metadata: Metadata = {
   title: "toFitCONTROL",
@@ -40,15 +47,20 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Zestaw czcionek z ustawień klubu - deterministyczny (z bazy), więc SSR i
+  // klient zgadzają się co do data-font, bez migotania.
+  const { fontTheme } = await getClubSettings();
+
   return (
     <html
       lang="pl"
-      className={`${anton.variable} ${archivo.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      data-font={fontTheme}
+      className={`${FONT_VARS} h-full antialiased`}
       // Skrypt motywu dopisuje klasę `dark` do <html> przed hydratacją, więc
       // serwer i klient widzą tu różny className. To zamierzone.
       suppressHydrationWarning

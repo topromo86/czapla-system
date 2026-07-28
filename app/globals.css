@@ -100,10 +100,6 @@
   --color-jade: var(--jade);
   --color-amber: var(--amber);
 
-  --font-display: var(--font-anton);
-  --font-sans: var(--font-archivo);
-  --font-mono: var(--font-ibm-plex-mono);
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -141,6 +137,16 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
+/* Fonty CELOWO w osobnym @theme BEZ `inline`. Przy `inline` Tailwind wypala
+   wartość zmiennej do klas na etapie budowania (.font-display -> var(--font-anton)),
+   więc nadpisania --font-display niżej nic by nie dawały. Bez `inline` klasy
+   odwołują się do var(--font-display) w runtime i przełącznik data-font działa. */
+@theme {
+  --font-display: var(--font-anton);
+  --font-sans: var(--font-archivo);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -151,4 +157,19 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Zestawy czcionek (lib/domain/font-themes.ts). Domyślny "boxing" jest w @theme
+   powyżej; tu tylko nadpisania dla pozostałych zestawów. Atrybut data-font na
+   <html> ustawia app/layout.tsx z ustawień klubu - admin przełącza dla wszystkich. */
+:root[data-font="modern"] {
+  --font-display: var(--font-oswald);
+  --font-sans: var(--font-inter);
+}
+:root[data-font="classic"] {
+  --font-display: var(--font-playfair);
+}
+:root[data-font="minimal"] {
+  --font-display: var(--font-inter);
+  --font-sans: var(--font-inter);
 }

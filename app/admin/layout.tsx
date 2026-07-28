@@ -58,7 +58,10 @@ const NAV_GROUPS: HeaderNavGroup[] = [
   { label: "Aktywność", items: [{ href: "/admin/aktywnosc", label: "Aktywność" }] },
   {
     label: "Ustawienia",
-    items: [{ href: "/admin/ustawienia/email", label: "Poczta e-mail" }],
+    items: [
+      { href: "/admin/ustawienia/email", label: "Poczta e-mail" },
+      { href: "/admin/ustawienia/wyglad", label: "Wygląd" },
+    ],
   },
 ];
 

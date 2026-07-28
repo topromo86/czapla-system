@@ -332,6 +332,11 @@ model ClubSettings {
   // klubowiczami i nie powinna wymagać wdrożenia.
   freeCancellationHours Int @default(24)
 
+  // Zestaw czcionek dla całej aplikacji (id z lib/domain/font-themes.ts).
+  // Admin wybiera jeden, obowiązuje wszystkich. String, nie enum - dodanie
+  // nowego zestawu nie wymaga wtedy migracji.
+  fontTheme String @default("boxing")
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 }
