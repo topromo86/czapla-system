@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import type { Role } from "@/app/generated/prisma/client";
 
 const ROLE_HOME: Record<Role, string> = {
-  ADMIN: "/admin",
+  ADMIN: "/admin/pulpit",
   TRAINER: "/trainer",
   MEMBER: "/app",
   GUARDIAN: "/app",

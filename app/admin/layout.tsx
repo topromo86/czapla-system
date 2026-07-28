@@ -13,6 +13,7 @@ import { AccountViewSwitch } from "../account-view-switch";
 // przestawała się mieścić w nagłówku. Każdy ekran jest najwyżej dwa
 // kliknięcia od startu (grupa → pozycja).
 const NAV_GROUPS: HeaderNavGroup[] = [
+  { label: "Pulpit", items: [{ href: "/admin/pulpit", label: "Pulpit" }] },
   {
     label: "Klienci",
     items: [
