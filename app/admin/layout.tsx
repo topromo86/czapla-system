@@ -54,6 +54,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
       { href: "/admin/audyt-notatek", label: "Audyt notatek" },
     ],
   },
+  { label: "Leady", items: [{ href: "/leady", label: "Leady" }] },
   { label: "Aktywność", items: [{ href: "/admin/aktywnosc", label: "Aktywność" }] },
   {
     label: "Ustawienia",

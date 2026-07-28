@@ -120,6 +120,22 @@ export async function requireOwnsSession(sessionId: string) {
 export type MemberRelation = "self" | "child";
 export type AccessibleMember = Member & { relation: MemberRelation };
 
+// Dostęp do modułu leadów (CRM). ADMIN ma zawsze; trener - tylko gdy admin
+// nadał mu flagę canAccessLeads. Reszta ról odpada. Dane leadów są wrażliwe
+// (kontakty z reklam), więc dostęp jest zawężony i sprawdzany server-side.
+export async function requireLeadAccess() {
+  const session = await requireSession();
+  if (session.user.role === "ADMIN") return session;
+  if (session.user.role === "TRAINER") {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { canAccessLeads: true },
+    });
+    if (user?.canAccessLeads) return session;
+  }
+  throw new ForbiddenError("Brak dostępu do leadów.");
+}
+
 // Lista Member, w imieniu których zalogowany użytkownik może działać w /app.
 // Zwraca WŁASNĄ kartotekę (jeśli sam trenuje) ORAZ wszystkie dzieci, których
 // jest opiekunem - dlatego rodzic-klubowicz widzi w jednym miejscu siebie i

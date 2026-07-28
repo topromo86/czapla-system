@@ -1,0 +1,175 @@
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { requireLeadAccess } from "@/lib/auth/guard";
+import {
+  LEAD_SOURCE_LABEL,
+  LEAD_STATUS_LABEL,
+  LEAD_STATUS_ORDER,
+} from "@/lib/domain/lead-import";
+import { formatDayTime } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { importCsvAction } from "./actions";
+import type { LeadStatus } from "@/app/generated/prisma/client";
+
+const STATUS_STYLE: Record<LeadStatus, string> = {
+  NEW: "bg-brand-red/10 text-brand-red",
+  IN_PROGRESS: "bg-amber/10 text-amber",
+  CALLBACK: "bg-amber/10 text-amber",
+  CONFIRMED: "bg-jade/10 text-jade",
+  CONVERTED: "bg-jade/10 text-jade",
+  REJECTED: "bg-surface-2 text-muted-brand",
+};
+
+const IMPORT_MESSAGE = (p: {
+  import?: string;
+  created?: string;
+  dup?: string;
+  skip?: string;
+}): string | null => {
+  if (p.import === "empty") return "Nie wskazano pliku ani treści CSV.";
+  if (p.import === "ok")
+    return `Zaimportowano ${p.created ?? 0} nowych leadów (duplikaty: ${p.dup ?? 0}, pominięte: ${p.skip ?? 0}).`;
+  return null;
+};
+
+export default async function LeadsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; import?: string; created?: string; dup?: string; skip?: string }>;
+}) {
+  await requireLeadAccess();
+  const params = await searchParams;
+  const activeStatus = LEAD_STATUS_ORDER.includes(params.status as LeadStatus)
+    ? (params.status as LeadStatus)
+    : null;
+  const importMsg = IMPORT_MESSAGE(params);
+
+  const leads = await prisma.lead.findMany({
+    where: activeStatus ? { status: activeStatus } : {},
+    include: { assignedTo: { select: { name: true } } },
+    orderBy: [{ reminderAt: { sort: "asc", nulls: "last" } }, { importedAt: "desc" }],
+    take: 200,
+  });
+  const now = new Date();
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="font-display text-brand-red text-2xl tracking-wide">Leady do kontaktu</h1>
+        <p className="text-muted-brand mt-1 text-sm">
+          Leady z kampanii Meta (Facebook / Instagram) do obdzwonienia. Importuj plik CSV
+          wyeksportowany z Menedżera reklam lub formularzy Lead Ads.
+        </p>
+      </div>
+
+      {importMsg ? (
+        <p className="border-jade/40 bg-jade/10 text-text rounded-md border p-3 text-sm">
+          {importMsg}
+        </p>
+      ) : null}
+
+      {/* Import CSV */}
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-md border p-4">
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Import z Meta (CSV)
+        </h2>
+        <form action={importCsvAction} className="flex flex-col gap-3">
+          <input
+            type="file"
+            name="file"
+            accept=".csv,text/csv"
+            className="text-text text-sm file:mr-3 file:rounded-md file:border-0 file:bg-brand-red file:px-3 file:py-1.5 file:text-white"
+          />
+          <details>
+            <summary className="text-brand-red cursor-pointer text-sm">
+              …albo wklej treść CSV
+            </summary>
+            <Textarea
+              name="csv"
+              rows={4}
+              placeholder="full_name,email,phone_number,platform,campaign_name&#10;Jan Kowalski,jan@...,+48...,facebook,Boks jesień"
+              className="border-line bg-surface-2 mt-2 font-mono text-xs"
+            />
+          </details>
+          <Button type="submit" size="sm" className="self-start">
+            Importuj leady
+          </Button>
+        </form>
+      </section>
+
+      {/* Filtry statusu */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/leady"
+          className={`rounded-md border px-3 py-1.5 text-sm ${activeStatus === null ? "border-brand-red text-brand-red font-medium" : "border-line bg-surface text-text"}`}
+        >
+          Wszystkie
+        </Link>
+        {LEAD_STATUS_ORDER.map((s) => (
+          <Link
+            key={s}
+            href={`/leady?status=${s}`}
+            className={`rounded-md border px-3 py-1.5 text-sm ${activeStatus === s ? "border-brand-red text-brand-red font-medium" : "border-line bg-surface text-text"}`}
+          >
+            {LEAD_STATUS_LABEL[s]}
+          </Link>
+        ))}
+      </div>
+
+      {/* Lista */}
+      {leads.length === 0 ? (
+        <p className="text-muted-brand border-line bg-surface rounded-md border p-4 text-sm">
+          Brak leadów w tym widoku. Zaimportuj plik CSV powyżej.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {leads.map((lead) => {
+            const overdue = lead.reminderAt != null && lead.reminderAt <= now;
+            return (
+              <li
+                key={lead.id}
+                className="border-line bg-surface flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-text font-medium">
+                    {lead.fullName}
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase ${STATUS_STYLE[lead.status]}`}
+                    >
+                      {LEAD_STATUS_LABEL[lead.status]}
+                    </span>
+                  </p>
+                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                    {lead.phone ? (
+                      <a href={`tel:${lead.phone}`} className="hover:text-brand-red">
+                        {lead.phone}
+                      </a>
+                    ) : (
+                      "brak telefonu"
+                    )}
+                    {lead.email ? ` · ${lead.email}` : ""} · {LEAD_SOURCE_LABEL[lead.source]}
+                    {lead.campaign ? ` · ${lead.campaign}` : ""}
+                    {lead.assignedTo ? ` · opiekun: ${lead.assignedTo.name}` : ""}
+                  </p>
+                  {lead.reminderAt ? (
+                    <p className={`mt-0.5 font-mono text-xs ${overdue ? "text-red" : "text-amber"}`}>
+                      {overdue ? "⏰ zaległy kontakt: " : "przypomnienie: "}
+                      {formatDayTime(lead.reminderAt)}
+                    </p>
+                  ) : null}
+                </div>
+                <Link
+                  href={`/leady/${lead.id}`}
+                  className="border-line bg-surface-2 text-text hover:text-brand-red shrink-0 rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
+                >
+                  Otwórz
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}

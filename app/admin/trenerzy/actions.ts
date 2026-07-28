@@ -398,3 +398,26 @@ export async function deleteTrainerAction(formData: FormData) {
   revalidatePath("/app/trenerzy");
   backToList();
 }
+
+// Nadanie / odebranie trenerowi dostępu do modułu leadów (CRM). Admin decyduje,
+// kto z kadry moze widziec i obdzwaniac leady z reklam.
+export async function toggleLeadAccessAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const trainerId = String(formData.get("trainerId") ?? "");
+
+  const trainer = await prisma.trainer.findUniqueOrThrow({
+    where: { id: trainerId },
+    include: { user: true },
+  });
+  const next = !trainer.user.canAccessLeads;
+
+  await prisma.user.update({ where: { id: trainer.userId }, data: { canAccessLeads: next } });
+  await logActivity(prisma, {
+    actorUserId: session.user.id,
+    action: "TRAINER_UPDATED",
+    summary: `${next ? "Nadano" : "Odebrano"} dostęp do leadów: ${trainer.user.name}`,
+  });
+
+  revalidatePath(`/admin/trenerzy/${trainerId}`);
+  backToTrainer(trainerId);
+}

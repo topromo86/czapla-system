@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { canHardDelete, describeDeletionBlockers } from "@/lib/domain/trainer-handover";
 import { formatDate } from "@/lib/format";
-import { deleteTrainerAction, reactivateTrainerAction, updateTrainerProfileAction } from "../actions";
+import {
+  deleteTrainerAction,
+  reactivateTrainerAction,
+  toggleLeadAccessAction,
+  updateTrainerProfileAction,
+} from "../actions";
 import { TrainerAvatar } from "../trainer-avatar";
 
 const selectClass = "border-line bg-surface-2 text-text w-full rounded-md border px-2 py-2 text-sm";
@@ -199,6 +204,25 @@ export default async function TrainerDetailPage({
             Zapisz wizytówkę
           </Button>
         </form>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Dostęp do leadów (CRM)
+        </h2>
+        <div className="border-line bg-surface mt-2 flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
+          <p className="text-muted-brand text-sm">
+            {trainer.user.canAccessLeads
+              ? "Ten trener widzi i obsługuje leady z reklam (Facebook / Instagram)."
+              : "Ten trener nie ma dostępu do leadów z reklam."}
+          </p>
+          <form action={toggleLeadAccessAction}>
+            <input type="hidden" name="trainerId" value={trainer.id} />
+            <Button type="submit" size="sm" variant="outline">
+              {trainer.user.canAccessLeads ? "Odbierz dostęp" : "Nadaj dostęp"}
+            </Button>
+          </form>
+        </div>
       </section>
 
       {trainer.active ? (

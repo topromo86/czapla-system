@@ -11,7 +11,7 @@ import { AccountViewSwitch } from "../account-view-switch";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const { session, trainer } = await requireTrainerSelf();
-  const [openAlertsCount, pendingSubstitutes] = await Promise.all([
+  const [openAlertsCount, pendingSubstitutes, leadUser] = await Promise.all([
     prisma.retentionTask.count({ where: { trainerId: trainer.id, closedAt: null } }),
     // Zastępstwa czekające na jego decyzję. Licznik przy "Dziś", bo tam jest
     // sekcja z potwierdzeniem - push może nie dojść, to widać zawsze.
@@ -22,6 +22,10 @@ export default async function TrainerLayout({ children }: { children: React.Reac
         status: "SCHEDULED",
         startsAt: { gte: new Date() },
       },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { canAccessLeads: true },
     }),
   ]);
 
@@ -46,6 +50,9 @@ export default async function TrainerLayout({ children }: { children: React.Reac
         { href: "/trainer/sparingi", label: "Sparingi" },
       ],
     },
+    ...(leadUser?.canAccessLeads
+      ? [{ label: "Leady", items: [{ href: "/leady", label: "Leady" }] }]
+      : []),
     {
       label: "Moje",
       items: [

@@ -36,6 +36,8 @@ model User {
   name            String
   phone           String?
   role            Role
+  // Dostęp do modułu leadów (CRM). ADMIN ma zawsze; trenerowi nadaje admin.
+  canAccessLeads  Boolean   @default(false)
   emailVerifiedAt DateTime? @db.Timestamptz
   lastLoginAt     DateTime? @db.Timestamptz
   createdAt       DateTime  @default(now()) @db.Timestamptz
@@ -51,18 +53,21 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   guardianLinkRequests    GuardianLinkRequest[]    @relation("GuardianLinkRequester")
 
-  trainer              Trainer?      @relation("TrainerAccount")
-  memberAccount        Member?       @relation("MemberAccount")
-  guardianOfMembers    Member[]      @relation("MemberGuardian")
-  authoredNotes        Note[]        @relation("NoteAuthor")
-  recordedAttendances  Attendance[]  @relation("AttendanceRecordedBy")
-  soldPasses           Pass[]        @relation("PassSoldBy")
-  recordedPayments     Payment[]     @relation("PaymentRecordedBy")
-  closedCashDays       CashDay[]     @relation("CashDayClosedBy")
-  grantedConsents      Consent[]     @relation("ConsentGrantedBy")
-  activityLogs         ActivityLog[] @relation("ActivityActor")
-  recordedMeasurements Measurement[] @relation("MeasurementRecordedBy")
-  refundedEntries      Booking[]     @relation("BookingEntryRefundedBy")
+  trainer              Trainer?       @relation("TrainerAccount")
+  memberAccount        Member?        @relation("MemberAccount")
+  guardianOfMembers    Member[]       @relation("MemberGuardian")
+  authoredNotes        Note[]         @relation("NoteAuthor")
+  recordedAttendances  Attendance[]   @relation("AttendanceRecordedBy")
+  soldPasses           Pass[]         @relation("PassSoldBy")
+  recordedPayments     Payment[]      @relation("PaymentRecordedBy")
+  closedCashDays       CashDay[]      @relation("CashDayClosedBy")
+  grantedConsents      Consent[]      @relation("ConsentGrantedBy")
+  activityLogs         ActivityLog[]  @relation("ActivityActor")
+  recordedMeasurements Measurement[]  @relation("MeasurementRecordedBy")
+  refundedEntries      Booking[]      @relation("BookingEntryRefundedBy")
+  assignedLeads        Lead[]         @relation("LeadAssignee")
+  leadNotes            LeadNote[]     @relation("LeadNoteAuthor")
+  leadActivities       LeadActivity[] @relation("LeadActivityActor")
 
   @@index([role])
 }
@@ -222,6 +227,7 @@ model Member {
   measurements         Measurement[]
   absenceReports       AbsenceReport[]
   guardianLinkRequests GuardianLinkRequest[] @relation("GuardianLinkMember")
+  convertedLead        Lead?                 @relation("LeadMember")
 
   @@index([ownerTrainerId, status])
   @@index([approvalStatus])
@@ -982,4 +988,98 @@ model GuardianLinkRequest {
 
   @@index([status])
   @@index([requesterUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Leady (CRM) - pozyskani z Meta (Facebook/Instagram), import CSV
+// ---------------------------------------------------------------------------
+
+enum LeadSource {
+  FACEBOOK
+  INSTAGRAM
+  META_OTHER
+  MANUAL
+}
+
+enum LeadStatus {
+  NEW // nowy, jeszcze nie obdzwoniony
+  IN_PROGRESS // podjęto kontakt, w toku
+  CALLBACK // umówiony ponowny kontakt (patrz reminderAt)
+  CONFIRMED // potwierdził zainteresowanie - do założenia konta
+  CONVERTED // założono konto (convertedMemberId)
+  REJECTED // brak zainteresowania / rezygnacja
+}
+
+// Lead z kampanii Meta. Surowe pola z importu trzymamy w rawData, żeby nic nie
+// zgubić niezależnie od układu kolumn w CSV. externalId to id leada z Meta -
+// klucz deduplikacji przy imporcie (i późniejszym API). Po potwierdzeniu można
+// z leada utworzyć konto klienta (convertedMemberId) - historia zostaje przy
+// leadzie i przez to powiązanie jest dostępna także z karty klienta.
+model Lead {
+  id                String     @id @default(cuid())
+  source            LeadSource @default(META_OTHER)
+  externalId        String? // id z Meta (dedup)
+  fullName          String
+  email             String?
+  phone             String?
+  campaign          String? // nazwa kampanii / formularza
+  rawData           Json? // wszystkie pola z importu
+  status            LeadStatus @default(NEW)
+  assignedToUserId  String? // kto obsługuje (admin/trener)
+  reminderAt        DateTime?  @db.Timestamptz // termin ponownego kontaktu
+  convertedMemberId String?    @unique
+  importedAt        DateTime   @default(now()) @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  assignedTo      User?   @relation("LeadAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  convertedMember Member? @relation("LeadMember", fields: [convertedMemberId], references: [id], onDelete: SetNull)
+
+  notes      LeadNote[]
+  activities LeadActivity[]
+
+  @@unique([source, externalId])
+  @@index([status])
+  @@index([assignedToUserId])
+  @@index([reminderAt])
+}
+
+// Notatka do leada - widoczna wyłącznie w panelu admina/trenera z dostępem.
+model LeadNote {
+  id           String   @id @default(cuid())
+  leadId       String
+  authorUserId String
+  body         String   @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author User @relation("LeadNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([leadId])
+}
+
+enum LeadActivityKind {
+  IMPORTED
+  ASSIGNED
+  STATUS_CHANGED
+  REMINDER_SET
+  NOTE_ADDED
+  CONVERTED
+}
+
+// Historia aktywności leada: kiedy kontakt, co ustalono, zmiany statusu,
+// przypomnienia, konwersja. Zostaje przy leadzie także po założeniu konta.
+model LeadActivity {
+  id          String           @id @default(cuid())
+  leadId      String
+  actorUserId String?
+  kind        LeadActivityKind
+  summary     String
+  createdAt   DateTime         @default(now()) @db.Timestamptz
+
+  lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actor User? @relation("LeadActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
 }
