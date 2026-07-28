@@ -87,10 +87,15 @@ export default async function AdminTrainersPage({
       </section>
 
       {mutedTrainers.length > 0 ? (
-        <section>
-          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+        <details className="group">
+          {/* Domyślnie zwinięci - widać tylko liczbę. Natywne <details>, więc
+              rozwijanie działa bez JS. */}
+          <summary className="text-muted-brand hover:text-brand-red flex cursor-pointer list-none items-center gap-2 font-mono text-xs tracking-widest uppercase [&::-webkit-details-marker]:hidden">
+            <span className="inline-block text-[10px] transition-transform group-open:rotate-90">
+              ▶
+            </span>
             Wyciszeni ({mutedTrainers.length})
-          </h2>
+          </summary>
           <ul className="mt-2 flex flex-col gap-2">
             {mutedTrainers.map((trainer) => (
               <li
@@ -124,7 +129,7 @@ export default async function AdminTrainersPage({
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
 
       <section>
