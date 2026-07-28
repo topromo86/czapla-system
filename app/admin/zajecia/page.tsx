@@ -10,6 +10,7 @@ import {
   WEEKDAY_LABELS,
 } from "@/lib/domain/availability";
 import { bookingHorizonEnd, describeHorizon, FIXED_HORIZON_OPTIONS } from "@/lib/domain/schedule";
+import { resolveClassName } from "@/lib/domain/class-template";
 import {
   MAX_CANCELLATION_WINDOW_HOURS,
   MIN_CANCELLATION_WINDOW_HOURS,
@@ -20,8 +21,10 @@ import {
   cancelSessionAction,
   createAvailabilityWindowAction,
   createCategoryAction,
+  createClassTemplateAction,
   createSessionAction,
   deleteAvailabilityWindowAction,
+  stopClassTemplateAction,
   toggleCategoryAction,
   updateBookingHorizonAction,
   updateCancellationWindowAction,
@@ -52,7 +55,7 @@ export default async function AdminSessionsPage({
     now,
   });
 
-  const [locations, trainers, sessions, windows, categories] = await Promise.all([
+  const [locations, trainers, sessions, windows, categories, templates] = await Promise.all([
     prisma.location.findMany({ orderBy: { name: "asc" } }),
     prisma.trainer.findMany({
       where: { active: true },
@@ -75,6 +78,15 @@ export default async function AdminSessionsPage({
       orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
     }),
     prisma.classCategory.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.classTemplate.findMany({
+      where: { active: true },
+      include: {
+        location: true,
+        trainer: { include: { user: true } },
+        category: true,
+      },
+      orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
+    }),
   ]);
 
   const activeCategories = categories.filter((c) => c.active);
@@ -83,11 +95,19 @@ export default async function AdminSessionsPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-display text-brand-red text-2xl tracking-wide">Zajęcia</h1>
-        <p className="text-muted-brand mt-1 text-sm">
-          Grafik zajęć grupowych i okna, w których trenerzy przyjmują na treningi indywidualne.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-brand-red text-2xl tracking-wide">Zajęcia</h1>
+          <p className="text-muted-brand mt-1 text-sm">
+            Grafik zajęć grupowych i okna, w których trenerzy przyjmują na treningi indywidualne.
+          </p>
+        </div>
+        <a
+          href="/admin/zajecia/tydzien"
+          className="border-line bg-surface text-text hover:text-brand-red shrink-0 rounded-md border px-3 py-2 font-mono text-xs tracking-widest uppercase"
+        >
+          Widok tygodniowy →
+        </a>
       </div>
 
       {error ? (
@@ -303,7 +323,189 @@ export default async function AdminSessionsPage({
 
       <section>
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          {editing ? "Edytuj zajęcia" : "Dodaj zajęcia"}
+          Zajęcia cykliczne (regularne)
+        </h2>
+        <p className="text-muted-brand mt-1 text-sm">
+          Ustawiasz dzień tygodnia i godzinę - zajęcia powtarzają się co tydzień automatycznie,{" "}
+          <b className="text-text">do odwołania</b>. System dogenerowuje terminy na 8 tygodni w
+          przód. Nazwa jest opcjonalna: gdy ją zostawisz pustą, zajęcia nazywają się jak wybrany
+          rodzaj.
+        </p>
+
+        <form
+          action={createClassTemplateAction}
+          className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tplCategoryId">Rodzaj</Label>
+              <select id="tplCategoryId" name="categoryId" required className={selectClass}>
+                <option value="">Wybierz...</option>
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="tplName">Nazwa (opcjonalnie)</Label>
+              <Input
+                id="tplName"
+                name="name"
+                placeholder="domyślnie nazwa rodzaju"
+                className="border-line bg-surface-2"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="tplWeekday">Dzień tygodnia</Label>
+              <select id="tplWeekday" name="weekday" required defaultValue="1" className={selectClass}>
+                {WEEKDAY_LABELS.map((label, index) => (
+                  <option key={label} value={index}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="tplStartTime">Godzina startu</Label>
+              <Input
+                id="tplStartTime"
+                name="startTime"
+                type="time"
+                required
+                defaultValue="18:00"
+                className="border-line bg-surface-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="tplDuration">Czas trwania (min)</Label>
+              <Input
+                id="tplDuration"
+                name="durationMin"
+                type="number"
+                min="15"
+                step="5"
+                required
+                defaultValue={60}
+                className="border-line bg-surface-2"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tplLocationId">Miejsce</Label>
+              <select id="tplLocationId" name="locationId" required className={selectClass}>
+                <option value="">Wybierz...</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="tplTrainerId">Trener</Label>
+              <select id="tplTrainerId" name="trainerId" required className={selectClass}>
+                <option value="">Wybierz...</option>
+                {trainers.map((trainer) => (
+                  <option key={trainer.id} value={trainer.id}>
+                    {trainer.user.name} ({trainer.location.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tplCapacity">Liczba miejsc</Label>
+              <Input
+                id="tplCapacity"
+                name="capacity"
+                type="number"
+                min="1"
+                required
+                defaultValue={16}
+                className="border-line bg-surface-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="tplStartDate">Obowiązuje od (opcjonalnie)</Label>
+              <Input
+                id="tplStartDate"
+                name="startDate"
+                type="date"
+                className="border-line bg-surface-2"
+              />
+              <p className="text-muted-brand mt-1 text-xs">
+                Puste = od zaraz. Ustaw, jeśli zajęcia ruszają dopiero za jakiś czas.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="isKids" className="size-4" />
+            <span className="text-text">Grupa dziecięca (widzą tylko niepełnoletni)</span>
+          </label>
+
+          <Button type="submit" className="self-start">
+            Dodaj zajęcia cykliczne
+          </Button>
+        </form>
+
+        <ul className="mt-3 flex flex-col gap-2">
+          {templates.map((tpl) => {
+            const startsInFuture = tpl.startDate ? tpl.startDate > now : false;
+            return (
+              <li
+                key={tpl.id}
+                className="border-line bg-surface flex flex-wrap items-start justify-between gap-3 rounded-md border p-3"
+              >
+                <div>
+                  <p className="text-text font-medium">
+                    {resolveClassName(tpl.name, tpl.category?.name ?? "Zajęcia")}
+                    {tpl.isKids ? (
+                      <span className="bg-amber/10 text-amber ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
+                        Dzieci
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-muted-brand mt-1 font-mono text-xs">
+                    {WEEKDAY_LABELS[tpl.weekday]} · {tpl.startTime} · {tpl.durationMin} min ·{" "}
+                    {tpl.location.name} · {tpl.trainer.user.name} · {tpl.capacity} miejsc
+                    {tpl.category ? ` · ${tpl.category.name}` : ""}
+                  </p>
+                  {startsInFuture && tpl.startDate ? (
+                    <p className="text-amber mt-1 text-xs">
+                      Rusza od {formatDate(tpl.startDate)}
+                    </p>
+                  ) : null}
+                </div>
+                <form action={stopClassTemplateAction}>
+                  <input type="hidden" name="templateId" value={tpl.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    Zakończ
+                  </Button>
+                </form>
+              </li>
+            );
+          })}
+          {templates.length === 0 ? (
+            <li className="text-muted-brand text-sm">
+              Brak zajęć cyklicznych. Dodaj plan powyżej - terminy wygenerują się automatycznie.
+            </li>
+          ) : null}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          {editing ? "Edytuj zajęcia" : "Dodaj zajęcia jednorazowe"}
         </h2>
 
         <form
@@ -314,14 +516,12 @@ export default async function AdminSessionsPage({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="name">Nazwa zajęć</Label>
+              <Label htmlFor="name">Nazwa (opcjonalnie)</Label>
               <Input
                 id="name"
                 name="name"
-                required
-                minLength={3}
                 defaultValue={editing?.name ?? ""}
-                placeholder="np. Boks - grupa początkująca"
+                placeholder="domyślnie nazwa rodzaju"
                 className="border-line bg-surface-2"
               />
             </div>
@@ -646,7 +846,7 @@ export default async function AdminSessionsPage({
               Okna treningów indywidualnych
             </p>
             <p>
-              Okno to reguła tygodniowa, np. „Adam, wtorki 16:00-20:00, treningi po 60 min". System
+              Okno to reguła tygodniowa, np. „Adam, wtorki 16:00-20:00, treningi po 60 min”. System
               dzieli je na konkretne terminy (16:00, 17:00, 18:00, 19:00) i tylko te terminy widzi
               klient. Godzina spoza okna nie istnieje jako opcja - <b>nikt nie zapisze się na 23:00</b>,
               nawet próbując ominąć formularz, bo serwer sprawdza żądany termin względem tej samej

@@ -397,11 +397,18 @@ model ClassTemplate {
   id          String  @id @default(cuid())
   locationId  String
   trainerId   String
-  name        String
+  // Nazwa opcjonalna: puste = zajęcia nazywają się jak ich rodzaj (kategoria).
+  // Właściwą nazwę wylicza resolveClassName z lib/domain/class-template.ts przy
+  // generowaniu sesji - Session.name pozostaje wymagane.
+  name        String?
   weekday     Int // 0-6
   startTime   String // "18:00"
   durationMin Int
   capacity    Int
+  // Od kiedy plan obowiązuje. null = od zaraz. Zajęcia są cykliczne "do
+  // odwołania" - trwają, dopóki active, koniec to wyłączenie planu (nie ma
+  // daty końcowej). Trzymane jako północ czasu klubu w UTC.
+  startDate   DateTime? @db.Timestamptz
   minAge      Int?
   maxAge      Int?
   isKids      Boolean @default(false)

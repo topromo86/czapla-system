@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { HandoverItem } from "@/lib/domain/trainer-handover";
+import { resolveClassName } from "@/lib/domain/class-template";
 import { formatDayTime } from "@/lib/format";
 
 // Wszystko, co zostałoby bez opiekuna po wyciszeniu trenera. Jedno źródło
@@ -26,7 +27,13 @@ export async function collectHandoverItems(trainerId: string): Promise<HandoverI
     }),
     prisma.classTemplate.findMany({
       where: { trainerId, active: true },
-      select: { id: true, name: true, weekday: true, startTime: true },
+      select: {
+        id: true,
+        name: true,
+        weekday: true,
+        startTime: true,
+        category: { select: { name: true } },
+      },
       orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
     }),
     prisma.retentionTask.findMany({
@@ -58,7 +65,7 @@ export async function collectHandoverItems(trainerId: string): Promise<HandoverI
     ...templates.map<HandoverItem>((t) => ({
       kind: "TEMPLATE",
       id: t.id,
-      label: t.name,
+      label: resolveClassName(t.name, t.category?.name ?? "Zajęcia"),
       detail: `${WEEKDAYS[t.weekday] ?? "?"}, ${t.startTime} - co tydzień`,
     })),
     ...tasks.map<HandoverItem>((t) => ({

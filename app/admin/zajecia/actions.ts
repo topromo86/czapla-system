@@ -8,11 +8,18 @@ import {
   findOverlappingSession,
   resolveSessionTime,
   validateWindow,
+  WEEKDAY_LABELS,
   type SessionTimeError,
   type WindowValidationError,
 } from "@/lib/domain/availability";
 import {
-  bookingHorizonEnd,
+  resolveClassName,
+  validateClassTemplate,
+  type ClassTemplateError,
+} from "@/lib/domain/class-template";
+import { generateSessions } from "@/lib/jobs/generate-sessions";
+import { zonedTimeToUtc } from "@/lib/domain/time";
+import {
   describeHorizon,
   FIXED_HORIZON_OPTIONS,
   type BookingHorizonMode,
@@ -31,6 +38,14 @@ const TIME_ERROR_MESSAGE: Record<SessionTimeError, string> = {
   INVALID_TIME: "Podaj poprawną godzinę (format GG:MM).",
   INVALID_DURATION: "Czas trwania musi być liczbą minut większą od zera.",
   IN_THE_PAST: "Termin zajęć nie może być w przeszłości.",
+};
+
+const TEMPLATE_ERROR_MESSAGE: Record<ClassTemplateError, string> = {
+  INVALID_WEEKDAY: "Wybierz dzień tygodnia.",
+  INVALID_TIME: "Podaj poprawną godzinę rozpoczęcia (format GG:MM).",
+  INVALID_DURATION: "Czas trwania musi być liczbą minut większą od zera.",
+  INVALID_CAPACITY: "Liczba miejsc musi być większa od zera.",
+  INVALID_START_DATE: "Podaj poprawną datę rozpoczęcia albo zostaw pole puste.",
 };
 
 const WINDOW_ERROR_MESSAGE: Record<WindowValidationError, string> = {
@@ -83,7 +98,6 @@ export async function createSessionAction(formData: FormData) {
   const capacity = Number(formData.get("capacity"));
   const categoryId = String(formData.get("categoryId") ?? "");
 
-  if (name.length < 3) backToList("Nazwa zajęć musi mieć co najmniej 3 znaki.");
   if (!locationId) backToList("Wybierz miejsce.");
   if (!trainerId) backToList("Wybierz trenera.");
   if (!categoryId) backToList("Wybierz rodzaj zajęć.");
@@ -95,10 +109,13 @@ export async function createSessionAction(formData: FormData) {
   const conflict = await assertNoTrainerConflict(trainerId, resolved);
   if (conflict) backToList(conflict);
 
-  const trainer = await prisma.trainer.findUniqueOrThrow({
-    where: { id: trainerId },
-    include: { user: true },
-  });
+  const [trainer, category] = await Promise.all([
+    prisma.trainer.findUniqueOrThrow({ where: { id: trainerId }, include: { user: true } }),
+    prisma.classCategory.findUniqueOrThrow({ where: { id: categoryId } }),
+  ]);
+
+  // Nazwa niewymagana: pusta = zajęcia nazywają się jak ich rodzaj.
+  const displayName = resolveClassName(name, category.name);
 
   await prisma.$transaction(async (tx) => {
     await tx.session.create({
@@ -106,7 +123,7 @@ export async function createSessionAction(formData: FormData) {
         locationId,
         trainerId,
         categoryId,
-        name,
+        name: displayName,
         kind: "GROUP",
         startsAt: resolved.startsAt,
         endsAt: resolved.endsAt,
@@ -117,7 +134,7 @@ export async function createSessionAction(formData: FormData) {
     await logActivity(tx, {
       actorUserId: session.user.id,
       action: "SESSION_CREATED",
-      summary: `Dodano zajęcia "${name}" (${formatDayTime(resolved.startsAt)}, ${trainer.user.name})`,
+      summary: `Dodano zajęcia "${displayName}" (${formatDayTime(resolved.startsAt)}, ${trainer.user.name})`,
     });
   });
 
@@ -141,8 +158,11 @@ export async function updateSessionAction(formData: FormData) {
 
   if (!sessionId) backToList("Brak identyfikatora zajęć.");
   if (!categoryId) backToList("Wybierz rodzaj zajęć.");
-  if (name.length < 3) backToList("Nazwa zajęć musi mieć co najmniej 3 znaki.");
   if (!Number.isInteger(capacity) || capacity < 1) backToList("Liczba miejsc musi być większa od zera.");
+
+  const category = await prisma.classCategory.findUniqueOrThrow({ where: { id: categoryId } });
+  // Nazwa niewymagana: pusta = zajęcia nazywają się jak ich rodzaj.
+  const displayName = resolveClassName(name, category.name);
 
   const existing = await prisma.session.findUniqueOrThrow({
     where: { id: sessionId },
@@ -173,7 +193,7 @@ export async function updateSessionAction(formData: FormData) {
     await tx.session.update({
       where: { id: sessionId },
       data: {
-        name,
+        name: displayName,
         locationId,
         trainerId,
         categoryId,
@@ -186,7 +206,7 @@ export async function updateSessionAction(formData: FormData) {
     await logActivity(tx, {
       actorUserId: session.user.id,
       action: "SESSION_UPDATED",
-      summary: `Zmieniono zajęcia "${name}" (${formatDayTime(resolved.startsAt)})`,
+      summary: `Zmieniono zajęcia "${displayName}" (${formatDayTime(resolved.startsAt)})`,
     });
   });
 
@@ -218,6 +238,119 @@ export async function cancelSessionAction(formData: FormData) {
   });
 
   revalidatePath("/admin/zajecia");
+  revalidatePath("/app");
+  backToList();
+}
+
+// Zajęcia regularne: plan powtarzalny co tydzień "do odwołania". Zamiast
+// dodawać każdy termin ręcznie, admin ustawia dzień tygodnia i godzinę, a job
+// generateSessions rozwija plan na konkretne sesje (8 tygodni w przód, cyklicznie
+// dogenerowywane). Od razu po utworzeniu uruchamiamy generację, żeby zajęcia
+// pojawiły się w grafiku bez czekania na nocny job.
+export async function createClassTemplateAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  const locationId = String(formData.get("locationId") ?? "");
+  const trainerId = String(formData.get("trainerId") ?? "");
+  const isKids = formData.get("isKids") === "on";
+
+  if (!categoryId) backToList("Wybierz rodzaj zajęć.");
+  if (!locationId) backToList("Wybierz miejsce.");
+  if (!trainerId) backToList("Wybierz trenera.");
+
+  const validated = validateClassTemplate({
+    weekday: Number(formData.get("weekday")),
+    startTime: String(formData.get("startTime") ?? ""),
+    durationMin: Number(formData.get("durationMin")),
+    capacity: Number(formData.get("capacity")),
+    startDate: String(formData.get("startDate") ?? ""),
+  });
+  if ("error" in validated) backToList(TEMPLATE_ERROR_MESSAGE[validated.error]);
+
+  const { weekday, startTime, durationMin, capacity, startDate } = validated.value;
+
+  const [trainer, category] = await Promise.all([
+    prisma.trainer.findUniqueOrThrow({ where: { id: trainerId }, include: { user: true } }),
+    prisma.classCategory.findUniqueOrThrow({ where: { id: categoryId } }),
+  ]);
+
+  const displayName = resolveClassName(name, category.name);
+  const startDateUtc = startDate
+    ? zonedTimeToUtc(startDate.year, startDate.month, startDate.day, 0, 0)
+    : null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.classTemplate.create({
+      data: {
+        locationId,
+        trainerId,
+        categoryId,
+        name: name.length > 0 ? name : null,
+        weekday,
+        startTime,
+        durationMin,
+        capacity,
+        isKids,
+        startDate: startDateUtc,
+      },
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "SESSION_CREATED",
+      summary: `Dodano zajęcia cykliczne "${displayName}" (${WEEKDAY_LABELS[weekday]}, ${startTime}, ${trainer.user.name})`,
+    });
+  });
+
+  // Rozwijamy plan na konkretne terminy od razu - inaczej grafik byłby pusty do
+  // najbliższego uruchomienia nocnego jobu.
+  await generateSessions(prisma);
+
+  revalidatePath("/admin/zajecia");
+  revalidatePath("/admin/zajecia/tydzien");
+  revalidatePath("/app");
+  backToList();
+}
+
+// Zakończenie cyklu "do odwołania": plan przestaje generować nowe terminy, a
+// przyszłe, jeszcze puste sesje z tego planu znikają z grafiku. Terminy, na
+// które ktoś jest już zapisany, zostają - to konkretne zobowiązania wobec
+// klientów, więc odwołuje się je świadomie z listy zajęć, z podaniem powodu.
+export async function stopClassTemplateAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+
+  const templateId = String(formData.get("templateId") ?? "");
+  const template = await prisma.classTemplate.findUniqueOrThrow({
+    where: { id: templateId },
+    include: { category: true },
+  });
+
+  const displayName = resolveClassName(template.name, template.category?.name ?? "Zajęcia");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.classTemplate.update({ where: { id: templateId }, data: { active: false } });
+
+    // Kasujemy tylko przyszłe sesje bez żadnej rezerwacji - te z zapisami muszą
+    // przejść przez odwołanie z powodem.
+    await tx.session.deleteMany({
+      where: {
+        templateId,
+        startsAt: { gt: new Date() },
+        bookings: { none: {} },
+      },
+    });
+
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "SESSION_CANCELLED",
+      summary: `Zakończono zajęcia cykliczne "${displayName}" (${WEEKDAY_LABELS[template.weekday]}, ${template.startTime})`,
+    });
+  });
+
+  revalidatePath("/admin/zajecia");
+  revalidatePath("/admin/zajecia/tydzien");
   revalidatePath("/app");
   backToList();
 }

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@/app/generated/prisma/client";
+import { resolveClassName } from "@/lib/domain/class-template";
 import {
   addCalendarDays,
   calendarWeekday,
@@ -17,19 +18,30 @@ export async function generateSessions(
   prisma: PrismaClient,
   now: Date = new Date(),
 ): Promise<GenerateSessionsResult> {
-  const templates = await prisma.classTemplate.findMany({ where: { active: true } });
+  // Kategorię dołączamy, bo z niej bierze się nazwa zajęć bez własnej nazwy
+  // (resolveClassName) oraz categoryId sesji - inaczej sesje z planu byłyby bez
+  // rodzaju i wypadały z filtra na grafiku klienta.
+  const templates = await prisma.classTemplate.findMany({
+    where: { active: true },
+    include: { category: true },
+  });
   const today = todayInTimeZone(now);
 
   let sessionsUpserted = 0;
 
   for (const tpl of templates) {
     const [hour, minute] = tpl.startTime.split(":").map(Number);
+    const displayName = resolveClassName(tpl.name, tpl.category?.name ?? "Zajęcia");
 
     for (let offset = 0; offset < WEEKS_AHEAD * 7; offset++) {
       const date = addCalendarDays(today, offset);
       if (calendarWeekday(date) !== tpl.weekday) continue;
 
       const startsAt = zonedTimeToUtc(date.year, date.month, date.day, hour, minute);
+      // Plan z datą startu w przyszłości nie generuje sesji sprzed nią. startDate
+      // to północ dnia startu, więc każde zajęcia tego dnia (o dowolnej godzinie)
+      // przechodzą, a wcześniejsze odpadają.
+      if (tpl.startDate && startsAt < tpl.startDate) continue;
       const endsAt = new Date(startsAt.getTime() + tpl.durationMin * 60_000);
 
       await prisma.session.upsert({
@@ -39,7 +51,8 @@ export async function generateSessions(
           templateId: tpl.id,
           locationId: tpl.locationId,
           trainerId: tpl.trainerId,
-          name: tpl.name,
+          categoryId: tpl.categoryId,
+          name: displayName,
           startsAt,
           endsAt,
           capacity: tpl.capacity,
