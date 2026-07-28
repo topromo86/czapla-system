@@ -9,8 +9,16 @@ import {
   SLOT_MINUTES_OPTIONS,
   WEEKDAY_LABELS,
 } from "@/lib/domain/availability";
-import { bookingHorizonEnd, describeHorizon, FIXED_HORIZON_OPTIONS } from "@/lib/domain/schedule";
+import {
+  bookingHorizonEnd,
+  describeHorizon,
+  FIXED_HORIZON_OPTIONS,
+  startOfWeek,
+  weekDays,
+} from "@/lib/domain/schedule";
 import { resolveClassName } from "@/lib/domain/class-template";
+import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
+import { AdminWeekGrid, type GridSession } from "./tydzien/week-grid";
 import {
   MAX_CANCELLATION_WINDOW_HOURS,
   MIN_CANCELLATION_WINDOW_HOURS,
@@ -41,10 +49,10 @@ function durationMinutes(startsAt: Date, endsAt: Date): number {
 export default async function AdminSessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; edit?: string }>;
+  searchParams: Promise<{ error?: string; edit?: string; tydzien?: string; loc?: string }>;
 }) {
   await requireRole("ADMIN");
-  const { error, edit } = await searchParams;
+  const { error, edit, tydzien, loc } = await searchParams;
 
   const now = new Date();
 
@@ -93,6 +101,64 @@ export default async function AdminSessionsPage({
 
   const editing = edit ? (sessions.find((s) => s.id === edit) ?? null) : null;
 
+  // Wbudowany podgląd grafiku w układzie tygodniowym - ten sam planer, który
+  // widzą klienci. Domyślnie bieżący tydzień; strzałki przesuwają widok w obie
+  // strony (admin czasem sprawdza, co było wstecz).
+  const gridLocationId = locations.find((l) => l.id === loc)?.id ?? locations[0]?.id ?? null;
+  const currentWeekStart = startOfWeek(todayInTimeZone(now));
+  const requestedWeek = tydzien?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const weekStart = requestedWeek
+    ? startOfWeek({
+        year: Number(requestedWeek[1]),
+        month: Number(requestedWeek[2]),
+        day: Number(requestedWeek[3]),
+      })
+    : currentWeekStart;
+  const weekStartUtc = zonedTimeToUtc(weekStart.year, weekStart.month, weekStart.day, 0, 0);
+  const nextWeekStart = addCalendarDays(weekStart, 7);
+  const prevWeekStart = addCalendarDays(weekStart, -7);
+  const weekEndUtc = zonedTimeToUtc(nextWeekStart.year, nextWeekStart.month, nextWeekStart.day, 0, 0);
+
+  const weekSessions = gridLocationId
+    ? await prisma.session.findMany({
+        where: {
+          locationId: gridLocationId,
+          kind: "GROUP",
+          startsAt: { gte: weekStartUtc, lt: weekEndUtc },
+        },
+        include: {
+          category: true,
+          trainer: { include: { user: true } },
+          bookings: { where: { status: "BOOKED" } },
+        },
+        orderBy: { startsAt: "asc" },
+      })
+    : [];
+
+  const gridSessions: GridSession[] = weekSessions.map((s) => ({
+    id: s.id,
+    name: s.name,
+    startsAt: s.startsAt,
+    capacity: s.capacity,
+    bookedCount: s.bookings.length,
+    status: s.status,
+    categoryName: s.category?.name ?? null,
+    trainerName: s.trainer.user.name,
+  }));
+
+  const gridDays = weekDays(weekStart);
+  const gridWeekLabel = `${gridDays[0].day}.${String(gridDays[0].month).padStart(2, "0")} - ${gridDays[6].day}.${String(gridDays[6].month).padStart(2, "0")}`;
+
+  function isoDate(d: { year: number; month: number; day: number }): string {
+    return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+  }
+  function gridLink(overrides: { tydzien?: string; loc?: string }): string {
+    const query = new URLSearchParams();
+    query.set("tydzien", overrides.tydzien ?? isoDate(weekStart));
+    if (overrides.loc ?? gridLocationId) query.set("loc", overrides.loc ?? gridLocationId!);
+    return `/admin/zajecia?${query.toString()}`;
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -106,7 +172,7 @@ export default async function AdminSessionsPage({
           href="/admin/zajecia/tydzien"
           className="border-line bg-surface text-text hover:text-brand-red shrink-0 rounded-md border px-3 py-2 font-mono text-xs tracking-widest uppercase"
         >
-          Widok tygodniowy →
+          Pełny ekran →
         </a>
       </div>
 
@@ -115,6 +181,80 @@ export default async function AdminSessionsPage({
           {error}
         </p>
       ) : null}
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Grafik tygodniowy · {gridWeekLabel}
+          </h2>
+          <div className="flex items-center gap-2">
+            <a
+              href={gridLink({ tydzien: isoDate(prevWeekStart) })}
+              className="border-line bg-surface text-text hover:text-brand-red rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
+            >
+              ← Poprzedni
+            </a>
+            {isoDate(weekStart) !== isoDate(currentWeekStart) ? (
+              <a
+                href={gridLink({ tydzien: isoDate(currentWeekStart) })}
+                className="border-line bg-surface text-text hover:text-brand-red rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
+              >
+                Dziś
+              </a>
+            ) : null}
+            <a
+              href={gridLink({ tydzien: isoDate(nextWeekStart) })}
+              className="border-line bg-surface text-text hover:text-brand-red rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
+            >
+              Następny →
+            </a>
+          </div>
+        </div>
+
+        {locations.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-brand w-16 font-mono text-xs tracking-widest uppercase">
+              Miejsce
+            </span>
+            {locations.map((location) => (
+              <a
+                key={location.id}
+                href={gridLink({ loc: location.id })}
+                className={`rounded-md border px-3 py-1.5 text-sm ${
+                  location.id === gridLocationId
+                    ? "border-brand-red text-brand-red font-medium"
+                    : "border-line bg-surface text-text"
+                }`}
+              >
+                {location.name}
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {gridSessions.length === 0 ? (
+          <p className="text-muted-brand border-line bg-surface rounded-md border p-4 text-sm">
+            W tym tygodniu nie ma zajęć grupowych w tej lokalizacji.
+          </p>
+        ) : (
+          <AdminWeekGrid weekStart={weekStart} sessions={gridSessions} now={now} />
+        )}
+
+        <div className="text-muted-brand flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="border-line bg-surface inline-block size-3 rounded border" />
+            Wolne miejsca
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="border-amber/50 bg-amber/10 inline-block size-3 rounded border" />
+            Komplet
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="border-red/40 bg-red/5 inline-block size-3 rounded border" />
+            Odwołane
+          </span>
+        </div>
+      </section>
 
       <section>
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
@@ -646,10 +786,15 @@ export default async function AdminSessionsPage({
       </section>
 
       <section>
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Najbliższe zajęcia ({sessions.length})
-        </h2>
-        <ul className="mt-2 flex flex-col gap-2">
+        <details className="group">
+          <summary className="text-muted-brand hover:text-brand-red flex cursor-pointer list-none items-center gap-2 font-mono text-xs tracking-widest uppercase [&::-webkit-details-marker]:hidden">
+            <span className="transition-transform group-open:rotate-90">▸</span>
+            Lista terminów · edycja i odwołanie ({sessions.length})
+          </summary>
+          <p className="text-muted-brand mt-1 text-sm">
+            Grafik oglądasz w planerze wyżej. Tu edytujesz i odwołujesz pojedyncze terminy.
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
           {sessions.map((session) => {
             const isCancelled = session.status === "CANCELLED";
             return (
@@ -715,7 +860,8 @@ export default async function AdminSessionsPage({
           {sessions.length === 0 ? (
             <li className="text-muted-brand text-sm">Brak zaplanowanych zajęć.</li>
           ) : null}
-        </ul>
+          </ul>
+        </details>
       </section>
 
       <section>
