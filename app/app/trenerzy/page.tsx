@@ -9,16 +9,23 @@ export default async function ClientTrainersPage() {
 
   const trainers = await prisma.trainer.findMany({
     where: { active: true },
-    include: { user: true, location: true },
-    orderBy: [{ location: { name: "asc" } }, { user: { name: "asc" } }],
+    include: { user: true, location: true, locations: { orderBy: { name: "asc" } } },
+    orderBy: { user: { name: "asc" } },
   });
 
+  // Trener może pracować w kilku lokalizacjach - pokazujemy go w KAŻDEJ sekcji,
+  // w której prowadzi zajęcia. Fallback na lokalizację domyślną, gdyby zestaw
+  // był pusty.
   const byLocation = new Map<string, typeof trainers>();
   for (const trainer of trainers) {
-    const bucket = byLocation.get(trainer.location.name);
-    if (bucket) bucket.push(trainer);
-    else byLocation.set(trainer.location.name, [trainer]);
+    const where = trainer.locations.length > 0 ? trainer.locations : [trainer.location];
+    for (const loc of where) {
+      const bucket = byLocation.get(loc.name);
+      if (bucket) bucket.push(trainer);
+      else byLocation.set(loc.name, [trainer]);
+    }
   }
+  const sortedLocations = [...byLocation.entries()].sort(([a], [b]) => a.localeCompare(b, "pl"));
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,7 +41,7 @@ export default async function ClientTrainersPage() {
           Lista trenerów jest chwilowo niedostępna.
         </p>
       ) : (
-        [...byLocation.entries()].map(([locationName, locationTrainers]) => (
+        sortedLocations.map(([locationName, locationTrainers]) => (
           <section key={locationName}>
             <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
               {locationName}

@@ -76,7 +76,8 @@ model Location {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  trainers       Trainer[]
+  trainers       Trainer[]       @relation("PrimaryLocation")
+  trainersHere   Trainer[]       @relation("TrainerLocations")
   members        Member[]
   classTemplates ClassTemplate[]
   sessions       Session[]
@@ -109,8 +110,13 @@ model Trainer {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  user     User     @relation("TrainerAccount", fields: [userId], references: [id], onDelete: Restrict)
-  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  user      User       @relation("TrainerAccount", fields: [userId], references: [id], onDelete: Restrict)
+  // location = lokalizacja domyślna (macierzysta). locations = wszystkie sale,
+  // w których trener pracuje (M2M, zawiera też domyślną). Trener może być
+  // przypisany do kilku lokalizacji treningowych - patrz /app/trenerzy i
+  // przydział zastępstw.
+  location  Location   @relation("PrimaryLocation", fields: [locationId], references: [id], onDelete: Restrict)
+  locations Location[] @relation("TrainerLocations")
 
   ownedMembers           Member[]             @relation("OwnerTrainer")
   sparringClearedMembers Member[]             @relation("SparringClearer")

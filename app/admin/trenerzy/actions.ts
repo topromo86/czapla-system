@@ -75,13 +75,17 @@ export async function createTrainerAction(formData: FormData) {
     .toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
   const locationId = String(formData.get("locationId") ?? "");
+  // Zestaw lokalizacji, w których trener pracuje. Domyślna jest zawsze wliczona,
+  // nawet gdyby nie była zaznaczona wśród checkboxów.
+  const workLocations = formData.getAll("workLocations").map(String);
+  const locationIds = [...new Set([locationId, ...workLocations].filter(Boolean))];
   const hiredAtRaw = String(formData.get("hiredAt") ?? "");
   const password = String(formData.get("password") ?? "");
   const bio = String(formData.get("bio") ?? "").trim();
 
   if (name.length < 3) backToList("Podaj imię i nazwisko trenera.");
   if (!email.includes("@")) backToList("Podaj poprawny adres e-mail.");
-  if (!locationId) backToList("Wybierz lokalizację.");
+  if (!locationId) backToList("Wybierz lokalizację domyślną.");
   if (password.length < MIN_PASSWORD_LENGTH) {
     backToList(`Hasło startowe musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków.`);
   }
@@ -114,6 +118,7 @@ export async function createTrainerAction(formData: FormData) {
         locationId,
         hiredAt,
         bio: bio || null,
+        locations: { connect: locationIds.map((id) => ({ id })) },
         ...(photo && !("error" in photo) ? photo : {}),
       },
     });
@@ -139,11 +144,13 @@ export async function updateTrainerProfileAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const locationId = String(formData.get("locationId") ?? "");
+  const workLocations = formData.getAll("workLocations").map(String);
+  const locationIds = [...new Set([locationId, ...workLocations].filter(Boolean))];
   const bio = String(formData.get("bio") ?? "").trim();
 
   if (!trainerId) backToList("Brak identyfikatora trenera.");
   if (name.length < 3) backToTrainer(trainerId, "Podaj imię i nazwisko trenera.");
-  if (!locationId) backToTrainer(trainerId, "Wybierz lokalizację.");
+  if (!locationId) backToTrainer(trainerId, "Wybierz lokalizację domyślną.");
 
   const photo = await readPhoto(formData);
   if (photo && "error" in photo) backToTrainer(trainerId, photo.error);
@@ -164,6 +171,7 @@ export async function updateTrainerProfileAction(formData: FormData) {
       data: {
         locationId,
         bio: bio || null,
+        locations: { set: locationIds.map((id) => ({ id })) },
         ...(photo && !("error" in photo) ? photo : {}),
       },
     });

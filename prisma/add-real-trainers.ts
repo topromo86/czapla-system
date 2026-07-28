@@ -102,14 +102,19 @@ async function main() {
         role: "TRAINER",
         passwordHash,
         trainer: {
-          create: { locationId: mikolow.id, hiredAt: new Date(), bio: rt.bio },
+          create: {
+            locationId: mikolow.id,
+            locations: { connect: { id: mikolow.id } },
+            hiredAt: new Date(),
+            bio: rt.bio,
+          },
         },
       },
     });
     created++;
   }
 
-  console.log(
+  console.warn(
     `Trenerzy: oznaczono TESTOWY=${renamed}, dodano realnych=${created}, zaktualizowano=${updated}`,
   );
 }

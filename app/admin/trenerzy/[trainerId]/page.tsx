@@ -26,7 +26,7 @@ export default async function TrainerDetailPage({
 
   const trainer = await prisma.trainer.findUnique({
     where: { id: trainerId },
-    include: { user: true, location: true },
+    include: { user: true, location: true, locations: { orderBy: { name: "asc" } } },
   });
   if (!trainer) notFound();
 
@@ -59,7 +59,10 @@ export default async function TrainerDetailPage({
               {trainer.user.name}
             </h1>
             <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
-              {trainer.location.name} · {trainer.user.email}
+              {(trainer.locations.length > 0
+                ? trainer.locations.map((l) => l.name).join(", ")
+                : trainer.location.name)}{" "}
+              · {trainer.user.email}
               {trainer.active ? "" : " · wyciszony"}
             </p>
           </div>
@@ -121,7 +124,7 @@ export default async function TrainerDetailPage({
               />
             </div>
             <div>
-              <Label htmlFor="locationId">Lokalizacja</Label>
+              <Label htmlFor="locationId">Lokalizacja domyślna</Label>
               <select
                 id="locationId"
                 name="locationId"
@@ -137,6 +140,28 @@ export default async function TrainerDetailPage({
               </select>
             </div>
           </div>
+
+          {locations.length > 1 ? (
+            <div>
+              <Label>Pracuje także w</Label>
+              <div className="mt-1 flex flex-wrap gap-4">
+                {locations.map((location) => (
+                  <label key={location.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="workLocations"
+                      value={location.id}
+                      defaultChecked={trainer.locations.some((l) => l.id === location.id)}
+                    />
+                    {location.name}
+                  </label>
+                ))}
+              </div>
+              <p className="text-muted-brand mt-1 text-xs">
+                Wszystkie sale, w których trener prowadzi zajęcia. Domyślna jest zawsze wliczona.
+              </p>
+            </div>
+          ) : null}
 
           <div>
             <Label htmlFor="bio">Opis</Label>

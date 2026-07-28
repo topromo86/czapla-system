@@ -303,6 +303,7 @@ async function main() {
       data: {
         userId: user.id,
         locationId: location.id,
+        locations: { connect: { id: location.id } },
         hiredAt: daysAgo(spec.hiredDaysAgo),
         active: true,
       },

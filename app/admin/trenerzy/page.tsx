@@ -26,11 +26,17 @@ export default async function AdminTrainersPage({
       include: {
         user: true,
         location: true,
+        locations: { orderBy: { name: "asc" } },
         _count: { select: { ownedMembers: true } },
       },
       orderBy: [{ active: "desc" }, { user: { name: "asc" } }],
     }),
   ]);
+
+  // Wszystkie lokalizacje trenera (M2M zawiera domyślną). Fallback na domyślną,
+  // gdyby zestaw był pusty.
+  const locationLabel = (t: (typeof trainers)[number]): string =>
+    t.locations.length > 0 ? t.locations.map((l) => l.name).join(", ") : t.location.name;
 
   const activeTrainers = trainers.filter((t) => t.active);
   const mutedTrainers = trainers.filter((t) => !t.active);
@@ -67,7 +73,7 @@ export default async function AdminTrainersPage({
                 <div className="min-w-0 flex-1">
                   <p className="text-text font-medium">{trainer.user.name}</p>
                   <p className="text-muted-brand mt-0.5 font-mono text-xs">
-                    {trainer.location.name} · {trainer._count.ownedMembers} podopiecznych · od{" "}
+                    {locationLabel(trainer)} · {trainer._count.ownedMembers} podopiecznych · od{" "}
                     {formatDate(trainer.hiredAt)}
                   </p>
                 </div>
@@ -116,7 +122,7 @@ export default async function AdminTrainersPage({
                     </span>
                   </p>
                   <p className="text-muted-brand mt-0.5 font-mono text-xs">
-                    {trainer.location.name}
+                    {locationLabel(trainer)}
                     {trainer.deactivatedAt ? ` · od ${formatDate(trainer.deactivatedAt)}` : ""}
                   </p>
                 </div>
@@ -163,7 +169,7 @@ export default async function AdminTrainersPage({
               <Input id="phone" name="phone" className="border-line bg-surface-2" />
             </div>
             <div>
-              <Label htmlFor="locationId">Lokalizacja</Label>
+              <Label htmlFor="locationId">Lokalizacja domyślna</Label>
               <select id="locationId" name="locationId" required className={selectClass}>
                 <option value="">Wybierz...</option>
                 {locations.map((location) => (
@@ -178,6 +184,24 @@ export default async function AdminTrainersPage({
               <Input id="hiredAt" name="hiredAt" type="date" className="border-line bg-surface-2" />
             </div>
           </div>
+
+          {locations.length > 1 ? (
+            <div>
+              <Label>Pracuje także w (opcjonalnie)</Label>
+              <div className="mt-1 flex flex-wrap gap-4">
+                {locations.map((location) => (
+                  <label key={location.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="workLocations" value={location.id} />
+                    {location.name}
+                  </label>
+                ))}
+              </div>
+              <p className="text-muted-brand mt-1 text-xs">
+                Zaznacz wszystkie sale, w których trener prowadzi zajęcia. Lokalizacja domyślna jest
+                zawsze wliczona.
+              </p>
+            </div>
+          ) : null}
 
           <div>
             <Label htmlFor="password">Hasło startowe</Label>
