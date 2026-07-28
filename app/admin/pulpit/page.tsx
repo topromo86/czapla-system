@@ -35,6 +35,18 @@ export default async function AdminDashboardPage() {
   const todayStart = zonedTimeToUtc(today.year, today.month, today.day, 0, 0);
   const todayEnd = zonedTimeToUtc(tomorrow.year, tomorrow.month, tomorrow.day, 0, 0);
 
+  // Ostatnie 6 miesięcy (bieżący + 5 wstecz) do miniatury przychodu.
+  const months: { year: number; month: number }[] = [];
+  for (let i = 0, y = today.year, m = today.month; i < 6; i++) {
+    months.unshift({ year: y, month: m });
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  const sixMonthsStart = zonedTimeToUtc(months[0].year, months[0].month, 1, 0, 0);
+
   const [
     membersActive,
     newThisMonth,
@@ -46,6 +58,7 @@ export default async function AdminDashboardPage() {
     pendingLinks,
     substituteAlerts,
     openRetentionTasks,
+    revenue6m,
   ] = await Promise.all([
     prisma.member.count({ where: { status: "ACTIVE" } }),
     prisma.member.count({ where: { joinedAt: { gte: monthStart } } }),
@@ -75,7 +88,31 @@ export default async function AdminDashboardPage() {
       },
     }),
     prisma.retentionTask.count({ where: { closedAt: null } }),
+    prisma.payment.findMany({
+      where: { recordedAt: { gte: sixMonthsStart, lt: todayEnd } },
+      select: { amountGross: true, recordedAt: true },
+    }),
   ]);
+
+  // Przychód per miesiąc (strefa Warszawa) do miniatury słupkowej.
+  const revenueByMonth = new Map<string, number>();
+  for (const p of revenue6m) {
+    const d = todayInTimeZone(p.recordedAt);
+    const key = `${d.year}-${d.month}`;
+    revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + p.amountGross);
+  }
+  const revenueBars = months.map((m) => ({
+    year: m.year,
+    month: m.month,
+    label: new Intl.DateTimeFormat("pl-PL", { month: "short" }).format(
+      new Date(Date.UTC(m.year, m.month - 1, 1)),
+    ),
+    total: revenueByMonth.get(`${m.year}-${m.month}`) ?? 0,
+  }));
+  const maxBar = Math.max(1, ...revenueBars.map((b) => b.total));
+  const prevMonthTotal = revenueBars[revenueBars.length - 2]?.total ?? 0;
+  const thisMonthTotal = revenueBars[revenueBars.length - 1]?.total ?? 0;
+  const monthDelta = thisMonthTotal - prevMonthTotal;
 
   const revenue = revenueMonth._sum.amountGross ?? 0;
   const bookedToday = todaySessions.reduce((sum, s) => sum + s.bookings.length, 0);
@@ -132,6 +169,44 @@ export default async function AdminDashboardPage() {
             <p className="text-muted-brand mt-1 text-xs">{k.hint}</p>
           </div>
         ))}
+      </section>
+
+      {/* Miniatura przychodu - słupki z ostatnich 6 miesięcy */}
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+            Przychód · 6 miesięcy
+          </h2>
+          <span className={`font-mono text-xs ${monthDelta >= 0 ? "text-jade" : "text-red"}`}>
+            {monthDelta >= 0 ? "▲" : "▼"} {formatMoney(Math.abs(monthDelta))} vs poprzedni miesiąc
+          </span>
+        </div>
+        <div className="border-line bg-surface rounded-md border p-4">
+          <div className="flex items-end gap-2" style={{ height: 72 }}>
+            {revenueBars.map((b) => {
+              const h = Math.max(2, Math.round((Math.max(0, b.total) / maxBar) * 64));
+              const isCurrent = b === revenueBars[revenueBars.length - 1];
+              return (
+                <div
+                  key={`${b.year}-${b.month}`}
+                  className={`flex-1 rounded-t ${isCurrent ? "bg-brand-red" : "bg-brand-red/30"}`}
+                  style={{ height: h }}
+                  title={formatMoney(b.total)}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-1 flex gap-2">
+            {revenueBars.map((b) => (
+              <span
+                key={`l-${b.year}-${b.month}`}
+                className="text-muted-brand flex-1 text-center font-mono text-[10px] uppercase"
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Wymaga uwagi */}
