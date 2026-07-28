@@ -8,9 +8,9 @@ import type { Role } from "@/app/generated/prisma/client";
 
 const ROLE_HOME: Record<Role, string> = {
   ADMIN: "/admin/pulpit",
-  TRAINER: "/trainer",
-  MEMBER: "/app",
-  GUARDIAN: "/app",
+  TRAINER: "/trainer/pulpit",
+  MEMBER: "/app/pulpit",
+  GUARDIAN: "/app/pulpit",
 };
 
 export type LoginState = { error?: string };

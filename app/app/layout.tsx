@@ -46,6 +46,7 @@ export default async function ClientLayout({ children }: { children: React.React
   // Zapisy zostają na jedno kliknięcie - to po nie klient wchodzi do apki.
   // Reszta schowana w dwóch grupach, więc nic nie jest dalej niż dwa kliknięcia.
   const navGroups: HeaderNavGroup[] = [
+    { label: "Pulpit", items: [{ href: "/app/pulpit", label: "Pulpit" }] },
     { label: "Grafik", items: [{ href: "/app", label: "Grafik" }] },
     { label: "Indywidualne", items: [{ href: "/app/indywidualne", label: "Indywidualne" }] },
     {

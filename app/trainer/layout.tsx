@@ -29,6 +29,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   // ekrany używane na sali w biegu, a Alerty niosą licznik, który ma być
   // widoczny bez rozwijania czegokolwiek.
   const navGroups: HeaderNavGroup[] = [
+    { label: "Pulpit", items: [{ href: "/trainer/pulpit", label: "Pulpit" }] },
     {
       label: "Dziś",
       items: [{ href: "/trainer", label: "Dziś", badge: pendingSubstitutes || undefined }],
