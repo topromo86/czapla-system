@@ -162,14 +162,23 @@
 /* Zestawy czcionek (lib/domain/font-themes.ts). Domyślny "boxing" jest w @theme
    powyżej; tu tylko nadpisania dla pozostałych zestawów. Atrybut data-font na
    <html> ustawia app/layout.tsx z ustawień klubu - admin przełącza dla wszystkich. */
+/* Każdy zestaw nadpisuje TRZY role typografii: nagłówki (--font-display),
+   tekst (--font-sans) ORAZ etykiety UI/menu (--font-mono). Menu i etykiety
+   kart siedzą na `font-mono` (uppercase, tracking) - bez nadpisania mono
+   zmieniałyby się tylko nagłówki, a menu zostawało identyczne.
+   "boxing" celowo trzyma IBM Plex Mono z @theme - to produkcyjny domyślny,
+   monospace utrzymuje wyrównanie kwot w tabelach kasy/finansów. */
 :root[data-font="modern"] {
   --font-display: var(--font-oswald);
   --font-sans: var(--font-inter);
+  --font-mono: var(--font-oswald);
 }
 :root[data-font="classic"] {
   --font-display: var(--font-playfair);
+  --font-mono: var(--font-archivo);
 }
 :root[data-font="minimal"] {
   --font-display: var(--font-inter);
   --font-sans: var(--font-inter);
+  --font-mono: var(--font-inter);
 }
