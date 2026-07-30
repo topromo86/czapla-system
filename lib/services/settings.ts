@@ -12,6 +12,7 @@ export type ClubSettingsView = {
   bonusAmountGross: number;
   freeCancellationHours: number;
   fontTheme: FontThemeId;
+  floorMinMinutes: number;
 };
 
 // Ustawienia klubu z bezpiecznym domyślnym stanem. Wiersz "singleton" jest
@@ -29,5 +30,6 @@ export async function getClubSettings(): Promise<ClubSettingsView> {
     bonusAmountGross: settings?.bonusAmountGross ?? 0,
     freeCancellationHours: settings?.freeCancellationHours ?? FREE_CANCELLATION_WINDOW_HOURS,
     fontTheme: resolveFontTheme(settings?.fontTheme),
+    floorMinMinutes: settings?.floorMinMinutes ?? 0,
   };
 }

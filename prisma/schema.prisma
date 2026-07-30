@@ -38,6 +38,11 @@ model User {
   role            Role
   // Dostęp do modułu leadów (CRM). ADMIN ma zawsze; trenerowi nadaje admin.
   canAccessLeads  Boolean   @default(false)
+  // Osobisty token wejścia (QR). Wspólny dla klienta i trenera - odbicie
+  // identyfikuje KONTO, więc "trener też się odbija" działa tym samym
+  // mechanizmem. Generowany leniwie przy pierwszym wyświetleniu kodu. Bearer:
+  // liczy się, że skan odbywa się na zaufanej stacji na sali.
+  checkInToken    String?   @unique
   emailVerifiedAt DateTime? @db.Timestamptz
   lastLoginAt     DateTime? @db.Timestamptz
   createdAt       DateTime  @default(now()) @db.Timestamptz
@@ -68,6 +73,8 @@ model User {
   assignedLeads        Lead[]         @relation("LeadAssignee")
   leadNotes            LeadNote[]     @relation("LeadNoteAuthor")
   leadActivities       LeadActivity[] @relation("LeadActivityActor")
+  floorCheckIns        FloorCheckIn[] @relation("FloorCheckInUser")
+  recordedFloorCheckIns FloorCheckIn[] @relation("FloorCheckInRecorder")
 
   @@index([role])
 }
@@ -91,6 +98,29 @@ model Location {
 
   availabilityWindows AvailabilityWindow[]
   costs               ClubCost[]
+  floorCheckIns       FloorCheckIn[]
+}
+
+// Odbicie wejścia na salę osobistym kodem QR (skaner na sali). Osobne od
+// Attendance (obecność na KONKRETNYCH zajęciach) - to surowy log wejść na
+// obiekt, wspólny dla klientów i trenerów. Anti-"nabijanie": rejestruje realne
+// pojawienie się na sali z godziną, a nie kliknięcie z domu. Wariant "tylko
+// wejście": jedno odbicie = jedno wejście; kolejne w oknie floorMinMinutes jest
+// traktowane jako to samo wejście (patrz lib/domain/floor-checkin.ts).
+model FloorCheckIn {
+  id               String   @id @default(cuid())
+  userId           String
+  locationId       String
+  enteredAt        DateTime @default(now()) @db.Timestamptz
+  // Kto obsługiwał stację skanera (opcjonalnie - stacja bywa kioskiem).
+  recordedByUserId String?
+
+  user           User     @relation("FloorCheckInUser", fields: [userId], references: [id], onDelete: Cascade)
+  location       Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  recordedByUser User?    @relation("FloorCheckInRecorder", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, enteredAt])
+  @@index([locationId, enteredAt])
 }
 
 model Trainer {
@@ -336,6 +366,13 @@ model ClubSettings {
   // Admin wybiera jeden, obowiązuje wszystkich. String, nie enum - dodanie
   // nowego zestawu nie wymaga wtedy migracji.
   fontTheme String @default("boxing")
+
+  // Minimalny czas na sali (minuty) dla odbić QR. Po zeskanowaniu osobistego
+  // kodu na stacji zapisujemy godzinę wejścia; wizyta liczy się jako ważna
+  // dopiero, gdy minęło tyle minut - to gasi "nabijanie" (odbił i wyszedł).
+  // Pełni też rolę okna anty-dublowania: powtórne odbicie tej samej osoby w
+  // tym czasie to wciąż to samo wejście. 0 = brak wymogu.
+  floorMinMinutes Int @default(0)
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz

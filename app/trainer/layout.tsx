@@ -56,11 +56,13 @@ export default async function TrainerLayout({ children }: { children: React.Reac
     {
       label: "Moje",
       items: [
+        { href: "/kod", label: "Mój kod wejścia" },
         { href: "/trainer/karta", label: "Moja karta" },
         { href: "/trainer/wynagrodzenie", label: "Wynagrodzenie" },
         { href: "/trainer/aktywnosc", label: "Aktywność" },
       ],
     },
+    { label: "Stacja", items: [{ href: "/skaner", label: "Stacja skanera" }] },
   ];
 
   return (

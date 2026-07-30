@@ -52,6 +52,7 @@ export default async function ClientLayout({ children }: { children: React.React
     {
       label: "Moje konto",
       items: [
+        { href: "/kod", label: "Mój kod wejścia" },
         { href: "/app/karnet", label: "Mój karnet" },
         { href: "/app/postepy", label: "Postępy" },
         ...(session.user.role === "GUARDIAN"
