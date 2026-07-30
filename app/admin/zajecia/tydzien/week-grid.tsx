@@ -2,7 +2,7 @@ import Link from "next/link";
 import { gridCellKey, hourRange, hoursInRange, weekDays } from "@/lib/domain/schedule";
 import type { CalendarDate } from "@/lib/domain/time";
 import { formatTime } from "@/lib/format";
-import { deleteSessionAction } from "../actions";
+import { DeleteSessionButton } from "./delete-session-button";
 
 const dayNameFormatter = new Intl.DateTimeFormat("pl-PL", {
   timeZone: "Europe/Warsaw",
@@ -150,9 +150,9 @@ function GridRow({
   );
 }
 
-// Kafelek to natywne <details> - klik rozwija menu bez cienia JS. Osobne menu na
-// kafelek; otwarcie kolejnego zostawia poprzednie otwarte, ale nawigacja/akcja i
-// tak je zamyka, więc nie komplikujemy tego stanem po stronie klienta.
+// Kafelek to natywne <details> z name="planner-tile" - wspólna nazwa robi z nich
+// wyłączny akordeon, więc otwarcie menu jednego kafelka zamyka poprzednie, bez
+// cienia JS.
 function GridTile({
   session,
   now,
@@ -179,7 +179,7 @@ function GridTile({
     "text-text hover:text-brand-red hover:bg-surface-2 block w-full rounded px-2 py-1.5 text-left text-xs";
 
   return (
-    <details className="group/tile relative">
+    <details name="planner-tile" className="group/tile relative">
       <summary
         className={`list-none rounded-md border p-1.5 text-left ${tone} cursor-pointer hover:border-brand-red/60 [&::-webkit-details-marker]:hidden`}
       >
@@ -206,13 +206,12 @@ function GridTile({
         <Link href={editHref} className={menuItem}>
           Edytuj
         </Link>
-        <form action={deleteSessionAction}>
-          <input type="hidden" name="sessionId" value={session.id} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <button type="submit" className={`${menuItem} text-red hover:text-red`}>
-            Usuń
-          </button>
-        </form>
+        <DeleteSessionButton
+          sessionId={session.id}
+          returnTo={returnTo}
+          sessionName={session.name}
+          className={`${menuItem} text-red hover:text-red`}
+        />
       </div>
     </details>
   );
