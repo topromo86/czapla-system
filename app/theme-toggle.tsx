@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+
+// Zdarzenie, którym sam przełącznik ogłasza zmianę motywu - useSyncExternalStore
+// nasłuchuje go i przerysowuje ikonę bez setState w efekcie.
+const THEME_CHANGE_EVENT = "czapla-theme-change";
 
 export const THEME_STORAGE_KEY = "czapla-theme";
 
@@ -29,14 +33,28 @@ function isDarkNow(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-export function ThemeToggle() {
-  // Startujemy z `null`, bo motyw znamy dopiero po stronie przeglądarki.
-  // Renderowanie ikony przed hydratacją dawałoby niezgodność serwer-klient.
-  const [dark, setDark] = useState<boolean | null>(null);
+// Motyw to zewnętrzny stan (klasa na <html>), więc czytamy go przez
+// useSyncExternalStore, a nie przez setState w efekcie. Źródłem zmian jest sam
+// przełącznik (zdarzenie THEME_CHANGE_EVENT) oraz preferencja systemu.
+function subscribeTheme(onChange: () => void): () => void {
+  window.addEventListener(THEME_CHANGE_EVENT, onChange);
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", onChange);
+  return () => {
+    window.removeEventListener(THEME_CHANGE_EVENT, onChange);
+    media.removeEventListener("change", onChange);
+  };
+}
 
-  useEffect(() => {
-    setDark(isDarkNow());
-  }, []);
+export function ThemeToggle() {
+  // getServerSnapshot = false: serwer i pierwszy render po stronie klienta
+  // zakładają jasny (skrypt w <head> ustawia właściwą klasę przed malowaniem, a
+  // useSyncExternalStore po hydratacji odczyta realny stan). Brak niezgodności.
+  const dark = useSyncExternalStore(
+    subscribeTheme,
+    isDarkNow,
+    () => false,
+  );
 
   function toggle() {
     const next = !isDarkNow();
@@ -46,7 +64,7 @@ export function ThemeToggle() {
     } catch {
       /* Bez zapisu wybór zniknie po odświeżeniu, ale sam przełącznik działa. */
     }
-    setDark(next);
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }
 
   const label = dark ? "Włącz tryb jasny" : "Włącz tryb ciemny";
@@ -59,14 +77,7 @@ export function ThemeToggle() {
       title={label}
       className="border-line bg-surface-2 text-text hover:text-brand-red flex size-9 shrink-0 items-center justify-center rounded-md border"
     >
-      {/* Do czasu hydratacji rezerwujemy miejsce, żeby nagłówek nie skakał. */}
-      {dark === null ? (
-        <span className="size-4" aria-hidden />
-      ) : dark ? (
-        <Sun className="size-4" />
-      ) : (
-        <Moon className="size-4" />
-      )}
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }

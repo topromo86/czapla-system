@@ -11,7 +11,6 @@ import {
   groupItemsByTarget,
   resolveHandoverTargets,
   validateHandover,
-  type HandoverItem,
 } from "@/lib/domain/trainer-handover";
 import { logActivity } from "@/lib/services/activity";
 import { collectHandoverItems, eligibleHandoverTrainers } from "@/lib/services/trainer";

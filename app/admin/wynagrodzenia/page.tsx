@@ -511,7 +511,7 @@ export default async function AdminPayrollPage({
               Prognoza do końca miesiąca
             </p>
             <p>
-              „Zarobione" to zajęcia, które już się odbyły. „Prognoza" dolicza te zaplanowane do
+              „Zarobione” to zajęcia, które już się odbyły. „Prognoza” dolicza te zaplanowane do
               końca miesiąca. Jeśli zajęcia zostaną odwołane albo dojdą nowe, kwota się zmieni -
               to szacunek, nie zobowiązanie.
             </p>

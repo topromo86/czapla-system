@@ -253,7 +253,7 @@ export default async function AdminRankingPage({
             <p>
               Liczony raz w miesiącu, 1. dnia, za okres poprzedni - to zdjęcie migawkowe, nie licznik
               na żywo. To ważona suma czterech pasków: <b>Retencja</b> (45% wagi), <b>Ocena</b> (20%),
-              <b> Terminowość</b> (20%) i <b>Onboarding</b> (15%). „Za mało danych (X/5)" oznacza, że
+              <b> Terminowość</b> (20%) i <b>Onboarding</b> (15%). „Za mało danych (X/5)” oznacza, że
               trener ma mniej niż 5 klientów w dojrzałej kohorcie (przypisanych do niego i zapisanych
               min. 90 dni temu) - to brak wystarczającej próbki, nie ocena negatywna.
             </p>
@@ -261,7 +261,7 @@ export default async function AdminRankingPage({
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              Retencja tutaj ≠ Retencja 90 dni na ekranie „Retencja"
+              Retencja tutaj ≠ Retencja 90 dni na ekranie „Retencja”
             </p>
             <p>
               To liczba <b>względna</b>: retencja tego trenera podzielona przez średnią retencję

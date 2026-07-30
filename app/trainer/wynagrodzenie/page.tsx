@@ -169,7 +169,7 @@ export default async function TrainerPayoutPage({
             </p>
           )}
           <p className="text-muted-brand mt-1 text-xs">
-            Na co wpływa wynik, sprawdzisz w zakładce „Moja karta".
+            Na co wpływa wynik, sprawdzisz w zakładce „Moja karta”.
           </p>
         </section>
       ) : null}
@@ -285,12 +285,12 @@ export default async function TrainerPayoutPage({
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              ❗️ „Szacunkowo" znaczy szacunkowo
+              ❗️ „Szacunkowo” znaczy szacunkowo
             </p>
             <p>
               Kwota na koniec miesiąca dolicza zajęcia jeszcze zaplanowane. Jeśli któreś zostaną
               odwołane albo dojdą nowe, wynik się zmieni. Pewna jest tylko część „zarobione do
-              dziś". Ostateczne rozliczenie robi właściciel.
+              dziś”. Ostateczne rozliczenie robi właściciel.
             </p>
           </div>
         </div>

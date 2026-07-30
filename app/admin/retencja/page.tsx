@@ -191,12 +191,12 @@ export default async function RetencjaPage() {
             </p>
             <p>
               Odsetek klientów, którzy dołączyli <b>co najmniej 90 dni temu</b> i do dziś nie zostali
-              oznaczeni jako odeszli. Liczba w nawiasie to wielkość tej grupy („dojrzała kohorta") -
-              im większa, tym pewniejszy wynik. Nie ma jednej „dobrej" wartości; najbardziej
+              oznaczeni jako odeszli. Liczba w nawiasie to wielkość tej grupy („dojrzała kohorta”) -
+              im większa, tym pewniejszy wynik. Nie ma jednej „dobrej” wartości; najbardziej
               użyteczny jest <b>trend miesiąc do miesiąca</b>, nie pojedynczy odczyt.
             </p>
             <p className="mt-2">
-              Status „odszedł" nadaje system automatycznie po {CHURN_THRESHOLD_DAYS} dniach bez
+              Status „odszedł” nadaje system automatycznie po {CHURN_THRESHOLD_DAYS} dniach bez
               treningu - i liczy do tego <b>wyłącznie obecności zeskanowane kodem QR</b> na sali.
               Ręczne odznaczenie obecności przez trenera tego licznika nie zeruje. To celowe: nikt
               nie powinien móc podbić własnego wyniku wpisami z palca.
@@ -210,7 +210,7 @@ export default async function RetencjaPage() {
             <p>
               Ilu klientów ma <b>w tej chwili</b> otwarte przynajmniej jedno zadanie retencyjne u
               trenera (brak treningu od 7 lub 14 dni, albo kończący się karnet). To nie statystyka
-              historyczna, tylko lista „do zrobienia dziś" - zmienia się codziennie.
+              historyczna, tylko lista „do zrobienia dziś” - zmienia się codziennie.
             </p>
           </div>
 
@@ -219,11 +219,11 @@ export default async function RetencjaPage() {
               Eskalacje · 0 = stan pożądany
             </p>
             <p>
-              <b>„Eskalowano" znaczy: zadanie przeleżało u trenera ponad{" "}
+              <b>„Eskalowano” znaczy: zadanie przeleżało u trenera ponad{" "}
               {TASK_ESCALATION_THRESHOLD_DAYS} dni bez zamknięcia i system sam oznaczył je jako
               zaniedbane.</b>{" "}
               Data przy wpisie to dzień, w którym to nastąpiło. Zadanie zamyka się wyłącznie
-              notatką z kontaktu (min. 30 znaków) - samo kliknięcie „zrobione" nie istnieje, więc
+              notatką z kontaktu (min. 30 znaków) - samo kliknięcie „zrobione” nie istnieje, więc
               każda pozycja tutaj oznacza klienta, do którego przez ponad tydzień nikt się nie
               odezwał.
             </p>
@@ -238,7 +238,7 @@ export default async function RetencjaPage() {
               Tabela kohortowa · wyżej = lepiej
             </p>
             <p>
-              To samo pytanie co „Retencja 90 dni", tylko rozbite na miesiące dołączenia. Pozwala
+              To samo pytanie co „Retencja 90 dni”, tylko rozbite na miesiące dołączenia. Pozwala
               zobaczyć, czy klienci z konkretnego miesiąca (np. po promocji albo po zmianie
               grafiku) zostają dłużej niż z innych. Wiersz oznaczony jako{" "}
               <b>(świeża kohorta)</b> ma jeszcze mniej niż 90 dni - jego wynik się zmieni, nie
@@ -248,10 +248,10 @@ export default async function RetencjaPage() {
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              Uwaga na ekran „Ranking trenerów"
+              Uwaga na ekran „Ranking trenerów”
             </p>
             <p>
-              Tam też jest kolumna „Retencja", ale to <b>inna liczba</b> - względna, podzielona
+              Tam też jest kolumna „Retencja”, ale to <b>inna liczba</b> - względna, podzielona
               przez średnią klubową w segmencie danego trenera. Nie porównuj jej wprost z procentem
               z tego ekranu.{" "}
               <Link href="/admin/ranking" className="text-brand-red underline">

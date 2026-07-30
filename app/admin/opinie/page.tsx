@@ -250,13 +250,13 @@ export default async function AdminOpinionsPage({
 
           <div>
             <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
-              „Anonimowa" znaczy: anonimowa dla trenera
+              „Anonimowa” znaczy: anonimowa dla trenera
             </p>
             <p>
               Ekran jest dostępny wyłącznie dla roli właściciela. Trener widzi swoją średnią ocenę
-              na „Mojej karcie" i w Rankingu, ale <b>nigdy pojedynczych opinii, ich treści ani
+              na „Mojej karcie” i w Rankingu, ale <b>nigdy pojedynczych opinii, ich treści ani
               tego, kto je napisał</b>. Dokładnie to obiecujemy klubowiczowi przy polu opinii:
-              „anonimowa dla trenera, czyta ją właściciel i widzi Twoje imię".
+              „anonimowa dla trenera, czyta ją właściciel i widzi Twoje imię”.
             </p>
           </div>
 

@@ -49,13 +49,23 @@ export function HeaderNav({ groups }: { groups: HeaderNavGroup[] }) {
 
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const desktopNavRef = useRef<HTMLElement>(null);
+  const mobileRef = useRef<HTMLDetailsElement>(null);
 
   // Nawigacja w Next.js jest po stronie klienta (layout zostaje zamontowany),
-  // więc menu samo się nie zamknie - trzeba je zamknąć na zmianę ścieżki,
-  // inaczej rozwinięta lista zasłania ekran aż do "odklikania".
-  const mobileRef = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
+  // więc menu samo się nie zamknie - zamykamy je na zmianę ścieżki, inaczej
+  // rozwinięta lista zasłania ekran aż do "odklikania".
+  //
+  // Reset rozwiniętej grupy robimy w trakcie renderu (wzorzec z docs Reacta),
+  // a nie w efekcie - to nie wywołuje kaskadowych renderów.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setOpenGroup(null);
+  }
+
+  // Zamknięcie mobilnego <details> to aktualizacja DOM (systemu zewnętrznego) -
+  // to zostaje w efekcie i jest jedyną rzeczą, jaką on tu robi.
+  useEffect(() => {
     if (mobileRef.current) mobileRef.current.open = false;
   }, [pathname]);
 
