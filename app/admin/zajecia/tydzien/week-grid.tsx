@@ -174,7 +174,7 @@ function GridTile({
         ? "border-amber/50 bg-amber/10"
         : "border-line bg-surface";
 
-  const editHref = `/admin/zajecia?edit=${session.id}#zajecia-edycja`;
+  const editHref = `/admin/zajecia?edit=${session.id}`;
   const menuItem =
     "text-text hover:text-brand-red hover:bg-surface-2 block w-full rounded px-2 py-1.5 text-left text-xs";
 

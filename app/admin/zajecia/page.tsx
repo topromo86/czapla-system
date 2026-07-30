@@ -19,10 +19,8 @@ import {
 import { resolveClassName } from "@/lib/domain/class-template";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { AdminWeekGrid, type GridSession } from "./tydzien/week-grid";
-import {
-  MAX_CANCELLATION_WINDOW_HOURS,
-  MIN_CANCELLATION_WINDOW_HOURS,
-} from "@/lib/domain/booking";
+import { EditDialog } from "./edit-dialog";
+import { MAX_CANCELLATION_WINDOW_HOURS, MIN_CANCELLATION_WINDOW_HOURS } from "@/lib/domain/booking";
 import { getClubSettings } from "@/lib/services/settings";
 import { formatDate, formatDayTime, toDateInputValue, toTimeInputValue } from "@/lib/format";
 import {
@@ -117,7 +115,13 @@ export default async function AdminSessionsPage({
   const weekStartUtc = zonedTimeToUtc(weekStart.year, weekStart.month, weekStart.day, 0, 0);
   const nextWeekStart = addCalendarDays(weekStart, 7);
   const prevWeekStart = addCalendarDays(weekStart, -7);
-  const weekEndUtc = zonedTimeToUtc(nextWeekStart.year, nextWeekStart.month, nextWeekStart.day, 0, 0);
+  const weekEndUtc = zonedTimeToUtc(
+    nextWeekStart.year,
+    nextWeekStart.month,
+    nextWeekStart.day,
+    0,
+    0,
+  );
 
   const weekSessions = gridLocationId
     ? await prisma.session.findMany({
@@ -317,8 +321,12 @@ export default async function AdminSessionsPage({
           </div>
 
           <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
-            Teraz obowiązuje: <b className="text-text">{describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}</b>. Ostatni
-            dzień do zapisania się to <b className="text-text">{formatDate(new Date(horizonEnd.getTime() - 1))}</b>.
+            Teraz obowiązuje:{" "}
+            <b className="text-text">
+              {describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}
+            </b>
+            . Ostatni dzień do zapisania się to{" "}
+            <b className="text-text">{formatDate(new Date(horizonEnd.getTime() - 1))}</b>.
           </p>
 
           <Button type="submit" className="self-start">
@@ -336,10 +344,7 @@ export default async function AdminSessionsPage({
           className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
         >
           <div>
-            <label
-              htmlFor="freeCancellationHours"
-              className="text-text block text-sm font-medium"
-            >
+            <label htmlFor="freeCancellationHours" className="text-text block text-sm font-medium">
               Ile godzin przed startem odwołanie jest bezkosztowe
             </label>
             <p className="text-muted-brand mt-0.5 text-sm">
@@ -507,7 +512,13 @@ export default async function AdminSessionsPage({
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <Label htmlFor="tplWeekday">Dzień tygodnia</Label>
-              <select id="tplWeekday" name="weekday" required defaultValue="1" className={selectClass}>
+              <select
+                id="tplWeekday"
+                name="weekday"
+                required
+                defaultValue="1"
+                className={selectClass}
+              >
                 {WEEKDAY_LABELS.map((label, index) => (
                   <option key={label} value={index}>
                     {label}
@@ -626,9 +637,7 @@ export default async function AdminSessionsPage({
                     {tpl.category ? ` · ${tpl.category.name}` : ""}
                   </p>
                   {startsInFuture && tpl.startDate ? (
-                    <p className="text-amber mt-1 text-xs">
-                      Rusza od {formatDate(tpl.startDate)}
-                    </p>
+                    <p className="text-amber mt-1 text-xs">Rusza od {formatDate(tpl.startDate)}</p>
                   ) : null}
                 </div>
                 <form action={stopClassTemplateAction}>
@@ -648,174 +657,184 @@ export default async function AdminSessionsPage({
         </ul>
       </section>
 
-      <section id="zajecia-edycja">
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          {editing ? "Edytuj zajęcia" : "Dodaj zajęcia jednorazowe"}
-        </h2>
+      {(() => {
+        const editorInner = (
+          <>
+            <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+              {editing ? "Edytuj zajęcia" : "Dodaj zajęcia jednorazowe"}
+            </h2>
 
-        <form
-          action={editing ? updateSessionAction : createSessionAction}
-          className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
-        >
-          {editing ? <input type="hidden" name="sessionId" value={editing.id} /> : null}
+            <form
+              action={editing ? updateSessionAction : createSessionAction}
+              className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
+            >
+              {editing ? <input type="hidden" name="sessionId" value={editing.id} /> : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="name">Nazwa (opcjonalnie)</Label>
-              <Input
-                id="name"
-                name="name"
-                defaultValue={editing?.name ?? ""}
-                placeholder="domyślnie nazwa rodzaju"
-                className="border-line bg-surface-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="categoryId">Rodzaj</Label>
-              <select
-                id="categoryId"
-                name="categoryId"
-                required
-                defaultValue={editing?.categoryId ?? ""}
-                className={selectClass}
-              >
-                <option value="">Wybierz...</option>
-                {activeCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="name">Nazwa (opcjonalnie)</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    defaultValue={editing?.name ?? ""}
+                    placeholder="domyślnie nazwa rodzaju"
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="categoryId">Rodzaj</Label>
+                  <select
+                    id="categoryId"
+                    name="categoryId"
+                    required
+                    defaultValue={editing?.categoryId ?? ""}
+                    className={selectClass}
+                  >
+                    <option value="">Wybierz...</option>
+                    {activeCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="date">Data</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
-                required
-                defaultValue={editing ? toDateInputValue(editing.startsAt) : ""}
-                className="border-line bg-surface-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="time">Godzina</Label>
-              <Input
-                id="time"
-                name="time"
-                type="time"
-                required
-                defaultValue={editing ? toTimeInputValue(editing.startsAt) : ""}
-                className="border-line bg-surface-2"
-              />
-            </div>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="date">Data</Label>
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    required
+                    defaultValue={editing ? toDateInputValue(editing.startsAt) : ""}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="time">Godzina</Label>
+                  <Input
+                    id="time"
+                    name="time"
+                    type="time"
+                    required
+                    defaultValue={editing ? toTimeInputValue(editing.startsAt) : ""}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="locationId">Miejsce</Label>
-              <select
-                id="locationId"
-                name="locationId"
-                required
-                defaultValue={editing?.locationId ?? ""}
-                className={selectClass}
-              >
-                <option value="">Wybierz...</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="trainerId">Trener</Label>
-              <select
-                id="trainerId"
-                name="trainerId"
-                required
-                defaultValue={editing?.trainerId ?? ""}
-                className={selectClass}
-              >
-                <option value="">Wybierz...</option>
-                {trainers.map((trainer) => (
-                  <option key={trainer.id} value={trainer.id}>
-                    {trainer.user.name} ({trainer.location.name})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="locationId">Miejsce</Label>
+                  <select
+                    id="locationId"
+                    name="locationId"
+                    required
+                    defaultValue={editing?.locationId ?? ""}
+                    className={selectClass}
+                  >
+                    <option value="">Wybierz...</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="trainerId">Trener</Label>
+                  <select
+                    id="trainerId"
+                    name="trainerId"
+                    required
+                    defaultValue={editing?.trainerId ?? ""}
+                    className={selectClass}
+                  >
+                    <option value="">Wybierz...</option>
+                    {trainers.map((trainer) => (
+                      <option key={trainer.id} value={trainer.id}>
+                        {trainer.user.name} ({trainer.location.name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="durationMin">Czas trwania (min)</Label>
-              <Input
-                id="durationMin"
-                name="durationMin"
-                type="number"
-                min="15"
-                step="5"
-                required
-                defaultValue={editing ? durationMinutes(editing.startsAt, editing.endsAt) : 60}
-                className="border-line bg-surface-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="capacity">Liczba miejsc</Label>
-              <Input
-                id="capacity"
-                name="capacity"
-                type="number"
-                min="1"
-                required
-                defaultValue={editing?.capacity ?? 16}
-                className="border-line bg-surface-2"
-              />
-            </div>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="durationMin">Czas trwania (min)</Label>
+                  <Input
+                    id="durationMin"
+                    name="durationMin"
+                    type="number"
+                    min="15"
+                    step="5"
+                    required
+                    defaultValue={editing ? durationMinutes(editing.startsAt, editing.endsAt) : 60}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="capacity">Liczba miejsc</Label>
+                  <Input
+                    id="capacity"
+                    name="capacity"
+                    type="number"
+                    min="1"
+                    required
+                    defaultValue={editing?.capacity ?? 16}
+                    className="border-line bg-surface-2"
+                  />
+                </div>
+              </div>
 
-          <div className="flex items-center gap-3">
-            <Button type="submit">{editing ? "Zapisz zmiany" : "Dodaj zajęcia"}</Button>
-            {editing ? (
-              <a href="/admin/zajecia" className="text-muted-brand text-sm underline">
-                Anuluj edycję
-              </a>
-            ) : null}
-          </div>
-        </form>
+              <div className="flex items-center gap-3">
+                <Button type="submit">{editing ? "Zapisz zmiany" : "Dodaj zajęcia"}</Button>
+                {editing ? (
+                  <a href="/admin/zajecia" className="text-muted-brand text-sm underline">
+                    Anuluj edycję
+                  </a>
+                ) : null}
+              </div>
+            </form>
 
-        {/* Odwołanie z powodem - osobny formularz (nie zagnieżdżamy w edycji).
+            {/* Odwołanie z powodem - osobny formularz (nie zagnieżdżamy w edycji).
             Tu trafia „Usuń" z plannera dla zajęć, na które ktoś jest zapisany:
             takich nie kasujemy po cichu, bo klienci muszą poznać powód. */}
-        {editing && editing.status !== "CANCELLED" && editing.startsAt > now ? (
-          <form
-            action={cancelSessionAction}
-            className="border-amber/40 bg-amber/5 mt-3 flex flex-col gap-2 rounded-md border p-4"
-          >
-            <input type="hidden" name="sessionId" value={editing.id} />
-            <p className="text-text text-sm font-medium">Odwołaj te zajęcia</p>
-            <p className="text-muted-brand text-xs">
-              Powód zobaczą zapisani klienci. Odwołanie zwalnia miejsca i zdejmuje zajęcia z grafiku.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                name="reason"
-                required
-                placeholder="Powód odwołania"
-                className="border-line bg-surface-2 h-9 flex-1"
-              />
-              <Button type="submit" variant="outline">
-                Odwołaj zajęcia
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </section>
+            {editing && editing.status !== "CANCELLED" && editing.startsAt > now ? (
+              <form
+                action={cancelSessionAction}
+                className="border-amber/40 bg-amber/5 mt-3 flex flex-col gap-2 rounded-md border p-4"
+              >
+                <input type="hidden" name="sessionId" value={editing.id} />
+                <p className="text-text text-sm font-medium">Odwołaj te zajęcia</p>
+                <p className="text-muted-brand text-xs">
+                  Powód zobaczą zapisani klienci. Odwołanie zwalnia miejsca i zdejmuje zajęcia z
+                  grafiku.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    name="reason"
+                    required
+                    placeholder="Powód odwołania"
+                    className="border-line bg-surface-2 h-9 flex-1"
+                  />
+                  <Button type="submit" variant="outline">
+                    Odwołaj zajęcia
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </>
+        );
+        return editing ? (
+          <EditDialog closeHref="/admin/zajecia">{editorInner}</EditDialog>
+        ) : (
+          <section>{editorInner}</section>
+        );
+      })()}
 
       <section>
         <details className="group">
@@ -827,71 +846,71 @@ export default async function AdminSessionsPage({
             Grafik oglądasz w planerze wyżej. Tu edytujesz i odwołujesz pojedyncze terminy.
           </p>
           <ul className="mt-2 flex flex-col gap-2">
-          {sessions.map((session) => {
-            const isCancelled = session.status === "CANCELLED";
-            return (
-              <li
-                key={session.id}
-                className={`rounded-md border p-3 ${
-                  isCancelled ? "border-line bg-surface-2 opacity-60" : "border-line bg-surface"
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-text font-medium">
-                      {session.name}
-                      {session.kind === "INDIVIDUAL" ? (
-                        <span className="bg-jade/10 text-jade ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
-                          Indywidualny
-                        </span>
+            {sessions.map((session) => {
+              const isCancelled = session.status === "CANCELLED";
+              return (
+                <li
+                  key={session.id}
+                  className={`rounded-md border p-3 ${
+                    isCancelled ? "border-line bg-surface-2 opacity-60" : "border-line bg-surface"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-text font-medium">
+                        {session.name}
+                        {session.kind === "INDIVIDUAL" ? (
+                          <span className="bg-jade/10 text-jade ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
+                            Indywidualny
+                          </span>
+                        ) : null}
+                        {isCancelled ? (
+                          <span className="bg-red/10 text-red ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
+                            Odwołane
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-muted-brand mt-1 font-mono text-xs">
+                        {formatDayTime(session.startsAt)} · {session.location.name} ·{" "}
+                        {session.trainer.user.name} · {session.bookings.length}/{session.capacity}{" "}
+                        miejsc
+                      </p>
+                      {session.cancelledReason ? (
+                        <p className="text-red mt-1 text-xs">Powód: {session.cancelledReason}</p>
                       ) : null}
-                      {isCancelled ? (
-                        <span className="bg-red/10 text-red ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
-                          Odwołane
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="text-muted-brand mt-1 font-mono text-xs">
-                      {formatDayTime(session.startsAt)} · {session.location.name} ·{" "}
-                      {session.trainer.user.name} · {session.bookings.length}/{session.capacity}{" "}
-                      miejsc
-                    </p>
-                    {session.cancelledReason ? (
-                      <p className="text-red mt-1 text-xs">Powód: {session.cancelledReason}</p>
+                    </div>
+
+                    {!isCancelled ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {session.kind === "GROUP" ? (
+                          <a
+                            href={`/admin/zajecia?edit=${session.id}`}
+                            className="border-line bg-surface-2 text-text hover:text-brand-red rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
+                          >
+                            Edytuj
+                          </a>
+                        ) : null}
+                        <form action={cancelSessionAction} className="flex items-center gap-2">
+                          <input type="hidden" name="sessionId" value={session.id} />
+                          <Input
+                            name="reason"
+                            required
+                            placeholder="Powód odwołania"
+                            className="border-line bg-surface-2 h-8 w-44 text-xs"
+                          />
+                          <Button type="submit" size="sm" variant="outline">
+                            Odwołaj
+                          </Button>
+                        </form>
+                      </div>
                     ) : null}
                   </div>
-
-                  {!isCancelled ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {session.kind === "GROUP" ? (
-                        <a
-                          href={`/admin/zajecia?edit=${session.id}`}
-                          className="border-line bg-surface-2 text-text hover:text-brand-red rounded-md border px-3 py-1.5 font-mono text-xs uppercase"
-                        >
-                          Edytuj
-                        </a>
-                      ) : null}
-                      <form action={cancelSessionAction} className="flex items-center gap-2">
-                        <input type="hidden" name="sessionId" value={session.id} />
-                        <Input
-                          name="reason"
-                          required
-                          placeholder="Powód odwołania"
-                          className="border-line bg-surface-2 h-8 w-44 text-xs"
-                        />
-                        <Button type="submit" size="sm" variant="outline">
-                          Odwołaj
-                        </Button>
-                      </form>
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-          {sessions.length === 0 ? (
-            <li className="text-muted-brand text-sm">Brak zaplanowanych zajęć.</li>
-          ) : null}
+                </li>
+              );
+            })}
+            {sessions.length === 0 ? (
+              <li className="text-muted-brand text-sm">Brak zaplanowanych zajęć.</li>
+            ) : null}
           </ul>
         </details>
       </section>
@@ -958,7 +977,13 @@ export default async function AdminSessionsPage({
 
           <div className="sm:col-span-2">
             <Label htmlFor="slotMinutes">Długość treningu</Label>
-            <select id="slotMinutes" name="slotMinutes" required defaultValue="60" className={selectClass}>
+            <select
+              id="slotMinutes"
+              name="slotMinutes"
+              required
+              defaultValue="60"
+              className={selectClass}
+            >
               {SLOT_MINUTES_OPTIONS.map((minutes) => (
                 <option key={minutes} value={minutes}>
                   {minutes} min
@@ -1026,9 +1051,9 @@ export default async function AdminSessionsPage({
             <p>
               Okno to reguła tygodniowa, np. „Adam, wtorki 16:00-20:00, treningi po 60 min”. System
               dzieli je na konkretne terminy (16:00, 17:00, 18:00, 19:00) i tylko te terminy widzi
-              klient. Godzina spoza okna nie istnieje jako opcja - <b>nikt nie zapisze się na 23:00</b>,
-              nawet próbując ominąć formularz, bo serwer sprawdza żądany termin względem tej samej
-              listy.
+              klient. Godzina spoza okna nie istnieje jako opcja -{" "}
+              <b>nikt nie zapisze się na 23:00</b>, nawet próbując ominąć formularz, bo serwer
+              sprawdza żądany termin względem tej samej listy.
             </p>
             <p className="mt-2">
               Niepełna końcówka okna przepada: przy oknie 16:00-17:30 i treningach 60-minutowych
@@ -1054,8 +1079,8 @@ export default async function AdminSessionsPage({
             </p>
             <p>
               Kasuje tylko regułę na przyszłość. Już umówione treningi zostają - to konkretne
-              zobowiązania wobec klientów, więc odwołuje się je świadomie na liście zajęć powyżej,
-              z podaniem powodu.
+              zobowiązania wobec klientów, więc odwołuje się je świadomie na liście zajęć powyżej, z
+              podaniem powodu.
             </p>
           </div>
         </div>
