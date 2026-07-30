@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { gridCellKey, hourRange, hoursInRange, weekDays } from "@/lib/domain/schedule";
 import type { CalendarDate } from "@/lib/domain/time";
 import { formatTime } from "@/lib/format";
+import { deleteSessionAction } from "../actions";
 
 const dayNameFormatter = new Intl.DateTimeFormat("pl-PL", {
   timeZone: "Europe/Warsaw",
@@ -44,17 +46,19 @@ function dayKeyOf(day: CalendarDate): string {
   return `${day.year}-${String(day.month).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
 }
 
-// Read-only widok tygodniowy dla admina - ten sam układ siatki, który widzą
-// zapisujący się klienci, ale bez przycisków zapisu. Kafelek pokazuje obłożenie;
-// komplet i odwołane są wyróżnione kolorem.
+// Widok tygodniowy dla admina - ten sam układ siatki, który widzą zapisujący się
+// klienci. Kafelek pokazuje obłożenie (komplet/odwołane wyróżnione kolorem) i po
+// kliknięciu rozwija menu: Otwórz / Edytuj / Usuń. returnTo wraca tu po usunięciu.
 export function AdminWeekGrid({
   weekStart,
   sessions,
   now,
+  returnTo,
 }: {
   weekStart: CalendarDate;
   sessions: GridSession[];
   now: Date;
+  returnTo: string;
 }) {
   const days = weekDays(weekStart);
   const range = hourRange(sessions.map((s) => localHour(s.startsAt)));
@@ -71,7 +75,10 @@ export function AdminWeekGrid({
   const todayKey = localDayKey(now);
 
   return (
-    <div className="overflow-x-auto">
+    // Na wąskich ekranach siatka przewija się w poziomie; na desktopie (gdzie
+    // admin zarządza) overflow wyłączamy, inaczej auto-overflow w pionie
+    // przycinałby menu kafelków z dolnego rzędu.
+    <div className="overflow-x-auto lg:overflow-x-visible">
       <div className="min-w-[52rem]">
         <div className="grid gap-1" style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}>
           <div />
@@ -93,7 +100,14 @@ export function AdminWeekGrid({
           })}
 
           {hours.map((hour) => (
-            <GridRow key={hour} hour={hour} days={days} byCell={byCell} now={now} />
+            <GridRow
+              key={hour}
+              hour={hour}
+              days={days}
+              byCell={byCell}
+              now={now}
+              returnTo={returnTo}
+            />
           ))}
         </div>
       </div>
@@ -106,11 +120,13 @@ function GridRow({
   days,
   byCell,
   now,
+  returnTo,
 }: {
   hour: number;
   days: CalendarDate[];
   byCell: Map<string, GridSession[]>;
   now: Date;
+  returnTo: string;
 }) {
   return (
     <>
@@ -125,7 +141,7 @@ function GridRow({
             className="border-line-soft flex min-h-14 flex-col gap-1 border-t py-1"
           >
             {cellSessions.map((s) => (
-              <GridTile key={s.id} session={s} now={now} />
+              <GridTile key={s.id} session={s} now={now} returnTo={returnTo} />
             ))}
           </div>
         );
@@ -134,7 +150,18 @@ function GridRow({
   );
 }
 
-function GridTile({ session, now }: { session: GridSession; now: Date }) {
+// Kafelek to natywne <details> - klik rozwija menu bez cienia JS. Osobne menu na
+// kafelek; otwarcie kolejnego zostawia poprzednie otwarte, ale nawigacja/akcja i
+// tak je zamyka, więc nie komplikujemy tego stanem po stronie klienta.
+function GridTile({
+  session,
+  now,
+  returnTo,
+}: {
+  session: GridSession;
+  now: Date;
+  returnTo: string;
+}) {
   const cancelled = session.status === "CANCELLED";
   const past = session.startsAt <= now;
   const full = session.bookedCount >= session.capacity;
@@ -147,22 +174,46 @@ function GridTile({ session, now }: { session: GridSession; now: Date }) {
         ? "border-amber/50 bg-amber/10"
         : "border-line bg-surface";
 
+  const editHref = `/admin/zajecia?edit=${session.id}#zajecia-edycja`;
+  const menuItem =
+    "text-text hover:text-brand-red hover:bg-surface-2 block w-full rounded px-2 py-1.5 text-left text-xs";
+
   return (
-    <div className={`rounded-md border p-1.5 text-left ${tone}`}>
-      <p className="text-text truncate text-xs leading-tight font-medium" title={session.name}>
-        {session.name}
-      </p>
-      <p className="text-muted-brand mt-0.5 font-mono text-[10px] leading-tight">
-        {formatTime(session.startsAt)} · {session.bookedCount}/{session.capacity}
-      </p>
-      <p className="text-muted-brand truncate font-mono text-[10px] leading-tight">
-        {session.trainerName}
-      </p>
-      {cancelled ? (
-        <p className="text-red mt-0.5 font-mono text-[10px] leading-tight">Odwołane</p>
-      ) : full ? (
-        <p className="text-amber mt-0.5 font-mono text-[10px] leading-tight">Komplet</p>
-      ) : null}
-    </div>
+    <details className="group/tile relative">
+      <summary
+        className={`list-none rounded-md border p-1.5 text-left ${tone} cursor-pointer hover:border-brand-red/60 [&::-webkit-details-marker]:hidden`}
+      >
+        <p className="text-text truncate text-xs leading-tight font-medium" title={session.name}>
+          {session.name}
+        </p>
+        <p className="text-muted-brand mt-0.5 font-mono text-[10px] leading-tight">
+          {formatTime(session.startsAt)} · {session.bookedCount}/{session.capacity}
+        </p>
+        <p className="text-muted-brand truncate font-mono text-[10px] leading-tight">
+          {session.trainerName}
+        </p>
+        {cancelled ? (
+          <p className="text-red mt-0.5 font-mono text-[10px] leading-tight">Odwołane</p>
+        ) : full ? (
+          <p className="text-amber mt-0.5 font-mono text-[10px] leading-tight">Komplet</p>
+        ) : null}
+      </summary>
+
+      <div className="border-line bg-surface absolute left-0 top-full z-50 mt-1 flex w-36 flex-col gap-0.5 rounded-md border p-1 shadow-lg">
+        <Link href={editHref} className={menuItem}>
+          Otwórz
+        </Link>
+        <Link href={editHref} className={menuItem}>
+          Edytuj
+        </Link>
+        <form action={deleteSessionAction}>
+          <input type="hidden" name="sessionId" value={session.id} />
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <button type="submit" className={`${menuItem} text-red hover:text-red`}>
+            Usuń
+          </button>
+        </form>
+      </div>
+    </details>
   );
 }

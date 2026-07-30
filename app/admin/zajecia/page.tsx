@@ -237,7 +237,12 @@ export default async function AdminSessionsPage({
             W tym tygodniu nie ma zajęć grupowych w tej lokalizacji.
           </p>
         ) : (
-          <AdminWeekGrid weekStart={weekStart} sessions={gridSessions} now={now} />
+          <AdminWeekGrid
+            weekStart={weekStart}
+            sessions={gridSessions}
+            now={now}
+            returnTo={gridLink({})}
+          />
         )}
 
         <div className="text-muted-brand flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
@@ -643,7 +648,7 @@ export default async function AdminSessionsPage({
         </ul>
       </section>
 
-      <section>
+      <section id="zajecia-edycja">
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
           {editing ? "Edytuj zajęcia" : "Dodaj zajęcia jednorazowe"}
         </h2>
@@ -783,6 +788,33 @@ export default async function AdminSessionsPage({
             ) : null}
           </div>
         </form>
+
+        {/* Odwołanie z powodem - osobny formularz (nie zagnieżdżamy w edycji).
+            Tu trafia „Usuń" z plannera dla zajęć, na które ktoś jest zapisany:
+            takich nie kasujemy po cichu, bo klienci muszą poznać powód. */}
+        {editing && editing.status !== "CANCELLED" && editing.startsAt > now ? (
+          <form
+            action={cancelSessionAction}
+            className="border-amber/40 bg-amber/5 mt-3 flex flex-col gap-2 rounded-md border p-4"
+          >
+            <input type="hidden" name="sessionId" value={editing.id} />
+            <p className="text-text text-sm font-medium">Odwołaj te zajęcia</p>
+            <p className="text-muted-brand text-xs">
+              Powód zobaczą zapisani klienci. Odwołanie zwalnia miejsca i zdejmuje zajęcia z grafiku.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                name="reason"
+                required
+                placeholder="Powód odwołania"
+                className="border-line bg-surface-2 h-9 flex-1"
+              />
+              <Button type="submit" variant="outline">
+                Odwołaj zajęcia
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </section>
 
       <section>

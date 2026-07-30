@@ -242,6 +242,41 @@ export async function cancelSessionAction(formData: FormData) {
   backToList();
 }
 
+// Usunięcie zajęć z plannera (menu kafelka). Twarde usunięcie robimy TYLKO dla
+// przyszłego, pustego terminu - taki nikogo nie dotyczy, więc znika bez śladu.
+// Zajęcia z zapisami albo już rozpoczęte nie znikają po cichu: klienci muszą
+// poznać powód, więc kierujemy do edycji, gdzie jest odwołanie z powodem.
+export async function deleteSessionAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const returnToRaw = String(formData.get("returnTo") ?? "/admin/zajecia");
+  const returnTo = returnToRaw.startsWith("/admin/zajecia") ? returnToRaw : "/admin/zajecia";
+
+  const existing = await prisma.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: { bookings: { where: { status: { in: ["BOOKED", "WAITLIST"] } }, select: { id: true } } },
+  });
+
+  if (existing.bookings.length > 0 || existing.startsAt <= new Date()) {
+    redirect(`/admin/zajecia?edit=${sessionId}#zajecia-edycja`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.session.delete({ where: { id: sessionId } });
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "SESSION_CANCELLED",
+      summary: `Usunięto zajęcia "${existing.name}" (${formatDayTime(existing.startsAt)})`,
+    });
+  });
+
+  revalidatePath("/admin/zajecia");
+  revalidatePath("/admin/zajecia/tydzien");
+  revalidatePath("/app");
+  redirect(returnTo);
+}
+
 // Zajęcia regularne: plan powtarzalny co tydzień "do odwołania". Zamiast
 // dodawać każdy termin ręcznie, admin ustawia dzień tygodnia i godzinę, a job
 // generateSessions rozwija plan na konkretne sesje (8 tygodni w przód, cyklicznie

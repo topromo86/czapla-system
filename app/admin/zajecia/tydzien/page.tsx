@@ -149,7 +149,12 @@ export default async function AdminWeekViewPage({
             W tym tygodniu nie ma zajęć grupowych w tej lokalizacji.
           </p>
         ) : (
-          <AdminWeekGrid weekStart={weekStart} sessions={gridSessions} now={now} />
+          <AdminWeekGrid
+            weekStart={weekStart}
+            sessions={gridSessions}
+            now={now}
+            returnTo={linkWith({})}
+          />
         )}
 
         <div className="text-muted-brand flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
