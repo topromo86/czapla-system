@@ -80,7 +80,10 @@ export function AdminWeekGrid({
     // przycinałby menu kafelków z dolnego rzędu.
     <div className="overflow-x-auto lg:overflow-x-visible">
       <div className="min-w-[52rem]">
-        <div className="grid gap-1" style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}>
+        <div
+          className="grid gap-1"
+          style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}
+        >
           <div />
           {days.map((day) => {
             const key = dayKeyOf(day);
@@ -174,6 +177,32 @@ function GridTile({
         ? "border-amber/50 bg-amber/10"
         : "border-line bg-surface";
 
+  const tileContent = (
+    <>
+      <p className="text-text truncate text-xs leading-tight font-medium" title={session.name}>
+        {session.name}
+      </p>
+      <p className="text-muted-brand mt-0.5 font-mono text-[10px] leading-tight">
+        {formatTime(session.startsAt)} · {session.bookedCount}/{session.capacity}
+      </p>
+      <p className="text-muted-brand truncate font-mono text-[10px] leading-tight">
+        {session.trainerName}
+      </p>
+      {cancelled ? (
+        <p className="text-red mt-0.5 font-mono text-[10px] leading-tight">Odwołane</p>
+      ) : full ? (
+        <p className="text-amber mt-0.5 font-mono text-[10px] leading-tight">Komplet</p>
+      ) : null}
+    </>
+  );
+
+  // Zajęcia, które już się odbyły, to historia - sam kafelek, bez menu. Otwieranie
+  // czy usuwanie nie ma tu sensu (obecności i wyniki trenerów muszą zostać), a
+  // martwe menu tylko myliło: klik „Usuń” przekierowywał w nicość.
+  if (past) {
+    return <div className={`rounded-md border p-1.5 text-left ${tone}`}>{tileContent}</div>;
+  }
+
   const editHref = `/admin/zajecia?edit=${session.id}`;
   const menuItem =
     "text-text hover:text-brand-red hover:bg-surface-2 block w-full rounded px-2 py-1.5 text-left text-xs";
@@ -181,25 +210,12 @@ function GridTile({
   return (
     <details name="planner-tile" className="group/tile relative">
       <summary
-        className={`list-none rounded-md border p-1.5 text-left ${tone} cursor-pointer hover:border-brand-red/60 [&::-webkit-details-marker]:hidden`}
+        className={`list-none rounded-md border p-1.5 text-left ${tone} hover:border-brand-red/60 cursor-pointer [&::-webkit-details-marker]:hidden`}
       >
-        <p className="text-text truncate text-xs leading-tight font-medium" title={session.name}>
-          {session.name}
-        </p>
-        <p className="text-muted-brand mt-0.5 font-mono text-[10px] leading-tight">
-          {formatTime(session.startsAt)} · {session.bookedCount}/{session.capacity}
-        </p>
-        <p className="text-muted-brand truncate font-mono text-[10px] leading-tight">
-          {session.trainerName}
-        </p>
-        {cancelled ? (
-          <p className="text-red mt-0.5 font-mono text-[10px] leading-tight">Odwołane</p>
-        ) : full ? (
-          <p className="text-amber mt-0.5 font-mono text-[10px] leading-tight">Komplet</p>
-        ) : null}
+        {tileContent}
       </summary>
 
-      <div className="border-line bg-surface absolute left-0 top-full z-50 mt-1 flex w-36 flex-col gap-0.5 rounded-md border p-1 shadow-lg">
+      <div className="border-line bg-surface absolute top-full left-0 z-50 mt-1 flex w-36 flex-col gap-0.5 rounded-md border p-1 shadow-lg">
         <Link href={editHref} className={menuItem}>
           Otwórz
         </Link>

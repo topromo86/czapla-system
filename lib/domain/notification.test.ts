@@ -88,10 +88,23 @@ describe("parsePreferenceForm", () => {
 });
 
 describe("kanał e-mail", () => {
-  it("domyślnie wyłączony dla każdego typu", () => {
-    for (const meta of NOTIFICATION_TYPES) {
-      expect(wantsNotification([], meta.type, "EMAIL")).toBe(false);
-    }
+  // Poczta transakcyjna (potwierdzenie i przypomnienie zapisu) idzie mailem
+  // domyślnie - klient zostawia klubowi adres po to, by ją dostawać (opt-out).
+  it("potwierdzenie i przypomnienie zapisu domyślnie włączone (opt-out)", () => {
+    expect(wantsNotification([], "BOOKING_CONFIRMATION", "EMAIL")).toBe(true);
+    expect(wantsNotification([], "SESSION_REMINDER", "EMAIL")).toBe(true);
+  });
+
+  // Zachęty (sugestie) i wejście dziecka na salę - bez maila domyślnie.
+  it("sugestie zapisu domyślnie bez maila (opt-in)", () => {
+    expect(wantsNotification([], "BOOKING_SUGGESTION", "EMAIL")).toBe(false);
+  });
+
+  it("klient może wyłączyć mail zapisaną preferencją (opt-out)", () => {
+    const prefs: StoredPreference[] = [
+      { type: "BOOKING_CONFIRMATION", push: true, email: false, sms: false },
+    ];
+    expect(wantsNotification(prefs, "BOOKING_CONFIRMATION", "EMAIL")).toBe(false);
   });
 
   it("włączony zapisaną preferencją", () => {

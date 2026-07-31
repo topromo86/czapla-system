@@ -460,8 +460,25 @@ model ClassTemplate {
   trainer  Trainer        @relation(fields: [trainerId], references: [id], onDelete: Restrict)
   category ClassCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sessions Session[]
+  skips    SessionSkip[]
 
   @@index([locationId, active])
+}
+
+// Wyjątek od planu cyklicznego: konkretny termin (templateId + startsAt), który
+// admin usunął ręcznie z grafiku. generateSessions pomija te terminy, żeby raz
+// usunięty termin nie wracał przy kolejnym generowaniu. startsAt trzymamy w UTC
+// dokładnie jak w Session - klucz musi pasować do upsertu jobu.
+model SessionSkip {
+  id         String   @id @default(cuid())
+  templateId String
+  startsAt   DateTime @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  template ClassTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, startsAt])
 }
 
 // Zastępstwo wymaga potwierdzenia przez zastępcę. Dopóki jest PENDING,
@@ -682,7 +699,8 @@ model Plan {
   forMinors       Boolean @default(false)
   active          Boolean @default(true)
 
-  passes Pass[]
+  passes     Pass[]
+  promoCodes PromoCode[]
 }
 
 enum PassStatus {
@@ -733,6 +751,9 @@ model Payment {
   recordedAt        DateTime      @default(now()) @db.Timestamptz
   correctsPaymentId String?
   note              String?       @db.Text
+  // Kod rabatowy użyty przy tej sprzedaży (jeśli był). amountGross to już cena
+  // PO rabacie - kod trzymamy dla raportów i historii.
+  promoCodeId       String?
 
   member          Member    @relation(fields: [memberId], references: [id], onDelete: Restrict)
   pass            Pass?     @relation(fields: [passId], references: [id], onDelete: SetNull)
@@ -740,9 +761,74 @@ model Payment {
   recordedByUser  User      @relation("PaymentRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
   correctsPayment Payment?  @relation("PaymentCorrection", fields: [correctsPaymentId], references: [id], onDelete: SetNull)
   corrections     Payment[] @relation("PaymentCorrection")
+  promoCode       PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  // Sprzedaż karty podarunkowej: ta płatność jest przychodem za wydaną kartę.
+  soldGiftCard    GiftCard?  @relation("GiftCardSalePayment")
+  // Realizacje kart podarunkowych rozliczone tą płatnością (dopłata do karnetu).
+  giftRedemptions GiftCardRedemption[]
 
   @@index([locationId, recordedAt])
   @@index([memberId, recordedAt])
+}
+
+// Rabat: procent (1-100) albo kwota w groszach. amountGross w Payment to zawsze
+// cena PO rabacie - PromoCode służy walidacji przy sprzedaży i raportom.
+enum DiscountKind {
+  PERCENT
+  AMOUNT
+}
+
+model PromoCode {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  kind            DiscountKind
+  value           Int // PERCENT: 1-100 ; AMOUNT: grosze
+  active          Boolean      @default(true)
+  validFrom       DateTime?    @db.Timestamptz
+  validUntil      DateTime?    @db.Timestamptz
+  maxUses         Int? // null = bez limitu
+  usedCount       Int          @default(0)
+  planId          String? // null = kod działa na każdy plan
+  note            String?      @db.Text
+  createdByUserId String
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+
+  plan     Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  payments Payment[]
+
+  @@index([active])
+}
+
+// Bon o określonej wartości. Przychód powstaje przy SPRZEDAŻY karty (soldPayment),
+// a nie przy jej realizacji - realizacja to wykorzystanie już opłaconego kredytu,
+// więc nie liczymy jej drugi raz do utargu.
+model GiftCard {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  initialGross    Int
+  balanceGross    Int
+  active          Boolean   @default(true)
+  validUntil      DateTime? @db.Timestamptz
+  note            String?   @db.Text
+  createdByUserId String
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  soldPaymentId   String?   @unique
+
+  soldPayment Payment?             @relation("GiftCardSalePayment", fields: [soldPaymentId], references: [id], onDelete: SetNull)
+  redemptions GiftCardRedemption[]
+
+  @@index([active])
+}
+
+model GiftCardRedemption {
+  id          String   @id @default(cuid())
+  giftCardId  String
+  paymentId   String? // płatność za karnet, do której doszła dopłata z karty
+  amountGross Int
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  payment  Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 }
 
 model CashDay {
@@ -889,6 +975,8 @@ enum ActivityAction {
   MEMBER_UPDATED
   MEASUREMENT_ADDED
   PASS_SOLD
+  PROMO_CODE_CREATED
+  GIFT_CARD_SOLD
   PASS_FROZEN
   PASS_UNFROZEN
   PAYMENT_CORRECTED

@@ -23,7 +23,7 @@ export async function generateSessions(
   // rodzaju i wypadały z filtra na grafiku klienta.
   const templates = await prisma.classTemplate.findMany({
     where: { active: true },
-    include: { category: true },
+    include: { category: true, skips: { select: { startsAt: true } } },
   });
   const today = todayInTimeZone(now);
 
@@ -32,6 +32,10 @@ export async function generateSessions(
   for (const tpl of templates) {
     const [hour, minute] = tpl.startTime.split(":").map(Number);
     const displayName = resolveClassName(tpl.name, tpl.category?.name ?? "Zajęcia");
+    // Terminy usunięte ręcznie z grafiku. Trzymamy jako czas w ms, żeby porównanie
+    // było proste i pewne - inaczej raz usunięty termin wracałby przy każdym
+    // generowaniu.
+    const skipped = new Set(tpl.skips.map((s) => s.startsAt.getTime()));
 
     for (let offset = 0; offset < WEEKS_AHEAD * 7; offset++) {
       const date = addCalendarDays(today, offset);
@@ -42,6 +46,7 @@ export async function generateSessions(
       // to północ dnia startu, więc każde zajęcia tego dnia (o dowolnej godzinie)
       // przechodzą, a wcześniejsze odpadają.
       if (tpl.startDate && startsAt < tpl.startDate) continue;
+      if (skipped.has(startsAt.getTime())) continue;
       const endsAt = new Date(startsAt.getTime() + tpl.durationMin * 60_000);
 
       await prisma.session.upsert({

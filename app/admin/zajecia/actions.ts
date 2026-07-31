@@ -54,7 +54,8 @@ const WINDOW_ERROR_MESSAGE: Record<WindowValidationError, string> = {
   INVALID_END_TIME: "Podaj poprawną godzinę zakończenia.",
   END_BEFORE_START: "Godzina zakończenia musi być późniejsza niż rozpoczęcia.",
   INVALID_SLOT_MINUTES: "Długość treningu musi być większa od zera.",
-  WINDOW_SHORTER_THAN_SLOT: "Okno jest krótsze niż pojedynczy trening - nie zmieści się ani jeden termin.",
+  WINDOW_SHORTER_THAN_SLOT:
+    "Okno jest krótsze niż pojedynczy trening - nie zmieści się ani jeden termin.",
 };
 
 function backToList(error?: string): never {
@@ -101,7 +102,8 @@ export async function createSessionAction(formData: FormData) {
   if (!locationId) backToList("Wybierz miejsce.");
   if (!trainerId) backToList("Wybierz trenera.");
   if (!categoryId) backToList("Wybierz rodzaj zajęć.");
-  if (!Number.isInteger(capacity) || capacity < 1) backToList("Liczba miejsc musi być większa od zera.");
+  if (!Number.isInteger(capacity) || capacity < 1)
+    backToList("Liczba miejsc musi być większa od zera.");
 
   const resolved = resolveSessionTime({ date, time, durationMin, now: new Date() });
   if ("error" in resolved) backToList(TIME_ERROR_MESSAGE[resolved.error]);
@@ -158,7 +160,8 @@ export async function updateSessionAction(formData: FormData) {
 
   if (!sessionId) backToList("Brak identyfikatora zajęć.");
   if (!categoryId) backToList("Wybierz rodzaj zajęć.");
-  if (!Number.isInteger(capacity) || capacity < 1) backToList("Liczba miejsc musi być większa od zera.");
+  if (!Number.isInteger(capacity) || capacity < 1)
+    backToList("Liczba miejsc musi być większa od zera.");
 
   const category = await prisma.classCategory.findUniqueOrThrow({ where: { id: categoryId } });
   // Nazwa niewymagana: pusta = zajęcia nazywają się jak ich rodzaj.
@@ -183,7 +186,9 @@ export async function updateSessionAction(formData: FormData) {
 
   const bookedCount = existing.bookings.filter((b) => b.status === "BOOKED").length;
   if (capacity < bookedCount) {
-    backToList(`Na te zajęcia zapisanych jest już ${bookedCount} osób - nie można zmniejszyć limitu poniżej tej liczby.`);
+    backToList(
+      `Na te zajęcia zapisanych jest już ${bookedCount} osób - nie można zmniejszyć limitu poniżej tej liczby.`,
+    );
   }
 
   const conflict = await assertNoTrainerConflict(trainerId, resolved, sessionId);
@@ -255,14 +260,42 @@ export async function deleteSessionAction(formData: FormData) {
 
   const existing = await prisma.session.findUniqueOrThrow({
     where: { id: sessionId },
-    include: { bookings: { where: { status: { in: ["BOOKED", "WAITLIST"] } }, select: { id: true } } },
+    include: {
+      bookings: { where: { status: { in: ["BOOKED", "WAITLIST"] } }, select: { id: true } },
+    },
   });
 
-  if (existing.bookings.length > 0 || existing.startsAt <= new Date()) {
-    redirect(`/admin/zajecia?edit=${sessionId}#zajecia-edycja`);
+  // Zajęcia, które już się odbyły, to historia - nie usuwamy ich z grafiku
+  // (obecności i wyniki trenerów muszą się zgadzać). Planner i tak nie pokazuje
+  // dla nich menu; to zabezpieczenie po stronie serwera z czytelnym komunikatem.
+  if (existing.startsAt <= new Date()) {
+    backToList("Nie można usunąć zajęć, które już się odbyły.");
+  }
+
+  // Przyszłe, ale z zapisami: nie kasujemy po cichu - klienci muszą poznać powód,
+  // więc otwieramy edycję, gdzie jest odwołanie z powodem.
+  if (existing.bookings.length > 0) {
+    redirect(`/admin/zajecia?edit=${sessionId}`);
   }
 
   await prisma.$transaction(async (tx) => {
+    // Termin z planu cyklicznego zapisujemy jako wyjątek (SessionSkip), inaczej
+    // najbliższe generowanie grafiku odtworzyłoby go po kluczu (templateId,
+    // startsAt) i „usunięcie” nie trzymałoby się. Terminy dodane ręcznie
+    // (templateId = null) nie mają czego odtwarzać - znikają po prostu.
+    if (existing.templateId) {
+      await tx.sessionSkip.upsert({
+        where: {
+          templateId_startsAt: {
+            templateId: existing.templateId,
+            startsAt: existing.startsAt,
+          },
+        },
+        create: { templateId: existing.templateId, startsAt: existing.startsAt },
+        update: {},
+      });
+    }
+
     await tx.session.delete({ where: { id: sessionId } });
     await logActivity(tx, {
       actorUserId: session.user.id,

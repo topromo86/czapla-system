@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Archivo, IBM_Plex_Mono, Inter, Oswald, Playfair_Display } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { getClubSettings } from "@/lib/services/settings";
 import { RegisterServiceWorker } from "./register-service-worker";
@@ -65,10 +66,14 @@ export default async function RootLayout({
       // serwer i klient widzą tu różny className. To zamierzone.
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="flex min-h-full flex-col">
+        {/* Motyw (klasa `dark`) ustawiany przed hydratacją, żeby nie migotało.
+        next/script z beforeInteractive trafia do początkowego HTML i wykonuje się
+        przed kodem Next - w przeciwieństwie do surowego <script> nie wywołuje
+        ostrzeżenia React o skrypcie w drzewie komponentów. */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         {children}
         <RegisterServiceWorker />
       </body>

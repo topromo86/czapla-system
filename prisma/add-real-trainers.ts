@@ -22,12 +22,16 @@ const prisma = new PrismaClient({ adapter });
 const DEV_PASSWORD = "test1234"; // hasło tymczasowe - do zmiany przed produkcją
 const TESTOWY_SUFFIX = " TESTOWY";
 
-type RealTrainer = { name: string; email: string; bio: string };
+// role: Daniel to właściciel klubu - ADMIN z własnym rekordem Trainer, więc w
+// nagłówku ma przełącznik Admin/Trener (AccountViewSwitch). Reszta kadry to
+// zwykli TRAINER. Domyślnie TRAINER, gdy pole pominięte.
+type RealTrainer = { name: string; email: string; bio: string; role?: "ADMIN" | "TRAINER" };
 
 const REAL_TRAINERS: RealTrainer[] = [
   {
     name: 'Daniel "Czapla" Pilc',
     email: "dpilc@wp.pl",
+    role: "ADMIN",
     bio: "Certified Personal Trainer. Trener boksu klasy drugiej, były zawodowy pięściarz i szkoleniowiec mistrzów Polski. W naszym klubie stawiamy na prawdziwy boks: ciężką pracę, charakter i dyscyplinę. Tu nie ma ściemy ani gadania o formie - jest pot, ring i konkretne wyniki. Trenujemy ludzi, którzy chcą być lepsi niż wczoraj, niezależnie czy zaczynasz od zera, czy celujesz w mistrzostwo.\n\nSpecjalizacje: Personal Boxing, Trening motoryczny.",
   },
   {
@@ -88,8 +92,11 @@ async function main() {
     });
 
     if (existingUser?.trainer) {
-      // Już jest - odświeżamy tylko opis i nazwę (bez ruszania hasła/lokalizacji).
-      await prisma.user.update({ where: { id: existingUser.id }, data: { name: rt.name } });
+      // Już jest - odświeżamy nazwę, rolę i opis (bez ruszania hasła/lokalizacji).
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { name: rt.name, role: rt.role ?? "TRAINER" },
+      });
       await prisma.trainer.update({ where: { id: existingUser.trainer.id }, data: { bio: rt.bio } });
       updated++;
       continue;
@@ -99,7 +106,7 @@ async function main() {
       data: {
         email: rt.email,
         name: rt.name,
-        role: "TRAINER",
+        role: rt.role ?? "TRAINER",
         passwordHash,
         trainer: {
           create: {

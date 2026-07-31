@@ -40,9 +40,7 @@ export default async function NotificationSettingsPage({
         <h1 className="text-brand-red font-[family-name:var(--font-anton)] text-2xl uppercase">
           Powiadomienia
         </h1>
-        <p className="text-muted-brand mt-1 text-sm">
-          Sam decydujesz, o czym Cię informujemy.
-        </p>
+        <p className="text-muted-brand mt-1 text-sm">Sam decydujesz, o czym Cię informujemy.</p>
       </div>
 
       {zapisano ? (
@@ -154,7 +152,9 @@ export default async function NotificationSettingsPage({
           <p>
             <b className="text-text">E-mail</b> działa niezależnie od push - jeśli zaznaczysz oba,
             dostaniesz i powiadomienie na ekranie, i wiadomość w skrzynce. Push znika po chwili,
-            mail zostaje.
+            mail zostaje. Potwierdzenie zapisu i przypomnienie o zajęciach wysyłamy mailem{" "}
+            <b className="text-text">domyślnie</b> - odznacz e-mail przy danej pozycji, jeśli nie
+            chcesz ich dostawać.
             {emailAvailable
               ? ""
               : " Klub nie ma jeszcze skonfigurowanej poczty, więc ten kanał jest na razie nieaktywny."}

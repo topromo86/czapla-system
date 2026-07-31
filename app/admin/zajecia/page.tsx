@@ -267,124 +267,6 @@ export default async function AdminSessionsPage({
 
       <section>
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Okno zapisów
-        </h2>
-        <form
-          action={updateBookingHorizonAction}
-          className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
-        >
-          <div className="flex flex-col gap-3">
-            <label className="flex items-start gap-3">
-              <input
-                type="radio"
-                name="bookingHorizonMode"
-                value="CURRENT_WEEK"
-                defaultChecked={settings.bookingHorizonMode === "CURRENT_WEEK"}
-                className="mt-1 size-4 shrink-0"
-              />
-              <span>
-                <span className="text-text text-sm font-medium">Bieżący tydzień</span>
-                <span className="text-muted-brand block text-sm">
-                  Klient zapisuje się do najbliższej niedzieli włącznie - niezależnie od tego, czy
-                  dziś jest poniedziałek czy czwartek. Okno przeskakuje na kolejny tydzień o północy
-                  z niedzieli na poniedziałek.
-                </span>
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3">
-              <input
-                type="radio"
-                name="bookingHorizonMode"
-                value="FIXED_DAYS"
-                defaultChecked={settings.bookingHorizonMode === "FIXED_DAYS"}
-                className="mt-1 size-4 shrink-0"
-              />
-              <span className="flex-1">
-                <span className="text-text text-sm font-medium">Stała liczba dni</span>
-                <span className="text-muted-brand block text-sm">
-                  Okno przesuwa się razem z dzisiejszą datą - zawsze tyle samo dni do przodu.
-                </span>
-                <select
-                  name="bookingHorizonDays"
-                  defaultValue={String(settings.bookingHorizonDays)}
-                  className={`${selectClass} mt-2 max-w-40`}
-                >
-                  {FIXED_HORIZON_OPTIONS.map((days) => (
-                    <option key={days} value={days}>
-                      {days} dni
-                    </option>
-                  ))}
-                </select>
-              </span>
-            </label>
-          </div>
-
-          <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
-            Teraz obowiązuje:{" "}
-            <b className="text-text">
-              {describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}
-            </b>
-            . Ostatni dzień do zapisania się to{" "}
-            <b className="text-text">{formatDate(new Date(horizonEnd.getTime() - 1))}</b>.
-          </p>
-
-          <Button type="submit" className="self-start">
-            Zapisz okno zapisów
-          </Button>
-        </form>
-      </section>
-
-      <section>
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Okno odwołania
-        </h2>
-        <form
-          action={updateCancellationWindowAction}
-          className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
-        >
-          <div>
-            <label htmlFor="freeCancellationHours" className="text-text block text-sm font-medium">
-              Ile godzin przed startem odwołanie jest bezkosztowe
-            </label>
-            <p className="text-muted-brand mt-0.5 text-sm">
-              Odwołanie poniżej tej granicy kosztuje wejście z karnetu - tak samo przy zajęciach
-              grupowych, indywidualnych i przy zgłoszeniu nieobecności. Trener zawsze może zwrócić
-              wejście ręcznie.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <Input
-                id="freeCancellationHours"
-                name="freeCancellationHours"
-                type="number"
-                inputMode="numeric"
-                min={MIN_CANCELLATION_WINDOW_HOURS}
-                max={MAX_CANCELLATION_WINDOW_HOURS}
-                step={1}
-                required
-                defaultValue={String(settings.freeCancellationHours)}
-                className="max-w-28"
-              />
-              <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-                godz.
-              </span>
-            </div>
-          </div>
-
-          <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
-            Teraz obowiązuje: <b className="text-text">{settings.freeCancellationHours} godz.</b>{" "}
-            Zmiana działa tylko w przód - już odwołane zajęcia zachowują swój wynik, więc nikomu nie
-            odbierze ani nie odda wejścia wstecz.
-          </p>
-
-          <Button type="submit" className="self-start">
-            Zapisz okno odwołania
-          </Button>
-        </form>
-      </section>
-
-      <section>
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
           Rodzaje zajęć
         </h2>
         <p className="text-muted-brand mt-1 text-sm">
@@ -1024,6 +906,157 @@ export default async function AdminSessionsPage({
             </li>
           ) : null}
         </ul>
+      </section>
+
+      {/* Ustawienia okna zapisów i odwołania - zmienia się je rzadko, więc
+      zwinięte na dole, żeby nie zaśmiecały codziennej pracy z grafikiem. */}
+      <section>
+        <details className="group border-line bg-surface rounded-md border">
+          <summary className="text-text hover:bg-surface-2 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md p-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <span className="text-brand-red font-mono text-lg leading-none transition-transform group-open:rotate-90">
+                ▸
+              </span>
+              <span className="font-mono text-sm font-bold tracking-widest uppercase">
+                Okno zapisów i odwołania
+              </span>
+            </span>
+            <span className="text-muted-brand group-hover:text-brand-red shrink-0 font-mono text-xs tracking-widest uppercase">
+              <span className="group-open:hidden">Rozwiń ▾</span>
+              <span className="hidden group-open:inline">Zwiń ▴</span>
+            </span>
+          </summary>
+          <div className="border-line border-t p-4">
+            <p className="text-muted-brand text-sm">
+              Ustawienia horyzontu zapisów i granicy bezkosztowego odwołania. Zmienia się je rzadko.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-6">
+              <div>
+                <h3 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                  Okno zapisów
+                </h3>
+                <form
+                  action={updateBookingHorizonAction}
+                  className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
+                >
+                  <div className="flex flex-col gap-3">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="bookingHorizonMode"
+                        value="CURRENT_WEEK"
+                        defaultChecked={settings.bookingHorizonMode === "CURRENT_WEEK"}
+                        className="mt-1 size-4 shrink-0"
+                      />
+                      <span>
+                        <span className="text-text text-sm font-medium">Bieżący tydzień</span>
+                        <span className="text-muted-brand block text-sm">
+                          Klient zapisuje się do najbliższej niedzieli włącznie - niezależnie od
+                          tego, czy dziś jest poniedziałek czy czwartek. Okno przeskakuje na kolejny
+                          tydzień o północy z niedzieli na poniedziałek.
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="bookingHorizonMode"
+                        value="FIXED_DAYS"
+                        defaultChecked={settings.bookingHorizonMode === "FIXED_DAYS"}
+                        className="mt-1 size-4 shrink-0"
+                      />
+                      <span className="flex-1">
+                        <span className="text-text text-sm font-medium">Stała liczba dni</span>
+                        <span className="text-muted-brand block text-sm">
+                          Okno przesuwa się razem z dzisiejszą datą - zawsze tyle samo dni do
+                          przodu.
+                        </span>
+                        <select
+                          name="bookingHorizonDays"
+                          defaultValue={String(settings.bookingHorizonDays)}
+                          className={`${selectClass} mt-2 max-w-40`}
+                        >
+                          {FIXED_HORIZON_OPTIONS.map((days) => (
+                            <option key={days} value={days}>
+                              {days} dni
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    </label>
+                  </div>
+
+                  <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
+                    Teraz obowiązuje:{" "}
+                    <b className="text-text">
+                      {describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}
+                    </b>
+                    . Ostatni dzień do zapisania się to{" "}
+                    <b className="text-text">{formatDate(new Date(horizonEnd.getTime() - 1))}</b>.
+                  </p>
+
+                  <Button type="submit" className="self-start">
+                    Zapisz okno zapisów
+                  </Button>
+                </form>
+              </div>
+
+              <div>
+                <h3 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                  Okno odwołania
+                </h3>
+                <form
+                  action={updateCancellationWindowAction}
+                  className="border-line bg-surface mt-2 flex flex-col gap-4 rounded-md border p-4"
+                >
+                  <div>
+                    <label
+                      htmlFor="freeCancellationHours"
+                      className="text-text block text-sm font-medium"
+                    >
+                      Ile godzin przed startem odwołanie jest bezkosztowe
+                    </label>
+                    <p className="text-muted-brand mt-0.5 text-sm">
+                      Odwołanie poniżej tej granicy kosztuje wejście z karnetu - tak samo przy
+                      zajęciach grupowych, indywidualnych i przy zgłoszeniu nieobecności. Trener
+                      zawsze może zwrócić wejście ręcznie.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        id="freeCancellationHours"
+                        name="freeCancellationHours"
+                        type="number"
+                        inputMode="numeric"
+                        min={MIN_CANCELLATION_WINDOW_HOURS}
+                        max={MAX_CANCELLATION_WINDOW_HOURS}
+                        step={1}
+                        required
+                        defaultValue={String(settings.freeCancellationHours)}
+                        className="max-w-28"
+                      />
+                      <span className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                        godz.
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="border-line bg-surface-2 text-muted-brand rounded-md border p-3 text-sm">
+                    Teraz obowiązuje:{" "}
+                    <b className="text-text">{settings.freeCancellationHours} godz.</b> Zmiana
+                    działa tylko w przód - już odwołane zajęcia zachowują swój wynik, więc nikomu
+                    nie odbierze ani nie odda wejścia wstecz.
+                  </p>
+
+                  <Button type="submit" className="self-start">
+                    Zapisz okno odwołania
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
       <details className="border-line bg-surface rounded-md border">
