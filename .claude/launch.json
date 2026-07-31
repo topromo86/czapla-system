@@ -7,6 +7,11 @@
       "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "topromo",
+      "url": "http://localhost:4173",
+      "port": 4173
     }
   ]
 }
