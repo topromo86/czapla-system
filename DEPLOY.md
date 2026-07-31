@@ -18,13 +18,18 @@ Z panelu dostawcy skopiuj **connection string** — to będzie `DATABASE_URL`.
 
 ## 1. Kod na GitHub
 
-Repozytorium nie ma jeszcze zdalnego adresu (`git remote` jest puste).
-Załóż prywatne repo na GitHubie i wypchnij kod:
+Zdalny adres jest już ustawiony na `https://github.com/topromo86/czapla-system.git`
+(konto **topromo86**). Repo na GitHubie ma być **prywatne** — to dane klubu.
+Widoczność zmienia się w repo: **Settings → Danger Zone → Change repository
+visibility**.
+
+Wysłanie kodu:
 
 ```bash
-git remote add origin https://github.com/UZYTKOWNIK/czapla-system.git
 git push -u origin main
 ```
+
+Kolejne zmiany wypychasz już samym `git push`.
 
 Plik `.env` jest w `.gitignore`, więc hasła i klucze **nie trafią** do repo —
 wpisuje się je w panelu Vercel (krok 3).
