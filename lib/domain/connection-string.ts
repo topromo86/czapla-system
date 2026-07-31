@@ -22,9 +22,23 @@ export function isDirectPostgresUrl(url: string | undefined): boolean {
   return url != null && (url.startsWith("postgresql://") || url.startsWith("postgres://"));
 }
 
+// Sterownik pg traktuje dziś `sslmode=require` jak `verify-full`, czyli
+// sprawdza certyfikat serwera. W przyszłej wersji (pg 9) `require` przyjmie
+// znaczenie z libpq: szyfruj, ale certyfikatu NIE sprawdzaj. Aktualizacja
+// biblioteki po cichu osłabiłaby więc połączenie z bazą klubu.
+//
+// Zapisujemy zamiar wprost, zamiast polegać na domyślnym zachowaniu. Dziś nic
+// to nie zmienia (to samo sprawdzanie co teraz), a po aktualizacji pg
+// połączenie zostanie tak samo ścisłe. Adres pochodzi z integracji hostingu,
+// więc poprawiamy go tutaj - ręczna zmiana w panelu byłaby nadpisywana.
+export function hardenSslMode(url: string): string {
+  if (!url.includes("sslmode=require")) return url;
+  return url.replace("sslmode=require", "sslmode=verify-full");
+}
+
 export function pickConnectionString(env: Record<string, string | undefined>): string {
   for (const key of CONNECTION_ENV_KEYS) {
-    if (isDirectPostgresUrl(env[key])) return env[key]!;
+    if (isDirectPostgresUrl(env[key])) return hardenSslMode(env[key]!);
   }
 
   // Nic pasującego - oddajemy DATABASE_URL, żeby ewentualny błąd wskazał na
