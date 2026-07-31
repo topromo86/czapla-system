@@ -36,40 +36,45 @@ const CATEGORIES = ["Kids Boxing", "Boks Junior", "Women Boxing", "Gentleman Box
 // Grafik tygodniowy. weekday: 1=Pon 2=Wt 3=Śr 4=Czw 5=Pt.
 // Zajęcia są cykliczne "do odwołania" - job generateSessions rozwija je na
 // konkretne terminy (8 tygodni w przód).
-type Tpl = { day: number; time: string; name: string; trainer: string; cat: string };
+//
+// Zajęcia NIE mają własnej nazwy (name = null) - nazywają się tak jak ich
+// rodzaj, więc na grafiku widać "Kids Boxing", a nie skrót "kids".
+// Nazwę wylicza resolveClassName z rodzaju, dzięki czemu zmiana nazwy rodzaju
+// przenosi się na zajęcia same z siebie.
+type Tpl = { day: number; time: string; trainer: string; cat: string };
 
 const CZAPLA = 'Daniel "Czapla" Pilc';
 
 // Tychy: 60 min, 10 miejsc. Zajęcia "kids" prowadzi Jacek Targiel (w Mikołowie
 // Jakub) - bracia zmieniają się między salami przez zastępstwa.
 const TYCHY: Tpl[] = [
-  { day: 1, time: "17:00", name: "kids", trainer: "Jacek Targiel", cat: "Kids Boxing" },
-  { day: 1, time: "19:00", name: "Gentleman", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
-  { day: 2, time: "17:00", name: "Junior", trainer: "Michał Kieca", cat: "Boks Junior" },
-  { day: 2, time: "18:30", name: "women", trainer: "Patryk Bortel", cat: "Women Boxing" },
-  { day: 3, time: "17:00", name: "kids", trainer: "Jacek Targiel", cat: "Kids Boxing" },
-  { day: 3, time: "19:00", name: "Gentleman", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
-  { day: 4, time: "17:00", name: "Junior", trainer: "Michał Kieca", cat: "Boks Junior" },
-  { day: 4, time: "18:30", name: "women", trainer: "Patryk Bortel", cat: "Women Boxing" },
-  { day: 5, time: "17:00", name: "Junior", trainer: "Michał Kieca", cat: "Boks Junior" },
-  { day: 5, time: "19:00", name: "Gentleman", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
+  { day: 1, time: "17:00", trainer: "Jacek Targiel", cat: "Kids Boxing" },
+  { day: 1, time: "19:00", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
+  { day: 2, time: "17:00", trainer: "Michał Kieca", cat: "Boks Junior" },
+  { day: 2, time: "18:30", trainer: "Patryk Bortel", cat: "Women Boxing" },
+  { day: 3, time: "17:00", trainer: "Jacek Targiel", cat: "Kids Boxing" },
+  { day: 3, time: "19:00", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
+  { day: 4, time: "17:00", trainer: "Michał Kieca", cat: "Boks Junior" },
+  { day: 4, time: "18:30", trainer: "Patryk Bortel", cat: "Women Boxing" },
+  { day: 5, time: "17:00", trainer: "Michał Kieca", cat: "Boks Junior" },
+  { day: 5, time: "19:00", trainer: "Patryk Bortel", cat: "Gentleman Boxing" },
 ];
 
 // Mikołów: 60 min, 20 miejsc. "Czapla" to zajęcia dla dorosłych prowadzone
 // przez Daniela (w tym poranne 7:00 we wtorki i czwartki).
 const MIKOLOW: Tpl[] = [
-  { day: 1, time: "17:30", name: "kids", trainer: "Jakub Targiel", cat: "Kids Boxing" },
-  { day: 1, time: "19:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 2, time: "07:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 2, time: "17:30", name: "Junior", trainer: CZAPLA, cat: "Boks Junior" },
-  { day: 2, time: "19:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 3, time: "17:30", name: "kids", trainer: "Jakub Targiel", cat: "Kids Boxing" },
-  { day: 3, time: "19:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 4, time: "07:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 4, time: "17:30", name: "Junior", trainer: CZAPLA, cat: "Boks Junior" },
-  { day: 4, time: "19:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
-  { day: 5, time: "17:00", name: "Junior", trainer: CZAPLA, cat: "Boks Junior" },
-  { day: 5, time: "19:00", name: "Czapla", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 1, time: "17:30", trainer: "Jakub Targiel", cat: "Kids Boxing" },
+  { day: 1, time: "19:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 2, time: "07:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 2, time: "17:30", trainer: CZAPLA, cat: "Boks Junior" },
+  { day: 2, time: "19:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 3, time: "17:30", trainer: "Jakub Targiel", cat: "Kids Boxing" },
+  { day: 3, time: "19:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 4, time: "07:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 4, time: "17:30", trainer: CZAPLA, cat: "Boks Junior" },
+  { day: 4, time: "19:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
+  { day: 5, time: "17:00", trainer: CZAPLA, cat: "Boks Junior" },
+  { day: 5, time: "19:00", trainer: CZAPLA, cat: "Gentleman Boxing" },
 ];
 
 async function main() {
@@ -131,7 +136,8 @@ async function main() {
         locationId,
         trainerId: trainer.id,
         categoryId: category.id,
-        name: tpl.name,
+        // Bez własnej nazwy - zajęcia nazywają się jak ich rodzaj.
+        name: null,
         weekday: tpl.day,
         startTime: tpl.time,
         durationMin: 60,
