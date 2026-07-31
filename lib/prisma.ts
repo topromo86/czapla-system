@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/app/generated/prisma/client";
+import { pickConnectionString } from "@/lib/domain/connection-string";
 
 declare global {
   var __prisma: PrismaClient | undefined;
@@ -12,7 +13,7 @@ function createClient() {
   // że pula sama zamyka bezczynne, zanim serwer je ubije, i otwiera świeże na
   // żądanie - dzięki temu strona nie pada losowo przy równoległych zapytaniach.
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: pickConnectionString(process.env),
     max: 5,
     idleTimeoutMillis: 10_000,
   });
