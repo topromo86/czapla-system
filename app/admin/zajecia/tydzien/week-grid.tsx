@@ -18,6 +18,9 @@ export type GridSession = {
   status: string;
   categoryName: string | null;
   trainerName: string;
+  // Klasa paska z kolorem rodzaju - wyliczana na stronie, dla całej listy
+  // rodzajów naraz (lib/domain/class-color.ts), żeby kolory się nie powtarzały.
+  stripe: string;
 };
 
 // Godzina/dzień w czasie klubu - kafelek ma trafić do pasa, który widać na
@@ -200,7 +203,11 @@ function GridTile({
   // czy usuwanie nie ma tu sensu (obecności i wyniki trenerów muszą zostać), a
   // martwe menu tylko myliło: klik „Usuń” przekierowywał w nicość.
   if (past) {
-    return <div className={`rounded-md border p-1.5 text-left ${tone}`}>{tileContent}</div>;
+    return (
+      <div className={`rounded-md border p-1.5 text-left ${tone} ${session.stripe}`}>
+        {tileContent}
+      </div>
+    );
   }
 
   const editHref = `/admin/zajecia?edit=${session.id}`;
@@ -210,7 +217,7 @@ function GridTile({
   return (
     <details name="planner-tile" className="group/tile relative">
       <summary
-        className={`list-none rounded-md border p-1.5 text-left ${tone} hover:border-brand-red/60 cursor-pointer [&::-webkit-details-marker]:hidden`}
+        className={`list-none rounded-md border p-1.5 text-left ${tone} ${session.stripe} hover:border-brand-red/60 cursor-pointer [&::-webkit-details-marker]:hidden`}
       >
         {tileContent}
       </summary>

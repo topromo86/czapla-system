@@ -17,6 +17,7 @@ import {
   weekDays,
 } from "@/lib/domain/schedule";
 import { resolveClassName } from "@/lib/domain/class-template";
+import { assignCategoryColors, stripeClass, CATEGORY_COLORS } from "@/lib/domain/class-color";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { AdminWeekGrid, type GridSession } from "./tydzien/week-grid";
 import { EditDialog } from "./edit-dialog";
@@ -139,6 +140,10 @@ export default async function AdminSessionsPage({
       })
     : [];
 
+  // Kolory rodzajów liczone raz dla całej listy - dzięki temu żadne dwa rodzaje
+  // nie dostaną tej samej barwy (patrz lib/domain/class-color.ts).
+  const categoryColors = assignCategoryColors(categories);
+
   const gridSessions: GridSession[] = weekSessions.map((s) => ({
     id: s.id,
     name: s.name,
@@ -148,6 +153,7 @@ export default async function AdminSessionsPage({
     status: s.status,
     categoryName: s.category?.name ?? null,
     trainerName: s.trainer.user.name,
+    stripe: stripeClass(s.categoryId ? categoryColors.get(s.categoryId) : null),
   }));
 
   const gridDays = weekDays(weekStart);
@@ -288,6 +294,11 @@ export default async function AdminSessionsPage({
                   className="flex flex-1 flex-wrap items-center gap-2"
                 >
                   <input type="hidden" name="categoryId" value={category.id} />
+                  {/* Kropka pokazuje kolor, jakim ten rodzaj świeci na grafiku. */}
+                  <span
+                    aria-hidden
+                    className={`size-4 shrink-0 rounded-full ${categoryColors.get(category.id)?.dot ?? ""}`}
+                  />
                   <Input
                     name="name"
                     defaultValue={category.name}
@@ -295,6 +306,19 @@ export default async function AdminSessionsPage({
                     minLength={3}
                     className="border-line bg-surface-2 h-9 min-w-48 flex-1"
                   />
+                  <select
+                    name="color"
+                    defaultValue={category.color ?? ""}
+                    aria-label="Kolor na grafiku"
+                    className="border-line bg-surface-2 text-text h-9 rounded-md border px-2 text-sm"
+                  >
+                    <option value="">Kolor: automatyczny</option>
+                    {CATEGORY_COLORS.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
                   <Input
                     name="sortOrder"
                     type="number"

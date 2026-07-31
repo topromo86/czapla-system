@@ -17,6 +17,7 @@ import {
   validateClassTemplate,
   type ClassTemplateError,
 } from "@/lib/domain/class-template";
+import { isCategoryColorKey } from "@/lib/domain/class-color";
 import { generateSessions } from "@/lib/jobs/generate-sessions";
 import { zonedTimeToUtc } from "@/lib/domain/time";
 import {
@@ -607,6 +608,9 @@ export async function updateCategoryAction(formData: FormData) {
   const categoryId = String(formData.get("categoryId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const sortOrder = Number(formData.get("sortOrder"));
+  // Pusty wybór = kolor dobierany automatycznie (null w bazie).
+  const rawColor = String(formData.get("color") ?? "").trim();
+  const color = rawColor && isCategoryColorKey(rawColor) ? rawColor : null;
 
   if (!categoryId) backToList("Brak identyfikatora rodzaju.");
   if (name.length < 3) backToList("Nazwa rodzaju musi mieć co najmniej 3 znaki.");
@@ -619,7 +623,7 @@ export async function updateCategoryAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.classCategory.update({
       where: { id: categoryId },
-      data: { name, sortOrder: Number.isInteger(sortOrder) ? sortOrder : undefined },
+      data: { name, color, sortOrder: Number.isInteger(sortOrder) ? sortOrder : undefined },
     });
     await logActivity(tx, {
       actorUserId: session.user.id,

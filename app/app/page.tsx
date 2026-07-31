@@ -4,18 +4,14 @@ import { getAccessibleMembers } from "@/lib/auth/guard";
 import { canCancelFree, hasRequiredConsents, requiredConsentKeys } from "@/lib/domain/booking";
 import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
 import { RATING_LABEL, RATING_SCORES, scoreColor } from "@/lib/domain/rating";
-import {
-  bookingHorizonEnd,
-  describeHorizon,
-  startOfWeek,
-  weekDays,
-} from "@/lib/domain/schedule";
+import { bookingHorizonEnd, describeHorizon, startOfWeek, weekDays } from "@/lib/domain/schedule";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
 import { buildSuggestions } from "@/lib/services/suggestions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatDayTime } from "@/lib/format";
+import { assignCategoryColors, stripeClass } from "@/lib/domain/class-color";
 import { WeekPlanner, type PlannerSession } from "./planner";
 import {
   bookSessionAction,
@@ -27,7 +23,8 @@ import {
 const RATING_DELAY_MS = 3_600_000;
 
 const ERROR_MESSAGES: Record<string, string> = {
-  NOT_APPROVED: "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
+  NOT_APPROVED:
+    "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
   CONSENTS_NOT_DELIVERED:
     "Dostarcz podpisane zgody trenerowi lub w recepcji - do potwierdzenia odbioru możesz zapisać się tylko na pierwsze zajęcia.",
   ALREADY_BOOKED: "Jesteś już zapisany na te zajęcia.",
@@ -67,12 +64,16 @@ export default async function SchedulePage({
   if (members.length === 0) return null; // layout już pokazał komunikat
 
   const activeMember = members.find((m) => m.id === params.member) ?? members[0];
-  const [locations, categories, settings] = await Promise.all([
+  const [locations, categories, allCategories, settings] = await Promise.all([
     prisma.location.findMany({ orderBy: { name: "asc" } }),
     prisma.classCategory.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
+    // Do kolorów bierzemy WSZYSTKIE rodzaje (także ukryte) - tak samo jak
+    // admin. Gdyby liczyć tylko z aktywnych, ukrycie jednego rodzaju
+    // przestawiłoby kolory pozostałych.
+    prisma.classCategory.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getClubSettings(),
   ]);
   const activeLocationId = params.location ?? activeMember.homeLocationId;
@@ -203,6 +204,8 @@ export default async function SchedulePage({
     s.template ? s.template.isKids === activeMember.isMinor : true,
   );
 
+  const categoryColors = assignCategoryColors(allCategories);
+
   const plannerSessions: PlannerSession[] = relevant.map((s) => {
     const myBooking = s.bookings.find(
       (b) => b.memberId === activeMember.id && (b.status === "BOOKED" || b.status === "WAITLIST"),
@@ -218,6 +221,7 @@ export default async function SchedulePage({
       bookedCount: s.bookings.filter((b) => b.status === "BOOKED").length,
       myBookingId: myBooking?.id ?? null,
       myBookingStatus: myBooking?.status ?? null,
+      stripe: stripeClass(s.categoryId ? categoryColors.get(s.categoryId) : null),
     };
   });
 
@@ -416,10 +420,10 @@ export default async function SchedulePage({
                         className="border-line bg-surface-2"
                       />
                       <p className="text-muted-brand text-xs">
-                        <b className="text-text">Opinia jest anonimowa dla trenera</b> - nie
-                        zobaczy jej wcale, ani treści, ani tego, że ją napisałeś. Czyta ją
-                        wyłącznie właściciel klubu i widzi przy niej Twoje imię. Po napisaniu
-                        kliknij ocenę powyżej, żeby wysłać.
+                        <b className="text-text">Opinia jest anonimowa dla trenera</b> - nie zobaczy
+                        jej wcale, ani treści, ani tego, że ją napisałeś. Czyta ją wyłącznie
+                        właściciel klubu i widzi przy niej Twoje imię. Po napisaniu kliknij ocenę
+                        powyżej, żeby wysłać.
                       </p>
                     </div>
                   </details>
@@ -572,9 +576,8 @@ export default async function SchedulePage({
             <input type="hidden" name="returnTo" value={returnTo} />
             <p className="text-muted-brand text-xs">
               Odwołuje <b>wszystkie</b> zapisane zajęcia do wybranego dnia włącznie i informuje
-              trenera o powodzie. Zajęcia odwołane na mniej niż{" "}
-              {settings.freeCancellationHours} godz. przed startem kosztują wejście - tak samo jak
-              zwykłe odwołanie.
+              trenera o powodzie. Zajęcia odwołane na mniej niż {settings.freeCancellationHours}{" "}
+              godz. przed startem kosztują wejście - tak samo jak zwykłe odwołanie.
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -677,9 +680,9 @@ export default async function SchedulePage({
         </div>
 
         <p className="text-muted-brand text-xs">
-          Zapisy są otwarte {describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}.
-          Zajęcia dalej w kalendarzu są widoczne, ale zapiszesz się na nie dopiero, gdy okno się
-          przesunie.
+          Zapisy są otwarte{" "}
+          {describeHorizon(settings.bookingHorizonMode, settings.bookingHorizonDays)}. Zajęcia dalej
+          w kalendarzu są widoczne, ale zapiszesz się na nie dopiero, gdy okno się przesunie.
         </p>
       </section>
     </div>

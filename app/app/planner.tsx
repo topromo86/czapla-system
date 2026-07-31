@@ -27,6 +27,9 @@ export type PlannerSession = {
   bookedCount: number;
   myBookingId: string | null;
   myBookingStatus: string | null;
+  // Klasa paska z kolorem rodzaju - wyliczana na stronie dla całej listy
+  // rodzajów naraz (lib/domain/class-color.ts), więc kolory się nie powtarzają.
+  stripe: string;
 };
 
 // Godzina w czasie klubu - kafelek ma trafić do pasa, który klient widzi na
@@ -217,7 +220,7 @@ function SessionTile({
   const note = STATUS_NOTE[status];
 
   return (
-    <div className={`rounded-md border p-1.5 text-left ${TILE_STYLE[status]}`}>
+    <div className={`rounded-md border p-1.5 text-left ${TILE_STYLE[status]} ${session.stripe}`}>
       <p className="text-text truncate text-xs leading-tight font-medium" title={session.name}>
         {session.name}
       </p>

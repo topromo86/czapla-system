@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { startOfWeek, weekDays } from "@/lib/domain/schedule";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
+import { assignCategoryColors, stripeClass } from "@/lib/domain/class-color";
 import { AdminWeekGrid, type GridSession } from "./week-grid";
 
 function isoDate(date: { year: number; month: number; day: number }): string {
@@ -37,7 +38,13 @@ export default async function AdminWeekViewPage({
   const weekStartUtc = zonedTimeToUtc(weekStart.year, weekStart.month, weekStart.day, 0, 0);
   const nextWeekStart = addCalendarDays(weekStart, 7);
   const prevWeekStart = addCalendarDays(weekStart, -7);
-  const weekEndUtc = zonedTimeToUtc(nextWeekStart.year, nextWeekStart.month, nextWeekStart.day, 0, 0);
+  const weekEndUtc = zonedTimeToUtc(
+    nextWeekStart.year,
+    nextWeekStart.month,
+    nextWeekStart.day,
+    0,
+    0,
+  );
 
   const sessions = activeLocationId
     ? await prisma.session.findMany({
@@ -55,6 +62,14 @@ export default async function AdminWeekViewPage({
       })
     : [];
 
+  // Kolory rodzajów liczone dla PEŁNEJ listy kategorii (nie tylko tych obecnych
+  // w tym tygodniu) - inaczej ten sam rodzaj miałby inny kolor w różnych
+  // tygodniach, zależnie od tego, co akurat jest w grafiku.
+  const categories = await prisma.classCategory.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+  const categoryColors = assignCategoryColors(categories);
+
   const gridSessions: GridSession[] = sessions.map((s) => ({
     id: s.id,
     name: s.name,
@@ -64,6 +79,7 @@ export default async function AdminWeekViewPage({
     status: s.status,
     categoryName: s.category?.name ?? null,
     trainerName: s.trainer.user.name,
+    stripe: stripeClass(s.categoryId ? categoryColors.get(s.categoryId) : null),
   }));
 
   const visibleDays = weekDays(weekStart);

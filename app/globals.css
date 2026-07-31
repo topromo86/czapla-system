@@ -25,6 +25,20 @@
   --jade: #1f8a5c; /* potwierdzenia, aktywny karnet */
   --amber: #c9760a; /* karnet kończący się wkrótce */
 
+  /* Kolory rodzajów zajęć - wyłącznie do odróżniania grup na grafiku (pasek
+     przy kafelku). Celowo NIE niosą znaczenia jak czerwień/jade/amber, bo te
+     są zarezerwowane dla statusu (odwołane, komplet, aktywne). */
+  --cat-sky: #1f6feb;
+  --cat-violet: #7b4bd8;
+  --cat-teal: #0f8c8c;
+  --cat-lime: #4d8b1a;
+  --cat-rose: #c4306e;
+  --cat-orange: #c2600f;
+  --cat-indigo: #3b3fb8;
+  --cat-fuchsia: #a026b3;
+  --cat-sienna: #8a5a2b;
+  --cat-slate: #4a6076;
+
   /* Mapowanie tokenów shadcn/ui na naszą paletę zamiast domyślnej neutralnej. */
   --background: var(--ink);
   --foreground: var(--text);
@@ -84,6 +98,18 @@
   --red: #e56a60;
   --jade: #3fb37f;
   --amber: #e0983c;
+
+  /* Rodzaje zajęć - rozjaśnione, inaczej paski na kafelkach gasną na ciemnym. */
+  --cat-sky: #58a6ff;
+  --cat-violet: #a684f5;
+  --cat-teal: #3ec9c9;
+  --cat-lime: #8bc94a;
+  --cat-rose: #f06a9e;
+  --cat-orange: #f0913f;
+  --cat-indigo: #7d80ee;
+  --cat-fuchsia: #d975e8;
+  --cat-sienna: #c08a55;
+  --cat-slate: #8ba3ba;
 }
 
 @theme inline {
@@ -99,6 +125,16 @@
   --color-red: var(--red);
   --color-jade: var(--jade);
   --color-amber: var(--amber);
+  --color-cat-sky: var(--cat-sky);
+  --color-cat-violet: var(--cat-violet);
+  --color-cat-teal: var(--cat-teal);
+  --color-cat-lime: var(--cat-lime);
+  --color-cat-rose: var(--cat-rose);
+  --color-cat-orange: var(--cat-orange);
+  --color-cat-indigo: var(--cat-indigo);
+  --color-cat-fuchsia: var(--cat-fuchsia);
+  --color-cat-sienna: var(--cat-sienna);
+  --color-cat-slate: var(--cat-slate);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

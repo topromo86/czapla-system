@@ -389,6 +389,10 @@ model ClassCategory {
   // Rodzaj przypisywany automatycznie treningom indywidualnym - dokładnie
   // jeden taki wiersz, pilnowane częściowym indeksem unikalnym w migracji.
   isIndividual Boolean @default(false)
+  // Kolor rodzaju na grafiku (klucz z palety, patrz lib/domain/class-color.ts).
+  // null = kolor dobrany automatycznie z nazwy, więc grafik jest kolorowy
+  // od razu, bez ustawiania czegokolwiek.
+  color        String?
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
