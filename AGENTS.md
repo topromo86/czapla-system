@@ -4,57 +4,47 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Lokalna baza (`prisma dev`)
+# Baza danych — zawsze na serwerze
 
-Baza deweloperska to lokalny serwer Prisma Postgres. Uruchamiasz go w **osobnym
-oknie terminala** i zostawiasz otwarte — serwer żyje tak długo, jak to okno:
+**Nie ma bazy lokalnej i nie wolno jej zakładać.** Wszystko żyje w chmurze:
 
-```
-npm run db:dev      # baza (osobne okno, zostaw otwarte)
-npm run dev         # aplikacja (drugie okno)
-```
+| Baza | Do czego | Kto jej dotyka |
+| --- | --- | --- |
+| **produkcyjna** | prawdziwi klienci, karnety, płatności, grafik | aplikacja na Vercelu |
+| **deweloperska** | praca nad kodem, migracje, testy na danych | `npm run dev` u programisty |
 
-## Gdy aplikacja pokazuje „This page couldn't load"
+Obie stoją u tego samego dostawcy (Prisma Postgres). Praca lokalna łączy się
+z **deweloperską** — nigdy z produkcyjną. Adresy są w `.env` (poza repo).
 
-To prawie zawsze baza, nie kod. W logach serwera zobaczysz jedno z dwóch:
-
-- **`ECONNREFUSED`** — baza nie działa. Uruchom `npm run db:dev`.
-- **`P1017` / „Server has closed the connection"** — baza zrywa połączenia.
-
-Diagnoza i naprawa:
+Uruchomienie aplikacji to jedno polecenie, bez osobnego okna na bazę:
 
 ```
-npm run db:doctor   # pokazuje stan, rozmiar danych i strumieni (nic nie zmienia)
-npm run db:clean    # usuwa balast strumieni i osierocone blokady
+npm run dev
 ```
 
-`db:clean` wymaga **zatrzymanej** bazy (Ctrl+C w oknie `db:dev`) i nigdy nie
-rusza katalogu z danymi (`.pglite`).
+## Dlaczego nie ma bazy lokalnej
 
-## Nigdy nie zabijaj procesu bazy
+Wcześniej projekt używał `prisma dev` (lokalny Postgres w WASM). Skończyło się
+to uszkodzeniem katalogu danych i odtwarzaniem klubu od zera. Powody były dwa
+i oba wracały:
 
-Bazę zatrzymuj **wyłącznie Ctrl+C** w jej oknie. Twarde ubicie (`taskkill /F`,
-`kill -9`) w trakcie zapisu uszkadza katalog danych i wtedy przy starcie leci:
+- silnik prowadził obok danych strumień zdarzeń, który urósł do 9,7 GB
+  (przy 94 MB realnych danych) i wywracał bazę przy starcie,
+- twarde ubicie procesu w trakcie zapisu psuło pliki nieodwracalnie
+  (`Aborted()` z `@electric-sql/pglite`).
+
+Do tego każdy programista miał własną kopię danych, więc „u mnie działa"
+znaczyło co innego u każdego. Jedna baza na serwerze usuwa wszystkie te
+problemy naraz.
+
+## Odtworzenie stanu klubu
+
+Cały stan klubu jest w skryptach — nic nie trzeba odtwarzać z pamięci:
 
 ```
-ERROR  Aborted(). Build with -sASSERTIONS for more info.   (@electric-sql/pglite)
-```
-
-Takiego katalogu nie da się odzyskać — pozostaje odtworzenie (niżej).
-
-## Odtworzenie bazy od zera
-
-Cały stan klubu jest w skryptach, więc nic nie trzeba odtwarzać z pamięci:
-
-```
-# 1. usuń uszkodzony katalog danych (Windows)
-#    %LOCALAPPDATA%\prisma-dev-nodejs\Data\czapla
-# 2. uruchom bazę w osobnym oknie
-npm run db:dev
-# 3. schemat + dane startowe + konfiguracja klubu
-npx prisma migrate deploy
-npx prisma db seed        # konfiguracja: lokalizacje, plany, zgody (+ dane testowe)
-npm run db:setup          # kadra, superadmin, kategorie i grafik 22 zajęć
+npx prisma migrate deploy   # schemat
+npx prisma db seed          # konfiguracja: lokalizacje, plany, zgody (+ dane testowe)
+npm run db:setup            # kadra, superadmin, kategorie i grafik 22 zajęć
 ```
 
 `db:setup` jest idempotentny — można go puszczać na pełnej bazie, nic nie
@@ -62,15 +52,19 @@ zdubluje. Odtwarza: 6 realnych trenerów (Daniel jako ADMIN z rekordem trenera,
 czyli z przełącznikiem Admin/Trener), konto superadmina, kategorie zajęć oraz
 grafik tygodniowy Tychy + Mikołów wraz z terminami na 8 tygodni.
 
-## Dlaczego to się psuje
+**Uruchamiaj to wyłącznie na bazie deweloperskiej.** `db seed` dokłada dane
+testowe (klienci, historia), więc na produkcji zaśmieciłby kartotekę klubu.
 
-`prisma dev` prowadzi obok danych strumień zdarzeń (`durable-streams.sqlite`).
-Aplikacja go nie używa, ale rośnie on bez końca — potrafił urosnąć do 9,7 GB
-i wtedy wywracał bazę przy starcie (dane tabel zajmowały wtedy 94 MB).
-Po padnięciu serwera zostaje też blokada (`server.lock.lock`), przez którą
-kolejny start kończy się „Lock file is already being held". Oba przypadki
-rozwiązuje `npm run db:clean`.
+## Kopie zapasowe
 
-Pula połączeń w `lib/prisma.ts` ma krótki `idleTimeoutMillis` — lokalna baza
-zamyka bezczynne połączenia po swojej stronie, a bez tego pula podawałaby
-martwe i sypała `P1017`.
+Kopie bazy produkcyjnej trafiają na zewnętrzny serwer (Unixstorm) — poza
+dostawcę bazy, żeby awaria po jego stronie nie zabrała ze sobą kopii.
+
+## Wybór adresu połączenia
+
+`lib/domain/connection-string.ts` wybiera pierwszy adres w formacie
+`postgresql://`, bo hosting podstawia kilka zmiennych naraz i pod
+`DATABASE_URL` potrafi wstawić adres przez Accelerate (`prisma+postgres://`),
+którego sterownik `node-postgres` nie otworzy. Tam też jest jawne
+`sslmode=verify-full`, żeby aktualizacja `pg` nie wyłączyła po cichu
+sprawdzania certyfikatu.

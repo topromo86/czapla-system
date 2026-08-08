@@ -5,16 +5,21 @@ zbuduje się, ale nie ruszy.
 
 ## 0. Baza danych (NAJPIERW)
 
-Lokalna baza (`npm run db:dev`) działa tylko na Twoim komputerze — Vercel jej
-nie dosięgnie. Potrzebna jest hostowana baza PostgreSQL:
+Projekt **nie używa baz lokalnych** — wszystko stoi na serwerze (patrz
+`AGENTS.md`). Potrzebne są dwie bazy PostgreSQL u dostawcy:
 
-| Dostawca | Uwagi |
+| Baza | Do czego |
 | --- | --- |
-| **Neon** | darmowy plan wystarcza na start, ten sam Postgres, zero zmian w kodzie |
-| Vercel Postgres | integruje się jednym kliknięciem z panelu Vercel |
-| Supabase | darmowy plan, też Postgres |
+| **produkcyjna** | prawdziwi klienci, karnety, płatności — używa jej Vercel |
+| **deweloperska** | praca nad kodem i testy — używa jej `npm run dev` |
 
-Z panelu dostawcy skopiuj **connection string** — to będzie `DATABASE_URL`.
+Rozdzielenie jest po to, żeby pomyłka w skrypcie testowym nie tknęła danych
+klubu. Adres produkcyjnej trafia do zmiennych w Vercelu, deweloperskiej — do
+lokalnego `.env` (plik jest poza repo).
+
+Obecny dostawca to **Prisma Postgres** (dodany przez panel Vercela:
+Storage → Create Database). Alternatywy o tych samych możliwościach: Neon,
+Supabase.
 
 ## 1. Kod na GitHub
 

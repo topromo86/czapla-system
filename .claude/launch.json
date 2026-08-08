@@ -10,8 +10,20 @@
     },
     {
       "name": "topromo",
-      "url": "http://localhost:4173",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["C:/Users/toPROMO/Desktop/KALKULATOR TOPROMO OFFLINE/serve.js"],
       "port": 4173
+    },
+    {
+      "name": "toRACING",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/toPROMO/Desktop/toRACING",
+        "run",
+        "dev"
+      ],
+      "port": 3100
     }
   ]
 }

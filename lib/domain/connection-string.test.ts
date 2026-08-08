@@ -57,10 +57,11 @@ describe("pickConnectionString", () => {
     expect(pickConnectionString({ POSTGRES_URL: DIRECT })).toBe(DIRECT_HARDENED);
   });
 
-  // Lokalny `prisma dev` chodzi bez SSL - nie wolno mu tego dokładać.
-  it("nie zmienia adresu lokalnej bazy", () => {
-    const lokalna = "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable";
-    expect(pickConnectionString({ DATABASE_URL: lokalna })).toBe(lokalna);
+  // Świadomie wyłączone SSL zostaje wyłączone - podnoszenie go na siłę
+  // zerwałoby połączenie z bazą, która szyfrowania nie oferuje.
+  it("nie podnosi trybu SSL wyłączonego wprost", () => {
+    const bezSsl = "postgres://user:pass@db.example.com:5432/klub?sslmode=disable";
+    expect(pickConnectionString({ DATABASE_URL: bezSsl })).toBe(bezSsl);
   });
 
   it("gdy nic nie pasuje, oddaje DATABASE_URL dla czytelnego błędu", () => {

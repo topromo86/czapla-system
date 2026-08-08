@@ -11,9 +11,6 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "db:dev": "prisma dev --name czapla",
-    "db:doctor": "node scripts/db-doctor.mjs",
-    "db:clean": "node scripts/db-doctor.mjs --clean",
     "db:setup": "tsx prisma/add-real-trainers.ts && tsx prisma/setup-club.ts",
     "postinstall": "prisma generate"
   },
