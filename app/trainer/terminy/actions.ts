@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireTrainerSelf } from "@/lib/auth/guard";
+import { requireOwnsMember, requireTrainerSelf } from "@/lib/auth/guard";
 import { validateWindow, type WindowValidationError } from "@/lib/domain/availability";
 import { logActivity } from "@/lib/services/activity";
+import { bookIndividualTraining, IndividualBookingError } from "@/lib/services/individual-training";
 
 // Trener sam ustala, kiedy przyjmuje na treningi indywidualne. Właściciel może
 // to samo z panelu admina - tu chodzi o to, żeby trener nie musiał go prosić
@@ -97,4 +98,48 @@ export async function deleteMyAvailabilityWindowAction(formData: FormData) {
   revalidatePath("/app/indywidualne");
   revalidatePath("/admin/zajecia");
   back();
+}
+
+// Zapis klienta przez trenera - klient zadzwonił albo umówił się na sali, a
+// nie każdy siada potem do aplikacji. Trener wybiera podopiecznego i wolny
+// termin ze swojej listy.
+//
+// Reguły zapisu są dokładnie te same co przy samodzielnym zapisie klienta
+// (karnet, zgody, wiek, wolna sala) - siedzą w bookIndividualTraining i nie ma
+// tu żadnej furtki obok nich. Gdyby trener mógł ominąć karnet, cała reguła
+// byłaby na niby.
+export async function bookForMemberAction(formData: FormData) {
+  const { session, trainer } = await requireTrainerSelf();
+
+  const memberId = String(formData.get("memberId") ?? "");
+  const startsAtRaw = String(formData.get("startsAt") ?? "");
+
+  if (!memberId) back("Wybierz klienta.");
+
+  const startsAt = new Date(startsAtRaw);
+  if (Number.isNaN(startsAt.getTime())) back("Wybierz termin.");
+
+  // Trener zapisuje własnych podopiecznych. Właściciel (ADMIN) przechodzi do
+  // każdego klienta klubu - tak samo jak przy przyjmowaniu wpłat.
+  await requireOwnsMember(memberId);
+
+  try {
+    await bookIndividualTraining({
+      memberId,
+      // Zawsze własny termin - z formularza nie da się zapisać klienta do
+      // cudzego grafiku.
+      trainerId: trainer.id,
+      startsAt,
+      actorUserId: session.user.id,
+      onBehalfOfMember: true,
+    });
+  } catch (cause) {
+    if (cause instanceof IndividualBookingError) back(cause.message);
+    throw cause;
+  }
+
+  revalidatePath("/trainer/terminy");
+  revalidatePath("/app/indywidualne");
+  revalidatePath("/trainer");
+  redirect("/trainer/terminy?ok=1");
 }

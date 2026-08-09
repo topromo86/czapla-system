@@ -12,7 +12,11 @@ import {
 } from "@/lib/domain/availability";
 import { loadClubAvailability } from "@/lib/services/availability";
 import { formatTime } from "@/lib/format";
-import { createMyAvailabilityWindowAction, deleteMyAvailabilityWindowAction } from "./actions";
+import {
+  bookForMemberAction,
+  createMyAvailabilityWindowAction,
+  deleteMyAvailabilityWindowAction,
+} from "./actions";
 
 const selectClass = "border-line bg-surface-2 text-text mt-1 w-full rounded-md border px-3 py-2";
 
@@ -42,13 +46,13 @@ const BLOCK_LABEL = {
 export default async function TrainerSlotsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, ok } = await searchParams;
   const { trainer } = await requireTrainerSelf();
   const now = new Date();
 
-  const [myWindows, locations, availability] = await Promise.all([
+  const [myWindows, locations, availability, myMembers, upcoming] = await Promise.all([
     prisma.availabilityWindow.findMany({
       where: { trainerId: trainer.id, active: true },
       include: { location: true },
@@ -56,6 +60,29 @@ export default async function TrainerSlotsPage({
     }),
     prisma.location.findMany({ orderBy: { name: "asc" } }),
     loadClubAvailability(now),
+    prisma.member.findMany({
+      where: { ownerTrainerId: trainer.id },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    // Już umówione treningi indywidualne trenera - żeby widział, komu co
+    // obiecał, bez zaglądania do grafiku.
+    prisma.session.findMany({
+      where: {
+        trainerId: trainer.id,
+        kind: "INDIVIDUAL",
+        status: { not: "CANCELLED" },
+        endsAt: { gt: now },
+      },
+      include: {
+        location: true,
+        bookings: {
+          where: { status: { not: "CANCELLED" } },
+          include: { member: { select: { firstName: true, lastName: true } } },
+        },
+      },
+      orderBy: { startsAt: "asc" },
+    }),
   ]);
 
   const locationNames = new Map(locations.map((l) => [l.id, l.name] as const));
@@ -65,7 +92,8 @@ export default async function TrainerSlotsPage({
     busy: availability.busy,
     now,
   }).filter((slot) => slot.trainerId === trainer.id);
-  const freeCount = mySlots.filter(isSlotFree).length;
+  const freeSlots = mySlots.filter(isSlotFree);
+  const freeCount = freeSlots.length;
 
   const slotsByDay = new Map<string, Slot[]>();
   for (const slot of mySlots) {
@@ -92,6 +120,89 @@ export default async function TrainerSlotsPage({
           {error}
         </p>
       ) : null}
+      {ok ? (
+        <p className="border-jade bg-surface text-text rounded-md border p-3 text-sm">
+          Klient zapisany na trening.
+        </p>
+      ) : null}
+
+      {/* Zapis w imieniu klienta jest pierwszy, bo to jedyna rzecz na tym
+          ekranie robiona w biegu - ktoś dzwoni i umawia się na konkretną
+          godzinę. Okna ustawia się raz na jakiś czas. */}
+      <section>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Umów klienta na trening
+        </h2>
+        <p className="text-muted-brand mt-1 text-sm">
+          Dla klienta, który dogadał termin telefonicznie albo na sali. Obowiązują te same zasady co
+          przy zapisie z aplikacji: aktywny karnet, zgody i wolna sala.
+        </p>
+
+        {myMembers.length === 0 ? (
+          <p className="text-muted-brand border-line bg-surface mt-2 rounded-md border p-4 text-sm">
+            Nie masz przypisanych podopiecznych, więc nie ma kogo zapisać.
+          </p>
+        ) : freeSlots.length === 0 ? (
+          <p className="text-muted-brand border-line bg-surface mt-2 rounded-md border p-4 text-sm">
+            Nie masz teraz wolnego terminu. Dodaj okno dostępności niżej.
+          </p>
+        ) : (
+          <form
+            action={bookForMemberAction}
+            className="border-line bg-surface mt-2 grid gap-3 rounded-md border p-4 sm:grid-cols-3"
+          >
+            <div>
+              <Label htmlFor="memberId">Klient</Label>
+              <select id="memberId" name="memberId" required className={selectClass}>
+                <option value="">Wybierz...</option>
+                {myMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.lastName} {member.firstName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="startsAt">Termin</Label>
+              <select id="startsAt" name="startsAt" required className={selectClass}>
+                {freeSlots.map((slot) => (
+                  <option
+                    key={`${slot.locationId}-${slot.startsAt.toISOString()}`}
+                    value={slot.startsAt.toISOString()}
+                  >
+                    {dayHeadingFormatter.format(slot.startsAt)}, {formatTime(slot.startsAt)} ·{" "}
+                    {locationNames.get(slot.locationId)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <Button type="submit">Umów</Button>
+            </div>
+          </form>
+        )}
+
+        {upcoming.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-2">
+            {upcoming.map((individual) => (
+              <li
+                key={individual.id}
+                className="border-jade/40 bg-jade/5 text-text rounded-md border p-3 text-sm"
+              >
+                {dayHeadingFormatter.format(individual.startsAt)}, {formatTime(individual.startsAt)}
+                <span className="text-muted-brand ml-1 font-mono text-xs">
+                  · {individual.location.name} ·{" "}
+                  {individual.bookings
+                    .map((b) => `${b.member.firstName} ${b.member.lastName}`)
+                    .join(", ") || "bez zapisanego klienta"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
       <section>
         <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
