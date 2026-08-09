@@ -7,7 +7,22 @@ import { requireOwnsMember } from "@/lib/auth/guard";
 import { sellPass, recordPassPayment, SaleError } from "@/lib/services/pass";
 import type { PaymentMethod } from "@/app/generated/prisma/client";
 
+// Przyjmowanie wpłat działa w dwóch miejscach: u trenera na sali i w panelu
+// właściciela. Akcje są wspólne, bo reguły rozliczenia są te same - różni je
+// wyłącznie ekran, na który wracamy po zapisie.
+//
+// requireOwnsMember pilnuje dostępu: ADMIN (właściciel i superadmin) przechodzi
+// do każdego klienta, trener wyłącznie do swoich podopiecznych.
+
 const PAYMENT_METHODS: readonly PaymentMethod[] = ["CASH", "BLIK", "TRANSFER"];
+
+// Adres powrotu bierzemy z formularza, więc musi być z listy - inaczej dałoby
+// się podstawić cudzy adres i wyprowadzić użytkownika z aplikacji.
+const RETURN_PATHS = ["/trainer/kasa", "/admin/wplaty"] as const;
+
+function safeReturnTo(raw: string): string {
+  return (RETURN_PATHS as readonly string[]).includes(raw) ? raw : "/trainer/kasa";
+}
 
 // Kwota z pola "zł" (klub wpisuje 150 albo 150,50) na grosze. Zwraca null, gdy
 // pole jest puste - wywołujący decyduje, czy to znaczy "całość", czy błąd.
@@ -19,21 +34,32 @@ function zlToGrosze(raw: string): number | null {
   return Math.round(value * 100);
 }
 
-// Sprzedaż karnetu przez trenera - jedyne miejsce w systemie, gdzie odhacza
-// się płatność (patrz lib/services/pass.ts#sellPass). requireOwnsMember
-// pilnuje, żeby trener sprzedawał wyłącznie własnym podopiecznym.
+// Powrót na ekran z komunikatem. Typ `never` to nie ozdoba: dzięki jawnej
+// adnotacji przy `const back: Back = ...` TypeScript wie, że po wywołaniu
+// wykonanie się kończy, i zawęża typy poniżej (bez adnotacji na zmiennej
+// zawężanie nie działa).
+type Back = (params: Record<string, string>) => never;
+
+function makeBack(returnTo: string, q: string): Back {
+  return (params) => {
+    const query = new URLSearchParams(params);
+    if (q) query.set("q", q);
+    redirect(`${returnTo}?${query.toString()}`);
+  };
+}
+
+// Sprzedaż karnetu wraz z wpłatą. Puste pole kwoty = klient płaci całość;
+// kwota niższa tworzy karnet z zaległością widoczną na liście.
 export async function sellPassAction(formData: FormData) {
   const memberId = String(formData.get("memberId"));
   const planId = String(formData.get("planId"));
   const locationId = String(formData.get("locationId"));
   const method = String(formData.get("method"));
-  // Kod rabatowy i karta podarunkowa - opcjonalne. Puste = brak.
   const promoCode = String(formData.get("promoCode") ?? "").trim() || null;
   const giftCardCode = String(formData.get("giftCardCode") ?? "").trim() || null;
   const q = String(formData.get("q") ?? "").trim();
+  const returnTo = safeReturnTo(String(formData.get("returnTo") ?? ""));
 
-  // Puste pole kwoty = klient płaci całość. Wpisana kwota pozwala przyjąć
-  // zaliczkę i zostawić resztę do dopłaty.
   const rawAmount = String(formData.get("amount") ?? "");
   const paidGross = zlToGrosze(rawAmount);
 
@@ -42,12 +68,7 @@ export async function sellPassAction(formData: FormData) {
     throw new Error("Nieprawidłowa metoda płatności.");
   }
 
-  const back: (params: Record<string, string>) => never = (params) => {
-    const query = new URLSearchParams(params);
-    if (q) query.set("q", q);
-    redirect(`/trainer/kasa?${query.toString()}`);
-  };
-
+  const back: Back = makeBack(returnTo, q);
   if (rawAmount.trim() && paidGross === null) back({ error: "Podaj poprawną kwotę wpłaty." });
 
   try {
@@ -71,7 +92,7 @@ export async function sellPassAction(formData: FormData) {
     throw e;
   }
 
-  revalidatePath("/trainer/kasa");
+  revalidatePath(returnTo);
   back({ ok: "1" });
 }
 
@@ -82,6 +103,7 @@ export async function recordPaymentAction(formData: FormData) {
   const locationId = String(formData.get("locationId"));
   const method = String(formData.get("method"));
   const q = String(formData.get("q") ?? "").trim();
+  const returnTo = safeReturnTo(String(formData.get("returnTo") ?? ""));
   const amountGross = zlToGrosze(String(formData.get("amount") ?? ""));
 
   const session = await requireOwnsMember(memberId);
@@ -89,12 +111,7 @@ export async function recordPaymentAction(formData: FormData) {
     throw new Error("Nieprawidłowa metoda płatności.");
   }
 
-  const back: (params: Record<string, string>) => never = (params) => {
-    const query = new URLSearchParams(params);
-    if (q) query.set("q", q);
-    redirect(`/trainer/kasa?${query.toString()}`);
-  };
-
+  const back: Back = makeBack(returnTo, q);
   if (amountGross === null) back({ error: "Podaj kwotę wpłaty." });
 
   try {
@@ -113,6 +130,6 @@ export async function recordPaymentAction(formData: FormData) {
     throw e;
   }
 
-  revalidatePath("/trainer/kasa");
+  revalidatePath(returnTo);
   back({ ok: "1" });
 }

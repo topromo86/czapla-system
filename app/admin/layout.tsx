@@ -33,6 +33,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
   {
     label: "Pieniądze",
     items: [
+      { href: "/admin/wplaty", label: "Wpłaty" },
       { href: "/admin/kasa", label: "Kasa" },
       { href: "/admin/finanse", label: "Finanse" },
       { href: "/admin/promocje", label: "Rabaty i karty" },
