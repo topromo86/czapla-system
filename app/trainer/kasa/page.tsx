@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireTrainerSelf } from "@/lib/auth/guard";
 import { classifyPassStatus } from "@/lib/domain/pass";
-import { formatDate } from "@/lib/format";
+import { SETTLEMENT_LABEL, settlePass, sumPayments } from "@/lib/domain/payment-status";
+import { formatDate, formatMoney } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sellPassAction } from "./actions";
+import { recordPaymentAction, sellPassAction } from "./actions";
 
 const STATUS_STYLE: Record<string, string> = {
   NONE: "text-red",
@@ -39,10 +40,12 @@ export default async function TrainerKasaPage({
           : {}),
       },
       include: {
+        // Wpłaty są potrzebne do policzenia, czy karnet jest opłacony -
+        // sama cena nic nie mówi bez zestawienia z tym, co wpłynęło.
         passes: {
           where: { status: { in: ["ACTIVE", "FROZEN"] } },
           orderBy: { endsAt: "desc" },
-          take: 1,
+          include: { plan: true, payments: { select: { amountGross: true } } },
         },
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -62,7 +65,7 @@ export default async function TrainerKasaPage({
       ) : null}
       {ok ? (
         <p className="border-jade bg-surface text-text rounded-md border p-3 text-sm">
-          Karnet założony.
+          Wpłata przyjęta.
         </p>
       ) : null}
 
@@ -105,6 +108,89 @@ export default async function TrainerKasaPage({
                   </p>
                 )}
               </div>
+              {/* Rozliczenie karnetów: co klient ma, do kiedy i czy zapłacił.
+                  Karnet z zaległością dostaje własne pole dopłaty, żeby
+                  wyrównanie było jednym kliknięciem, bez szukania po ekranach. */}
+              {m.passes.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {m.passes.map((p) => {
+                    const s = settlePass(p.priceGross, sumPayments(p.payments));
+                    const zaplacone = s.status === "PAID" || s.status === "OVERPAID";
+                    return (
+                      <li
+                        key={p.id}
+                        className="border-line-soft bg-surface-2 rounded-md border p-2 text-sm"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-text">
+                            {p.plan.name}
+                            <span className="text-muted-brand font-mono text-xs">
+                              {" · ważny do "}
+                              {formatDate(p.endsAt)}
+                              {p.status === "FROZEN" ? " · zamrożony" : ""}
+                            </span>
+                          </span>
+                          <span
+                            className={`font-mono text-xs ${zaplacone ? "text-jade" : "text-amber"}`}
+                          >
+                            {SETTLEMENT_LABEL[s.status]}
+                            {s.outstandingGross > 0
+                              ? ` ${formatMoney(s.outstandingGross)}`
+                              : ` (${formatMoney(s.paidGross)})`}
+                          </span>
+                        </div>
+
+                        {s.outstandingGross > 0 ? (
+                          <form
+                            action={recordPaymentAction}
+                            className="mt-2 flex flex-wrap items-center gap-2"
+                          >
+                            <input type="hidden" name="memberId" value={m.id} />
+                            <input type="hidden" name="passId" value={p.id} />
+                            <input type="hidden" name="q" value={q ?? ""} />
+                            <Input
+                              name="amount"
+                              required
+                              inputMode="decimal"
+                              defaultValue={(s.outstandingGross / 100).toFixed(2)}
+                              aria-label="Kwota dopłaty w złotych"
+                              className="border-line bg-surface h-9 w-28"
+                            />
+                            <select
+                              name="method"
+                              required
+                              defaultValue="CASH"
+                              aria-label="Metoda płatności"
+                              className="border-line bg-surface text-text h-9 rounded-md border px-2 text-sm"
+                            >
+                              <option value="CASH">Gotówka</option>
+                              <option value="BLIK">BLIK</option>
+                              <option value="TRANSFER">Przelew</option>
+                            </select>
+                            <select
+                              name="locationId"
+                              required
+                              defaultValue={trainer.locationId}
+                              aria-label="Miejsce"
+                              className="border-line bg-surface text-text h-9 rounded-md border px-2 text-sm"
+                            >
+                              {locations.map((loc) => (
+                                <option key={loc.id} value={loc.id}>
+                                  {loc.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Button type="submit" size="sm" variant="outline">
+                              Przyjmij dopłatę
+                            </Button>
+                          </form>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+
               <form action={sellPassAction} className="flex flex-col gap-2">
                 <input type="hidden" name="memberId" value={m.id} />
                 <input type="hidden" name="q" value={q ?? ""} />
@@ -112,6 +198,7 @@ export default async function TrainerKasaPage({
                   <select
                     name="planId"
                     required
+                    aria-label="Rodzaj karnetu"
                     className="border-line bg-surface-2 text-text rounded-md border px-2 py-2 text-sm"
                   >
                     {availablePlans.map((p) => (
@@ -120,10 +207,20 @@ export default async function TrainerKasaPage({
                       </option>
                     ))}
                   </select>
+                  {/* Puste = klient płaci całość. Kwota niższa od ceny tworzy
+                      karnet z zaległością widoczną wyżej. */}
+                  <Input
+                    name="amount"
+                    inputMode="decimal"
+                    placeholder="Kwota (całość)"
+                    aria-label="Kwota wpłaty w złotych"
+                    className="border-line bg-surface-2 h-9 w-32"
+                  />
                   <select
                     name="method"
                     required
                     defaultValue="CASH"
+                    aria-label="Metoda płatności"
                     className="border-line bg-surface-2 text-text rounded-md border px-2 py-2 text-sm"
                   >
                     <option value="CASH">Gotówka</option>
@@ -134,6 +231,7 @@ export default async function TrainerKasaPage({
                     name="locationId"
                     required
                     defaultValue={trainer.locationId}
+                    aria-label="Miejsce"
                     className="border-line bg-surface-2 text-text rounded-md border px-2 py-2 text-sm"
                   >
                     {locations.map((loc) => (
@@ -143,7 +241,7 @@ export default async function TrainerKasaPage({
                     ))}
                   </select>
                   <Button type="submit" size="sm" className="ml-auto">
-                    Załóż karnet
+                    Przyjmij wpłatę
                   </Button>
                 </div>
 

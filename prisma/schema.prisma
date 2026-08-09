@@ -718,6 +718,11 @@ model Pass {
   id                    String     @id @default(cuid())
   memberId              String
   planId                String
+  // Uzgodniona cena tego karnetu w groszach - już po rabatach. Bez niej system
+  // nie wie, czy klient dopłacił resztę: sama suma wpłat nic nie mówi, dopóki
+  // nie ma do czego jej porównać. Zapisujemy przy sprzedaży, bo cennik planu
+  // może się później zmienić, a ten karnet ma zostać rozliczony po swojej cenie.
+  priceGross            Int        @default(0)
   startsAt              DateTime   @db.Timestamptz
   endsAt                DateTime   @db.Timestamptz
   entriesLeft           Int? // null dla OPEN
