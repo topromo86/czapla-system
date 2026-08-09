@@ -26,7 +26,7 @@ const DEV_PASSWORD = "test1234"; // hasło tymczasowe - do zmiany przed produkcj
 // ADMIN, a jego akcje i tak są widoczne w /admin/aktywnosc.
 const SUPERADMIN = {
   email: "marcin.belak@gmail.com",
-  name: "Marcin Bełak (superadmin)",
+  name: "Marcin Belak (superadmin)",
 };
 
 // Kategorie, po których klienci filtrują planner. Nazwy muszą zgadzać się z
