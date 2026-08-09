@@ -16,14 +16,14 @@
     },
     {
       "name": "toRACING",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": [
-        "--prefix",
-        "C:/Users/toPROMO/Desktop/toRACING",
-        "run",
-        "dev"
+        "C:/Users/toPROMO/Desktop/toRACING/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/Users/toPROMO/Desktop/toRACING"
       ],
-      "port": 3100
+      "port": 3100,
+      "autoPort": true
     },
     {
       "name": "moto-setup-lab",
