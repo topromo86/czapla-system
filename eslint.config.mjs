@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },
+  // Skrypty wdrożeniowe i utrzymaniowe rozmawiają z człowiekiem przez konsolę -
+  // to jest ich cały interfejs, a nie zapomniany debug w kodzie aplikacji.
+  {
+    files: ["scripts/**/*.ts", "prisma/**/*.ts"],
+    rules: { "no-console": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

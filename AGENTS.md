@@ -37,6 +37,22 @@ Do tego każdy programista miał własną kopię danych, więc „u mnie działa
 znaczyło co innego u każdego. Jedna baza na serwerze usuwa wszystkie te
 problemy naraz.
 
+## Migracje na produkcji
+
+Wgrywa je **build na Vercelu**, nie człowiek z laptopa. Odpowiada za to
+`scripts/deploy-migrations.ts` wpięty w `npm run build`:
+
+- rusza wyłącznie przy wdrożeniu produkcyjnym (`VERCEL_ENV=production`) —
+  podglądy i buildy lokalne nie dotykają bazy,
+- adres wybiera tak samo jak aplikacja (`pickConnectionString`), bo pod
+  `DATABASE_URL` potrafi siedzieć adres przez Accelerate,
+- nieudana migracja wywraca build: nowy kod na starym schemacie jest gorszy
+  niż wdrożenie, które się nie udało.
+
+Powód jest z doświadczenia: kod raz poszedł na produkcję przed migracją i klub
+zobaczył „The table `public.ClubSettings` does not exist". Krok, o którym
+trzeba pamiętać, prędzej czy później zostanie pominięty.
+
 ## Odtworzenie stanu klubu
 
 Cały stan klubu jest w skryptach — nic nie trzeba odtwarzać z pamięci:
