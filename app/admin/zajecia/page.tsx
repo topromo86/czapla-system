@@ -847,6 +847,17 @@ export default async function AdminSessionsPage({
           </div>
 
           <div>
+            <Label htmlFor="windowLocationId">Sala</Label>
+            <select id="windowLocationId" name="locationId" required className={selectClass}>
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <Label htmlFor="weekday">Dzień</Label>
             <select id="weekday" name="weekday" required defaultValue="1" className={selectClass}>
               {WEEKDAY_LABELS.map((label, index) => (

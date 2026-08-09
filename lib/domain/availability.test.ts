@@ -3,6 +3,8 @@ import {
   buildSlots,
   findOverlappingSession,
   findSlot,
+  findSlotInOtherRoom,
+  isSlotFree,
   formatMinutesAsTime,
   parseTimeToMinutes,
   resolveSessionTime,
@@ -24,6 +26,11 @@ function window(overrides: Partial<Parameters<typeof buildSlots>[0]["windows"][n
     slotMinutes: 60,
     ...overrides,
   };
+}
+
+// Godzinny kawałek grafiku, który komuś zajmuje salę.
+function busyAt(startsAt: Date, who: { trainerId: string; locationId: string }) {
+  return { ...who, startsAt, endsAt: new Date(startsAt.getTime() + 60 * 60_000) };
 }
 
 describe("parseTimeToMinutes", () => {
@@ -94,34 +101,34 @@ describe("validateWindow", () => {
 
 describe("slotStartsWithinWindow", () => {
   it("dzieli okno na równe sloty", () => {
-    expect(slotStartsWithinWindow({ startTime: "16:00", endTime: "20:00", slotMinutes: 60 })).toEqual(
-      [960, 1020, 1080, 1140],
-    );
+    expect(
+      slotStartsWithinWindow({ startTime: "16:00", endTime: "20:00", slotMinutes: 60 }),
+    ).toEqual([960, 1020, 1080, 1140]);
   });
 
   it("pomija niepełną końcówkę", () => {
     // 16:00-17:30 przy slotach 60 min = tylko jeden pełny slot.
-    expect(slotStartsWithinWindow({ startTime: "16:00", endTime: "17:30", slotMinutes: 60 })).toEqual(
-      [960],
-    );
+    expect(
+      slotStartsWithinWindow({ startTime: "16:00", endTime: "17:30", slotMinutes: 60 }),
+    ).toEqual([960]);
   });
 
   it("obsługuje sloty 30-minutowe", () => {
-    expect(slotStartsWithinWindow({ startTime: "16:00", endTime: "17:30", slotMinutes: 30 })).toEqual(
-      [960, 990, 1020],
-    );
+    expect(
+      slotStartsWithinWindow({ startTime: "16:00", endTime: "17:30", slotMinutes: 30 }),
+    ).toEqual([960, 990, 1020]);
   });
 
   it("zwraca pustą listę dla niepoprawnych godzin", () => {
-    expect(slotStartsWithinWindow({ startTime: "brak", endTime: "20:00", slotMinutes: 60 })).toEqual(
-      [],
-    );
+    expect(
+      slotStartsWithinWindow({ startTime: "brak", endTime: "20:00", slotMinutes: 60 }),
+    ).toEqual([]);
   });
 });
 
 describe("buildSlots", () => {
   it("generuje sloty tylko w dniu tygodnia okna", () => {
-    const slots = buildSlots({ windows: [window()], busyStarts: [], now: NOW, horizonDays: 13 });
+    const slots = buildSlots({ windows: [window()], busy: [], now: NOW, horizonDays: 13 });
     for (const slot of slots) {
       expect(slot.startsAt.getUTCDay()).toBe(2);
     }
@@ -130,7 +137,7 @@ describe("buildSlots", () => {
   });
 
   it("wszystkie sloty mieszczą się w godzinach okna", () => {
-    const slots = buildSlots({ windows: [window()], busyStarts: [], now: NOW });
+    const slots = buildSlots({ windows: [window()], busy: [], now: NOW });
     for (const slot of slots) {
       const hourLocal = Number(
         new Intl.DateTimeFormat("pl-PL", {
@@ -147,7 +154,7 @@ describe("buildSlots", () => {
   // Sedno całej funkcji: godzina spoza okna nigdy nie pojawia się na liście,
   // więc nie da się jej zarezerwować (findSlot jej nie znajdzie).
   it("nigdy nie proponuje godziny spoza okna - np. 23:00", () => {
-    const slots = buildSlots({ windows: [window()], busyStarts: [], now: NOW });
+    const slots = buildSlots({ windows: [window()], busy: [], now: NOW });
     const lateSlot = slots.find((slot) => {
       const hour = Number(
         new Intl.DateTimeFormat("pl-PL", {
@@ -161,18 +168,113 @@ describe("buildSlots", () => {
     expect(lateSlot).toBeUndefined();
   });
 
-  it("pomija terminy już zajęte", () => {
-    const all = buildSlots({ windows: [window()], busyStarts: [], now: NOW });
-    const taken = all[0].startsAt;
-    const remaining = buildSlots({ windows: [window()], busyStarts: [taken], now: NOW });
-    expect(remaining).toHaveLength(all.length - 1);
-    expect(remaining.some((s) => s.startsAt.getTime() === taken.getTime())).toBe(false);
+  it("oznacza termin zajęty przez tego samego trenera", () => {
+    const all = buildSlots({ windows: [window()], busy: [], now: NOW });
+    const taken = all[0];
+    const marked = buildSlots({
+      windows: [window()],
+      busy: [busyAt(taken.startsAt, { trainerId: "t1", locationId: "loc1" })],
+      now: NOW,
+    });
+    // Slot zostaje na liście - tylko z powodem blokady, żeby dało się go
+    // pokazać jako wyłączony zamiast po cichu usunąć.
+    expect(marked).toHaveLength(all.length);
+    expect(marked[0].blockedBy).toBe("TRAINER_BUSY");
+    expect(marked.filter(isSlotFree)).toHaveLength(all.length - 1);
+  });
+
+  // Sedno reguły sali: w Mikołowie trwa jeden trening indywidualny naraz,
+  // choćby wolnych trenerów było pięciu.
+  it("blokuje salę innym trenerom w tej samej sali", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
+    ];
+    const all = buildSlots({ windows, busy: [], now: NOW });
+    const at17 = all[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      now: NOW,
+    });
+    const adamSlot = marked.find(
+      (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(adamSlot?.blockedBy).toBe("ROOM_BUSY");
+  });
+
+  it("druga sala zostaje wolna", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wJakub", trainerId: "jakub", locationId: "tychy" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      now: NOW,
+    });
+    const tychy = marked.find(
+      (s) => s.locationId === "tychy" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(tychy?.blockedBy).toBeNull();
+  });
+
+  // Zajęcia grupowe zajmują salę tak samo - trener nie poprowadzi treningu
+  // jeden na jeden w sali, w której ćwiczy dwadzieścia osób.
+  it("zajęcia grupowe blokują salę na trening indywidualny", () => {
+    const windows = [window({ trainerId: "adam", locationId: "mikolow" })];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "ktosInny", locationId: "mikolow" })],
+      now: NOW,
+    });
+    expect(marked[0].blockedBy).toBe("ROOM_BUSY");
+  });
+
+  it("blokada liczy nakładanie się, nie równy start", () => {
+    // Trening 60-minutowy od 17:00 zajmuje salę także slotowi 17:30.
+    const windows = [
+      window({ trainerId: "adam", locationId: "mikolow", slotMinutes: 30, startTime: "17:00" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [
+        {
+          trainerId: "jacek",
+          locationId: "mikolow",
+          startsAt: at17,
+          endsAt: new Date(at17.getTime() + 60 * 60_000),
+        },
+      ],
+      now: NOW,
+    });
+    const at1730 = marked.find((s) => s.startsAt.getTime() === at17.getTime() + 30 * 60_000);
+    expect(at1730?.blockedBy).toBe("ROOM_BUSY");
+  });
+
+  it("zajęty trener ma pierwszeństwo w powodzie blokady", () => {
+    const windows = [window({ trainerId: "jacek", locationId: "mikolow" })];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      now: NOW,
+    });
+    expect(marked[0].blockedBy).toBe("TRAINER_BUSY");
   });
 
   it("pomija sloty startujące wcześniej niż wynosi wyprzedzenie", () => {
     // Wtorek 13:00 lokalnie, okno 16:00-20:00 tego samego dnia (sloty 16, 17, 18, 19).
     const sameDay = new Date("2026-07-21T11:00:00Z");
-    const args = { windows: [window()], busyStarts: [], now: sameDay, horizonDays: 0 };
+    const args = { windows: [window()], busy: [], now: sameDay, horizonDays: 0 };
 
     // Próg 13:00 + 4h = 17:00 - odpada tylko slot o 16:00.
     expect(buildSlots({ ...args, leadHours: 4 })).toHaveLength(3);
@@ -186,7 +288,7 @@ describe("buildSlots", () => {
     const sameDay = new Date("2026-07-21T11:00:00Z");
     const slots = buildSlots({
       windows: [window()],
-      busyStarts: [],
+      busy: [],
       now: sameDay,
       horizonDays: 0,
       leadHours: 3,
@@ -200,7 +302,7 @@ describe("buildSlots", () => {
         window({ id: "w1", weekday: 2, startTime: "16:00", endTime: "18:00" }),
         window({ id: "w2", weekday: 4, startTime: "10:00", endTime: "12:00" }),
       ],
-      busyStarts: [],
+      busy: [],
       now: NOW,
       horizonDays: 6,
     });
@@ -211,12 +313,12 @@ describe("buildSlots", () => {
   });
 
   it("bez okien nie ma żadnych slotów", () => {
-    expect(buildSlots({ windows: [], busyStarts: [], now: NOW })).toEqual([]);
+    expect(buildSlots({ windows: [], busy: [], now: NOW })).toEqual([]);
   });
 });
 
 describe("findSlot", () => {
-  const slots = buildSlots({ windows: [window()], busyStarts: [], now: NOW });
+  const slots = buildSlots({ windows: [window()], busy: [], now: NOW });
 
   it("znajduje istniejący slot", () => {
     expect(findSlot(slots, "t1", slots[0].startsAt)).not.toBeNull();
@@ -229,6 +331,62 @@ describe("findSlot", () => {
 
   it("odrzuca slot innego trenera", () => {
     expect(findSlot(slots, "innyTrener", slots[0].startsAt)).toBeNull();
+  });
+
+  // Bez tego zapis na zajętą salę przeszedłby przez spreparowany formularz -
+  // UI pokazuje taki termin jako wyłączony, ale serwer jest jedyną barierą.
+  it("odrzuca slot zablokowany przez zajętą salę", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      now: NOW,
+    });
+    expect(findSlot(marked, "adam", at17)).toBeNull();
+  });
+});
+
+describe("findSlotInOtherRoom", () => {
+  const windows = [
+    window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+    window({ id: "wJakub", trainerId: "jakub", locationId: "tychy" }),
+  ];
+
+  it("podpowiada tę samą godzinę w drugiej sali", () => {
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const slots = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      now: NOW,
+    });
+    const blocked = slots.find(
+      (s) => s.locationId === "mikolow" && s.startsAt.getTime() === at17.getTime(),
+    )!;
+
+    const alternative = findSlotInOtherRoom(slots, blocked);
+    expect(alternative?.locationId).toBe("tychy");
+    expect(alternative?.startsAt.getTime()).toBe(at17.getTime());
+  });
+
+  it("nie podpowiada nic, gdy druga sala też jest zajęta", () => {
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const slots = buildSlots({
+      windows,
+      busy: [
+        busyAt(at17, { trainerId: "jacek", locationId: "mikolow" }),
+        busyAt(at17, { trainerId: "jakub", locationId: "tychy" }),
+      ],
+      now: NOW,
+    });
+    const blocked = slots.find(
+      (s) => s.locationId === "mikolow" && s.startsAt.getTime() === at17.getTime(),
+    )!;
+
+    expect(findSlotInOtherRoom(slots, blocked)).toBeNull();
   });
 });
 

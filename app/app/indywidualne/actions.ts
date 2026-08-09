@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMemberAccess } from "@/lib/auth/guard";
-import { buildSlots, findSlot } from "@/lib/domain/availability";
+import { buildSlots, findSlot, findSlotAt } from "@/lib/domain/availability";
 import { canCancelFree, evaluateBookingEligibility } from "@/lib/domain/booking";
+import { loadClubAvailability } from "@/lib/services/availability";
 import { getClubSettings } from "@/lib/services/settings";
 import { logActivity } from "@/lib/services/activity";
 import { decrementPassEntryIfLimited } from "@/lib/services/pass";
@@ -38,25 +39,23 @@ export async function bookIndividualSlotAction(formData: FormData) {
 
   const now = new Date();
 
-  const [windows, busy] = await Promise.all([
-    prisma.availabilityWindow.findMany({ where: { trainerId, active: true } }),
-    prisma.session.findMany({
-      where: { trainerId, kind: "INDIVIDUAL", status: { not: "CANCELLED" }, startsAt: { gte: now } },
-      select: { startsAt: true },
-    }),
-  ]);
+  const { windows, busy } = await loadClubAvailability(now);
 
-  // Sedno bezpieczeństwa: żądany termin musi znaleźć się na liście slotów
-  // wyliczonej z okien trenera. Godzina spoza okien (np. 23:00) po prostu na
-  // tej liście nie istnieje, więc zapis odpada tutaj - niezależnie od tego,
-  // co przyszło z formularza.
-  const slots = buildSlots({
-    windows,
-    busyStarts: busy.map((s) => s.startsAt),
-    now,
-  });
+  // Sedno bezpieczeństwa: żądany termin musi znaleźć się na liście WOLNYCH
+  // slotów wyliczonej z okien trenera i zajętości sal. Godzina spoza okien
+  // (np. 23:00) po prostu na tej liście nie istnieje, a godzina, w której sala
+  // jest zajęta, jest na niej oznaczona jako zablokowana - jedno i drugie
+  // odpada tutaj, niezależnie od tego, co przyszło z formularza.
+  const slots = buildSlots({ windows, busy, now });
   const slot = findSlot(slots, trainerId, startsAt);
-  if (!slot) back("Ten termin nie jest już dostępny. Wybierz inny z listy.");
+  if (!slot) {
+    const blocked = findSlotAt(slots, trainerId, startsAt);
+    back(
+      blocked?.blockedBy === "ROOM_BUSY"
+        ? "O tej godzinie sala jest już zajęta. Wybierz inny termin albo drugą lokalizację."
+        : "Ten termin nie jest już dostępny. Wybierz inny z listy.",
+    );
+  }
 
   const member = await prisma.member.findUniqueOrThrow({ where: { id: memberId } });
 
@@ -127,9 +126,10 @@ export async function bookIndividualSlotAction(formData: FormData) {
       });
     });
   } catch (cause) {
-    // Częściowy unikalny indeks (trainerId, startsAt) dla INDIVIDUAL - dwie
-    // osoby kliknęły ten sam wolny termin w tej samej chwili. Przegrany
-    // dostaje zrozumiały komunikat zamiast błędu bazy.
+    // Częściowe unikalne indeksy (trainerId, startsAt) i (locationId, startsAt)
+    // dla INDIVIDUAL - dwie osoby kliknęły ten sam wolny termin (u tego samego
+    // trenera albo u dwóch różnych w tej samej sali) w tej samej chwili.
+    // Przegrany dostaje zrozumiały komunikat zamiast błędu bazy.
     if (cause instanceof Prisma.PrismaClientKnownRequestError && cause.code === "P2002") {
       back("Ktoś właśnie zajął ten termin. Wybierz inny.");
     }

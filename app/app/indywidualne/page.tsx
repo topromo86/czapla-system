@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
 import { Button } from "@/components/ui/button";
-import { buildSlots, MIN_BOOKING_LEAD_HOURS } from "@/lib/domain/availability";
+import {
+  buildSlots,
+  findSlotInOtherRoom,
+  isSlotFree,
+  MIN_BOOKING_LEAD_HOURS,
+} from "@/lib/domain/availability";
 import { canCancelFree } from "@/lib/domain/booking";
+import { loadClubAvailability } from "@/lib/services/availability";
 import { getClubSettings } from "@/lib/services/settings";
 import { formatDate, formatTime } from "@/lib/format";
 import { bookIndividualSlotAction, cancelIndividualSlotAction } from "./actions";
@@ -51,24 +57,10 @@ export default async function IndividualTrainingPage({
   const selectedTrainer =
     trainersWithWindows.find((t) => t.id === trener) ?? trainersWithWindows[0] ?? null;
 
-  const [settings, windows, busy, myBookings] = await Promise.all([
+  const [settings, availability, locations, myBookings] = await Promise.all([
     getClubSettings(),
-    selectedTrainer
-      ? prisma.availabilityWindow.findMany({
-          where: { trainerId: selectedTrainer.id, active: true },
-        })
-      : Promise.resolve([]),
-    selectedTrainer
-      ? prisma.session.findMany({
-          where: {
-            trainerId: selectedTrainer.id,
-            kind: "INDIVIDUAL",
-            status: { not: "CANCELLED" },
-            startsAt: { gte: now },
-          },
-          select: { startsAt: true },
-        })
-      : Promise.resolve([]),
+    loadClubAvailability(now),
+    prisma.location.findMany({ select: { id: true, name: true } }),
     prisma.booking.findMany({
       where: {
         memberId: activeMember.id,
@@ -80,14 +72,31 @@ export default async function IndividualTrainingPage({
     }),
   ]);
 
-  const slots = buildSlots({
-    windows,
-    busyStarts: busy.map((s) => s.startsAt),
-    now,
-  });
+  // Sloty całego klubu, nie tylko wybranego trenera: bez tego nie da się ani
+  // sprawdzić, czy sala jest wolna, ani podpowiedzieć drugiej lokalizacji.
+  const allSlots = buildSlots({ windows: availability.windows, busy: availability.busy, now });
 
-  const slotsByDay = new Map<string, typeof slots>();
-  for (const slot of slots) {
+  const trainerSlots = allSlots.filter(
+    (slot) =>
+      slot.trainerId === selectedTrainer?.id &&
+      // Terminy zajęte przez samego trenera znikają jak dotąd - to nie jest
+      // wybór klienta, tylko fakt. Pokazujemy natomiast te, które blokuje
+      // zajęta sala, bo tam podpowiedź "wolne w drugiej sali" ma sens.
+      slot.blockedBy !== "TRAINER_BUSY",
+  );
+  const freeCount = trainerSlots.filter(isSlotFree).length;
+
+  const locationNames = new Map(locations.map((l) => [l.id, l.name] as const));
+  const trainerNames = new Map(
+    trainersWithWindows.map((t) => [t.id, t.user.name ?? "trener"] as const),
+  );
+
+  // Trener bywa dostępny w obu salach. Wtedy przy każdej godzinie musi być
+  // napisane, dokąd klient ma przyjść - przy jednej sali to zbędny szum.
+  const showRoomOnSlot = new Set(trainerSlots.map((s) => s.locationId)).size > 1;
+
+  const slotsByDay = new Map<string, typeof trainerSlots>();
+  for (const slot of trainerSlots) {
     const key = dayKey(slot.startsAt);
     const bucket = slotsByDay.get(key);
     if (bucket) bucket.push(slot);
@@ -201,10 +210,10 @@ export default async function IndividualTrainingPage({
 
           <section>
             <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-              Wolne terminy ({slots.length})
+              Wolne terminy ({freeCount})
             </h2>
 
-            {slots.length === 0 ? (
+            {trainerSlots.length === 0 ? (
               <p className="text-muted-brand border-line bg-surface mt-2 rounded-md border p-4 text-sm">
                 Brak wolnych terminów u tego trenera w najbliższych dniach. Sprawdź innego trenera
                 albo zajrzyj później.
@@ -216,25 +225,69 @@ export default async function IndividualTrainingPage({
                     <p className="text-text font-mono text-xs tracking-widest uppercase">
                       {dayHeadingFormatter.format(daySlots[0].startsAt)}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {daySlots.map((slot) => (
-                        <form
-                          key={slot.startsAt.toISOString()}
-                          action={bookIndividualSlotAction}
-                          className="contents"
-                        >
-                          <input type="hidden" name="memberId" value={activeMember.id} />
-                          <input type="hidden" name="trainerId" value={slot.trainerId} />
-                          <input
-                            type="hidden"
-                            name="startsAt"
-                            value={slot.startsAt.toISOString()}
-                          />
-                          <Button type="submit" size="sm" variant="outline">
-                            {formatTime(slot.startsAt)}
-                          </Button>
-                        </form>
-                      ))}
+                    <div className="mt-2 flex flex-wrap items-start gap-2">
+                      {daySlots.map((slot) => {
+                        // Klucz z salą, nie samą godziną: ten sam trener może
+                        // mieć o 17:00 okno w obu salach.
+                        const key = `${slot.locationId}-${slot.startsAt.toISOString()}`;
+
+                        if (isSlotFree(slot)) {
+                          return (
+                            <form
+                              key={key}
+                              action={bookIndividualSlotAction}
+                              className="flex flex-col items-start gap-1"
+                            >
+                              <input type="hidden" name="memberId" value={activeMember.id} />
+                              <input type="hidden" name="trainerId" value={slot.trainerId} />
+                              <input
+                                type="hidden"
+                                name="startsAt"
+                                value={slot.startsAt.toISOString()}
+                              />
+                              <Button type="submit" size="sm" variant="outline">
+                                {formatTime(slot.startsAt)}
+                              </Button>
+                              {showRoomOnSlot ? (
+                                <span className="text-muted-brand text-[11px] leading-tight">
+                                  {locationNames.get(slot.locationId)}
+                                </span>
+                              ) : null}
+                            </form>
+                          );
+                        }
+
+                        // Sala zajęta. Godzina zostaje widoczna, ale wyłączona -
+                        // i od razu mówi, gdzie o tej samej porze jest wolne
+                        // miejsce, żeby klient nie szukał po trenerach na ślepo.
+                        const elsewhere = findSlotInOtherRoom(allSlots, slot);
+                        return (
+                          <div key={key} className="flex flex-col items-start gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              title={`Sala ${locationNames.get(slot.locationId) ?? ""} jest o tej porze zajęta`}
+                            >
+                              {formatTime(slot.startsAt)}
+                            </Button>
+                            <span className="text-muted-brand max-w-32 text-[11px] leading-tight">
+                              {elsewhere ? (
+                                <a
+                                  href={`/app/indywidualne?trener=${elsewhere.trainerId}&klient=${activeMember.id}`}
+                                  className="hover:text-brand-red underline underline-offset-2"
+                                >
+                                  wolne w: {locationNames.get(elsewhere.locationId)} (
+                                  {trainerNames.get(elsewhere.trainerId)})
+                                </a>
+                              ) : (
+                                "sala zajęta"
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -242,10 +295,11 @@ export default async function IndividualTrainingPage({
             )}
 
             <p className="text-muted-brand mt-4 text-xs">
-              Terminy znikają z listy, gdy ktoś je zajmie oraz gdy do startu zostało mniej niż{" "}
-              {MIN_BOOKING_LEAD_HOURS} godz. Odwołanie na mniej niż {settings.freeCancellationHours}{" "}
-              godz. przed treningiem kosztuje wejście z karnetu - tak samo jak przy zajęciach
-              grupowych.
+              W jednej sali trwa naraz jeden trening indywidualny, więc godzina zajęta przez kogoś
+              innego jest nieaktywna - ale ta sama pora bywa wolna w drugiej lokalizacji. Terminy
+              znikają z listy, gdy do startu zostało mniej niż {MIN_BOOKING_LEAD_HOURS} godz.
+              Odwołanie na mniej niż {settings.freeCancellationHours} godz. przed treningiem
+              kosztuje wejście z karnetu - tak samo jak przy zajęciach grupowych.
             </p>
           </section>
         </>

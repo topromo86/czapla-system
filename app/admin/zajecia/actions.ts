@@ -432,6 +432,7 @@ export async function createAvailabilityWindowAction(formData: FormData) {
   const startTime = String(formData.get("startTime") ?? "");
   const endTime = String(formData.get("endTime") ?? "");
   const slotMinutes = Number(formData.get("slotMinutes"));
+  const locationId = String(formData.get("locationId") ?? "");
 
   if (!trainerId) backToList("Wybierz trenera.");
 
@@ -443,11 +444,17 @@ export async function createAvailabilityWindowAction(formData: FormData) {
     include: { user: true },
   });
 
+  // Sala z formularza, bo trenerzy pracują w obu - macierzysta lokalizacja
+  // trenera jest tylko domyślną podpowiedzią. Od sali zależy, komu ten termin
+  // zajmie matę.
+  const location = await prisma.location.findUnique({ where: { id: locationId } });
+  if (!location) backToList("Wybierz salę.");
+
   await prisma.$transaction(async (tx) => {
     await tx.availabilityWindow.create({
       data: {
         trainerId,
-        locationId: trainer.locationId,
+        locationId: location.id,
         weekday,
         startTime,
         endTime,
@@ -458,7 +465,7 @@ export async function createAvailabilityWindowAction(formData: FormData) {
     await logActivity(tx, {
       actorUserId: session.user.id,
       action: "AVAILABILITY_WINDOW_CHANGED",
-      summary: `Dodano okno treningów indywidualnych dla ${trainer.user.name} (${startTime}-${endTime})`,
+      summary: `Dodano okno treningów indywidualnych dla ${trainer.user.name} (${startTime}-${endTime}, ${location.name})`,
     });
   });
 

@@ -7,6 +7,18 @@
 // znajduje się na tej liście (buildSlots + findSlot). Dzięki temu zapis na
 // 23:00 jest niemożliwy nawet przy spreparowanym formularzu, a nie tylko
 // schowany w UI.
+//
+// Druga reguła: SALA jest zasobem, nie tylko trener. W Mikołowie i w Tychach
+// w jednym momencie trwa najwyżej jeden trening indywidualny - klub ma dwie
+// sale, nie dwanaście. Jeśli o 17:00 we wtorek ktoś umówił się z Jackiem w
+// Mikołowie, to 17:00 w Mikołowie jest zajęte dla wszystkich pozostałych
+// trenerów, choćby mieli wolne okno. Tychy w tym samym czasie zostają wolne.
+// Zajęcia grupowe zajmują salę tak samo jak indywidualne - w sali z grupą nie
+// da się prowadzić treningu jeden na jeden.
+//
+// Dlatego trenerzy mogą spokojnie wpisywać te same dni i godziny dostępności:
+// klient wybiera, z kim chce trenować, a system pilnuje, żeby dwie osoby nie
+// stanęły w tej samej sali o tej samej porze.
 
 import {
   addCalendarDays,
@@ -112,30 +124,54 @@ export function slotStartsWithinWindow(window: {
   return starts;
 }
 
-export type Slot = {
-  windowId: string;
+// Zajęty kawałek grafiku: konkretne zajęcia (grupowe albo indywidualne), które
+// blokują i trenera, i salę.
+export type BusyInterval = {
   trainerId: string;
   locationId: string;
   startsAt: Date;
   endsAt: Date;
 };
 
+// Dlaczego slot odpadł. TRAINER_BUSY = ten trener ma wtedy co innego,
+// ROOM_BUSY = sala jest wtedy zajęta przez kogoś innego.
+export type SlotBlockReason = "TRAINER_BUSY" | "ROOM_BUSY";
+
+export type Slot = {
+  windowId: string;
+  trainerId: string;
+  locationId: string;
+  startsAt: Date;
+  endsAt: Date;
+  // null = wolny slot, można się zapisać.
+  blockedBy: SlotBlockReason | null;
+};
+
 export type BuildSlotsInput = {
   windows: readonly AvailabilityWindowLike[];
-  // Momenty startu already-zajętych treningów indywidualnych tego trenera.
-  busyStarts: readonly Date[];
+  // Wszystko, co już stoi w grafiku w horyzoncie - zajęcia grupowe i wcześniej
+  // umówione treningi indywidualne, ze WSZYSTKICH sal, nie tylko tej jednej.
+  busy: readonly BusyInterval[];
   now: Date;
   horizonDays?: number;
   leadHours?: number;
 };
 
-// Pełna lista wolnych slotów w horyzoncie: okna trenera minus terminy już
-// zajęte, minus wszystko, co startuje zbyt blisko "teraz".
+function overlaps(a: { startsAt: Date; endsAt: Date }, b: { startsAt: Date; endsAt: Date }) {
+  return a.startsAt < b.endsAt && b.startsAt < a.endsAt;
+}
+
+// Pełna lista slotów w horyzoncie - także tych zajętych, z powodem blokady.
+// Zajęte zostają na liście celowo: klient ma zobaczyć, że o 17:00 w Mikołowie
+// nic nie kupi, ale ta sama godzina jest wolna w Tychach. Sama godzina
+// wycięta z listy bez słowa wygląda jak awaria, a nie jak informacja.
+//
+// Kolejność sprawdzania ma znaczenie: najpierw trener, potem sala. Kiedy to
+// ten sam trener jest zajęty, powód "sala zajęta" byłby mylący.
 export function buildSlots(input: BuildSlotsInput): Slot[] {
   const horizonDays = input.horizonDays ?? INDIVIDUAL_HORIZON_DAYS;
   const leadHours = input.leadHours ?? MIN_BOOKING_LEAD_HOURS;
   const earliest = new Date(input.now.getTime() + leadHours * 3_600_000);
-  const busy = new Set(input.busyStarts.map((d) => d.getTime()));
 
   const today = todayInTimeZone(input.now);
   const slots: Slot[] = [];
@@ -156,14 +192,33 @@ export function buildSlots(input: BuildSlotsInput): Slot[] {
           startMinutes % 60,
         );
         if (startsAt < earliest) continue;
-        if (busy.has(startsAt.getTime())) continue;
+
+        const candidate = {
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + window.slotMinutes * 60_000),
+        };
+
+        // Nakładanie się, nie równość godzin: trening 60-minutowy od 17:00
+        // zajmuje salę także temu, kto ma sloty półgodzinne i celuje w 17:30.
+        const trainerBusy = input.busy.some(
+          (busy) => busy.trainerId === window.trainerId && overlaps(candidate, busy),
+        );
+        const roomBusy = input.busy.some(
+          (busy) => busy.locationId === window.locationId && overlaps(candidate, busy),
+        );
+        const blockedBy: SlotBlockReason | null = trainerBusy
+          ? "TRAINER_BUSY"
+          : roomBusy
+            ? "ROOM_BUSY"
+            : null;
 
         slots.push({
           windowId: window.id,
           trainerId: window.trainerId,
           locationId: window.locationId,
-          startsAt,
-          endsAt: new Date(startsAt.getTime() + window.slotMinutes * 60_000),
+          startsAt: candidate.startsAt,
+          endsAt: candidate.endsAt,
+          blockedBy,
         });
       }
     }
@@ -172,10 +227,13 @@ export function buildSlots(input: BuildSlotsInput): Slot[] {
   return slots.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 }
 
-// Weryfikacja żądania zapisu: czy dokładnie ten moment jest wolnym slotem tego
-// trenera. Serwer musi to wywołać przed utworzeniem sesji - to jest miejsce,
-// w którym odpada zapis na godzinę spoza okien.
-export function findSlot(slots: readonly Slot[], trainerId: string, startsAt: Date): Slot | null {
+export function isSlotFree(slot: Slot): boolean {
+  return slot.blockedBy === null;
+}
+
+// Slot o danej godzinie u danego trenera - wolny albo nie. Do komunikatów
+// ("sala zajęta") i do podglądu w panelu trenera.
+export function findSlotAt(slots: readonly Slot[], trainerId: string, startsAt: Date): Slot | null {
   return (
     slots.find(
       (slot) => slot.trainerId === trainerId && slot.startsAt.getTime() === startsAt.getTime(),
@@ -183,11 +241,28 @@ export function findSlot(slots: readonly Slot[], trainerId: string, startsAt: Da
   );
 }
 
-export type SessionTimeError =
-  | "INVALID_DATE"
-  | "INVALID_TIME"
-  | "INVALID_DURATION"
-  | "IN_THE_PAST";
+// Weryfikacja żądania zapisu: czy dokładnie ten moment jest WOLNYM slotem tego
+// trenera. Serwer musi to wywołać przed utworzeniem sesji - to jest miejsce,
+// w którym odpada zapis na godzinę spoza okien i na zajętą salę.
+export function findSlot(slots: readonly Slot[], trainerId: string, startsAt: Date): Slot | null {
+  const slot = findSlotAt(slots, trainerId, startsAt);
+  return slot && isSlotFree(slot) ? slot : null;
+}
+
+// Ta sama godzina, wolna, ale w innej sali - podpowiedź przy zablokowanym
+// terminie ("zajęte w Mikołowie, wolne w Tychach").
+export function findSlotInOtherRoom(slots: readonly Slot[], slot: Slot): Slot | null {
+  return (
+    slots.find(
+      (other) =>
+        isSlotFree(other) &&
+        other.locationId !== slot.locationId &&
+        other.startsAt.getTime() === slot.startsAt.getTime(),
+    ) ?? null
+  );
+}
+
+export type SessionTimeError = "INVALID_DATE" | "INVALID_TIME" | "INVALID_DURATION" | "IN_THE_PAST";
 
 // Walidacja ręcznie dodawanych zajęć grupowych (ekran właściciela). Zwraca
 // wyliczone startsAt/endsAt albo powód odrzucenia.
