@@ -24,6 +24,17 @@
         "dev"
       ],
       "port": 3100
+    },
+    {
+      "name": "moto-setup-lab",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/toPROMO/Desktop/moto-setup-lab",
+        "run",
+        "dev"
+      ],
+      "port": 3000
     }
   ]
 }
