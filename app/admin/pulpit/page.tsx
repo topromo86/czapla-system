@@ -119,14 +119,25 @@ export default async function AdminDashboardPage() {
   const capacityToday = todaySessions.reduce((sum, s) => sum + s.capacity, 0);
 
   const kpis = [
-    { label: "Aktywni klubowicze", value: String(membersActive), hint: `+${newThisMonth} w tym miesiącu` },
+    {
+      label: "Aktywni klubowicze",
+      value: String(membersActive),
+      hint: `+${newThisMonth} w tym miesiącu`,
+    },
     { label: "Przychód (ten miesiąc)", value: formatMoney(revenue), hint: "wpłaty od 1. dnia" },
     {
       label: "Zajęcia dziś",
       value: String(todaySessions.length),
-      hint: todaySessions.length > 0 ? `${bookedToday}/${capacityToday} miejsc zajętych` : "brak w grafiku",
+      hint:
+        todaySessions.length > 0
+          ? `${bookedToday}/${capacityToday} miejsc zajętych`
+          : "brak w grafiku",
     },
-    { label: "Aktywne karnety", value: String(activePasses), hint: `${activeTrainers} trenerów w kadrze` },
+    {
+      label: "Aktywne karnety",
+      value: String(activePasses),
+      hint: `${activeTrainers} trenerów w kadrze`,
+    },
   ];
 
   const attention = [
@@ -157,6 +168,25 @@ export default async function AdminDashboardPage() {
         </h1>
         <p className="text-muted-brand mt-1 text-sm capitalize">{fullDate(now)}</p>
       </div>
+
+      {/* Szybkie akcje na samej górze: to jest jedyna część pulpitu, po którą
+          właściciel sięga w biegu. Liczby niżej czyta się na spokojnie. */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Szybkie akcje
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {shortcuts.map((s) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              className="border-line bg-surface hover:border-brand-red hover:text-brand-red text-text flex items-center justify-center rounded-md border p-4 text-center text-sm font-medium transition"
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* KPI */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -284,24 +314,6 @@ export default async function AdminDashboardPage() {
             })}
           </ul>
         )}
-      </section>
-
-      {/* Szybkie akcje */}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          Szybkie akcje
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {shortcuts.map((s) => (
-            <Link
-              key={s.href}
-              href={s.href}
-              className="border-line bg-surface hover:border-brand-red hover:text-brand-red text-text flex items-center justify-center rounded-md border p-4 text-center text-sm font-medium transition"
-            >
-              {s.label}
-            </Link>
-          ))}
-        </div>
       </section>
     </div>
   );
