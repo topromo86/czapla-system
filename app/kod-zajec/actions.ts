@@ -20,9 +20,9 @@ export async function stationScanAction(
   code: string,
   locationId: string,
 ): Promise<StationScanView> {
-  // Kiosk obsługuje zalogowany personel - to jest gwarancja, że kamera stoi
-  // na sali klubu, a nie u kogoś w domu.
-  await requireRole("ADMIN", "TRAINER");
+  // Skanuje zalogowane urządzenie klubu (konto KIOSK albo telefon personelu) -
+  // to jest gwarancja, że kamera stoi na sali, a nie u kogoś w domu.
+  await requireRole("ADMIN", "TRAINER", "KIOSK");
 
   const cleaned = code.trim();
   if (!cleaned) return { ok: false, message: "Pusty kod." };

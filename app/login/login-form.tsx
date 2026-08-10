@@ -41,7 +41,9 @@ export function LoginForm({ notice, googleEnabled }: { notice?: string; googleEn
             <Input
               id="email"
               name="email"
-              type="email"
+              // Nie type="email": konto kiosku loguje się nazwą "kiosk", a nie
+              // adresem. Poprawność i tak sprawdza serwer, wyszukując konto.
+              type="text"
               autoComplete="email"
               required
               className="border-line bg-surface-2"

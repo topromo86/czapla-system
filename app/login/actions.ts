@@ -11,6 +11,8 @@ const ROLE_HOME: Record<Role, string> = {
   TRAINER: "/trainer/pulpit",
   MEMBER: "/app/pulpit",
   GUARDIAN: "/app/pulpit",
+  // Tablet na sali nie ma pulpitu - po zalogowaniu od razu kiosk.
+  KIOSK: "/kod-zajec",
 };
 
 export type LoginState = { error?: string };

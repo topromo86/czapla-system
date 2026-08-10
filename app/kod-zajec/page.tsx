@@ -35,7 +35,9 @@ export default async function ClassQrStationPage({
 }: {
   searchParams: Promise<{ loc?: string }>;
 }) {
-  await requireRole("ADMIN", "TRAINER");
+  // KIOSK to konto samego tabletu; ADMIN i TRENER dostają ten ekran także ze
+  // swojego telefonu, gdy tablet akurat nie działa.
+  await requireRole("ADMIN", "TRAINER", "KIOSK");
   const { loc } = await searchParams;
 
   const [locations, settings] = await Promise.all([

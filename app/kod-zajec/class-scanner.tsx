@@ -4,15 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import jsQR from "jsqr";
 import { stationScanAction, type StationScanView } from "./actions";
 
 // Kamera kiosku czytająca osobiste kody rotacyjne. To jest droga prowadzącego:
 // kod żyje 30 s, więc trzeba stać przy tym urządzeniu, a nie mieć zdjęcie.
 //
-// Ten sam mechanizm co na stacji wejścia (app/skaner/scanner.tsx): natywny
-// BarcodeDetector, bez dokładania biblioteki do dekodowania. Gdy przeglądarka
-// go nie ma, zostaje pole na czytnik ręczny - kiosk ma działać także na starym
-// tablecie.
+// Dekodowanie ma dwie drogi. Natywny BarcodeDetector (Chrome, Android) jest
+// szybszy i nie kosztuje nic; Safari na iPadzie go nie ma, więc tam wchodzi
+// jsQR na klatce z canvasu. Bez tego kiosk działałby tylko na Androidzie,
+// a klub ma kupić tablet, jaki akurat będzie pod ręką.
 type DetectedBarcode = { rawValue: string };
 type BarcodeDetectorLike = { detect: (source: CanvasImageSource) => Promise<DetectedBarcode[]> };
 type BarcodeDetectorCtor = new (opts?: { formats?: string[] }) => BarcodeDetectorLike;
@@ -36,8 +37,9 @@ export function ClassScanner({ locationId }: { locationId: string | null }) {
   const [result, setResult] = useState<StationScanView | null>(null);
   const [manual, setManual] = useState("");
   const [pending, setPending] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const detectorSupported = getDetectorCtor() !== null;
+  const nativeDetector = getDetectorCtor() !== null;
 
   const submit = useCallback(
     async (code: string) => {
@@ -60,30 +62,50 @@ export function ClassScanner({ locationId }: { locationId: string | null }) {
     [locationId, router],
   );
 
+  // Odczyt klatki przez jsQR - droga dla przeglądarek bez BarcodeDetector
+  // (Safari na iPadzie). Rysujemy klatkę na canvas i czytamy piksele.
+  const readWithJsQr = useCallback((video: HTMLVideoElement): string | null => {
+    const canvas = (canvasRef.current ??= document.createElement("canvas"));
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    if (!width || !height) return null;
+
+    // Zmniejszona klatka wystarczy do odczytu kodu, a liczy się dużo szybciej -
+    // to samo urządzenie ma jednocześnie wyświetlać podgląd.
+    const scale = Math.min(1, 640 / width);
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return jsQR(image.data, image.width, image.height)?.data ?? null;
+  }, []);
+
   useEffect(() => {
     if (!cameraOn) return;
     const Ctor = getDetectorCtor();
-    if (!Ctor) return;
-    const detector = new Ctor({ formats: ["qr_code"] });
+    const detector = Ctor ? new Ctor({ formats: ["qr_code"] }) : null;
     let stop = false;
 
     const tick = async () => {
       const video = videoRef.current;
-      if (!stop && video && video.readyState >= 2) {
-        try {
-          const codes = await detector.detect(video);
-          if (codes[0]?.rawValue) await submit(codes[0].rawValue);
-        } catch {
-          // pojedyncza nieudana klatka nic nie znaczy - próbujemy dalej
-        }
+      if (stop || !video || video.readyState < 2) return;
+      try {
+        const value = detector ? (await detector.detect(video))[0]?.rawValue : readWithJsQr(video);
+        if (value) await submit(value);
+      } catch {
+        // pojedyncza nieudana klatka nic nie znaczy - próbujemy dalej
       }
     };
-    const id = window.setInterval(tick, 500);
+    // Bez natywnego dekodera klatka kosztuje więcej, więc próbujemy rzadziej.
+    const id = window.setInterval(tick, detector ? 500 : 800);
     return () => {
       stop = true;
       window.clearInterval(id);
     };
-  }, [cameraOn, submit]);
+  }, [cameraOn, submit, readWithJsQr]);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
@@ -122,7 +144,7 @@ export function ClassScanner({ locationId }: { locationId: string | null }) {
       ) : null}
 
       {!cameraOn ? (
-        <Button type="button" onClick={startCamera} disabled={!detectorSupported}>
+        <Button type="button" onClick={startCamera}>
           Włącz kamerę
         </Button>
       ) : (
@@ -153,10 +175,10 @@ export function ClassScanner({ locationId }: { locationId: string | null }) {
         </div>
       ) : null}
 
-      {!detectorSupported ? (
-        <p className="border-amber/40 bg-amber/5 text-amber rounded-md border p-2 text-xs">
-          Ta przeglądarka nie obsługuje skanowania kamerą. Użyj czytnika QR wpisującego kod do pola
-          poniżej albo otwórz kiosk w przeglądarce opartej na Chrome.
+      {cameraOn && !nativeDetector ? (
+        <p className="text-muted-brand text-center text-[11px]">
+          Odczyt programowy (ta przeglądarka nie ma wbudowanego dekodera) - trzymaj kod chwilę
+          dłużej przed kamerą.
         </p>
       ) : null}
       {cameraError ? (

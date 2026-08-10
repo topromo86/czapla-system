@@ -106,3 +106,22 @@ kont ani zamknięć kasy. Bez `--usun` nic nie robi - kasowanie `Payment`
 
 Codzienne zmiany cen robi właściciel na ekranie **Pieniądze → Rodzaje
 karnetów**, bez programisty.
+
+## Kiosk na sali
+
+Tablet ma własne konto (rola `KIOSK`, login `kiosk`). Po zalogowaniu widzi
+wyłącznie `/kod-zajec`: kod QR najbliższych zajęć dla klubowiczów i skaner
+kodów rotacyjnych dla prowadzącego. Nie widzi kartoteki, pieniędzy ani grafiku -
+hasło do tego konta zna cały klub, więc uprawnienia muszą być zerowe. Dlatego
+osobna rola, a nie "trener techniczny".
+
+Założenie/zmiana hasła konta kiosku (hasło w wywołaniu, nie w repozytorium):
+
+```
+npx tsx prisma/kiosk-account.ts --haslo <haslo>
+npx tsx prisma/kiosk-account.ts --env .env.vercel --haslo <haslo>
+```
+
+Kamera działa tylko po HTTPS - na Vercelu tak, na tablecie wpiętym po adresie
+IP w sieci lokalnej nie. Dekodowanie ma dwie drogi: natywny `BarcodeDetector`
+(Chrome/Android) i `jsQR` dla Safari na iPadzie.

@@ -27,6 +27,10 @@ enum Role {
   TRAINER
   MEMBER
   GUARDIAN
+  // Konto urządzenia, nie człowieka: tablet na sali. Widzi wyłącznie kiosk
+  // z kodem zajęć i skanerem - żadnej kartoteki, pieniędzy ani grafiku.
+  // Hasło do niego zna cały klub, więc uprawnienia muszą być zerowe.
+  KIOSK
 }
 
 model User {
