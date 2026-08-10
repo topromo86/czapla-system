@@ -13,6 +13,7 @@ import { getClubSettings } from "@/lib/services/settings";
 import { requestBaseUrl } from "@/lib/base-url";
 import { formatTime } from "@/lib/format";
 import { qrSvg } from "@/lib/qr";
+import { ClassScanner } from "./class-scanner";
 
 // Stacja z kodem zajęć - tablet albo telefon leżący przy wejściu na salę.
 // Zalogowany personel otwiera ten ekran i zostawia go włączony; nie ma tu nic
@@ -125,6 +126,20 @@ export default async function ClassQrStationPage({
         </div>
       ) : null}
 
+      {/* Skaner na górze: to jest droga PROWADZĄCEGO i jedyna, która dowodzi
+          obecności na sali - kod z telefonu żyje 30 s, więc trzeba stanąć przy
+          tym urządzeniu. Klubowicze mogą go użyć tak samo, ale mają też kod
+          zajęć niżej, żeby dwadzieścia osób nie stało w kolejce. */}
+      <section className="border-line bg-surface rounded-md border p-4">
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+          Odbicie kodem z telefonu
+        </h2>
+        <p className="text-muted-brand mt-1 mb-3 text-sm">
+          Prowadzący odbija się wyłącznie tędy. Pokaż kod z zakładki „Mój kod wejścia”.
+        </p>
+        <ClassScanner locationId={activeLocationId} />
+      </section>
+
       {cards.length === 0 ? (
         <div className="border-line bg-surface rounded-md border p-6 text-center">
           <p className="text-text">Teraz nie ma aktywnego kodu.</p>
@@ -152,7 +167,7 @@ export default async function ClassQrStationPage({
             />
 
             <p className="text-muted-brand mt-3 text-center text-sm">
-              Zeskanuj telefonem i potwierdź obecność.
+              Klubowicze: zeskanujcie telefonem i potwierdźcie obecność.
             </p>
 
             <div className="border-line-soft mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 font-mono text-xs">
