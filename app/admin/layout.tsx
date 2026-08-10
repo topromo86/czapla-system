@@ -17,7 +17,9 @@ const NAV_GROUPS: HeaderNavGroup[] = [
   {
     label: "Klienci",
     items: [
-      { href: "/admin", label: "Karnety" },
+      // "Klubowicze", nie "Karnety": to jest kartoteka ludzi, a nazwa myliła
+      // się z cennikiem karnetów w grupie Pieniądze.
+      { href: "/admin", label: "Klubowicze" },
       { href: "/admin/klienci/nowy", label: "Dodaj klienta" },
       { href: "/admin/zatwierdzenia", label: "Zatwierdzenia" },
     ],
