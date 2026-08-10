@@ -29,7 +29,7 @@ export async function checkInAction(formData: FormData) {
       update: {},
     });
     await tx.booking.update({ where: { id: bookingId }, data: { status: "ATTENDED" } });
-    await decrementPassEntryIfLimited(tx, booking.memberId);
+    await decrementPassEntryIfLimited(tx, booking.memberId, booking.session.kind);
     await markJoinedIfNeeded(tx, booking.memberId, now);
   });
 

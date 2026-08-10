@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
+  collapseEmptyHours,
   gridCellKey,
   hourRange,
   hoursInRange,
@@ -9,6 +10,15 @@ import {
 } from "@/lib/domain/schedule";
 import type { CalendarDate } from "@/lib/domain/time";
 import { formatTime } from "@/lib/format";
+import {
+  cellHeightClass,
+  CollapsedGap,
+  dayKeyOf,
+  GRID_COLUMNS,
+  HourLabelCell,
+  localDayKey,
+  localHour,
+} from "@/app/week-grid-parts";
 import { bookSessionAction, cancelBookingAction } from "./actions";
 
 const dayNameFormatter = new Intl.DateTimeFormat("pl-PL", {
@@ -34,40 +44,17 @@ export type PlannerSession = {
 
 // Godzina w czasie klubu - kafelek ma trafić do pasa, który klient widzi na
 // swoim zegarze, a nie w UTC serwera.
-export function localHour(date: Date): number {
-  return Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Warsaw",
-      hour: "2-digit",
-      hourCycle: "h23",
-    }).format(date),
-  );
-}
-
-export function localDayKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Warsaw",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function dayKeyOf(day: CalendarDate): string {
-  return `${day.year}-${String(day.month).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
-}
-
-// Wygląd kafelka zależy od stanu terminu. Podświetlone (czerwona ramka +
-// wypełnienie) są wyłącznie te, na które da się zapisać - to jest sedno
-// prośby: "tam gdzie są zajęcia do zapisania mają być podświetlone".
-const TILE_STYLE: Record<BookableStatus, string> = {
-  BOOKABLE: "border-brand-red/60 bg-brand-red/10 hover:bg-brand-red/20",
-  ALREADY_BOOKED: "border-jade/60 bg-jade/10",
-  FULL: "border-line bg-surface-2 opacity-70",
-  BEYOND_HORIZON: "border-line bg-surface-2 opacity-50",
-  PAST: "border-line bg-surface-2 opacity-40",
-  CANCELLED: "border-red/40 bg-red/5 opacity-60",
-};
+export const // Wygląd kafelka zależy od stanu terminu. Podświetlone (czerwona ramka +
+  // wypełnienie) są wyłącznie te, na które da się zapisać - to jest sedno
+  // prośby: "tam gdzie są zajęcia do zapisania mają być podświetlone".
+  TILE_STYLE: Record<BookableStatus, string> = {
+    BOOKABLE: "border-brand-red/60 bg-brand-red/10 hover:bg-brand-red/20",
+    ALREADY_BOOKED: "border-jade/60 bg-jade/10",
+    FULL: "border-line bg-surface-2 opacity-70",
+    BEYOND_HORIZON: "border-line bg-surface-2 opacity-50",
+    PAST: "border-line bg-surface-2 opacity-40",
+    CANCELLED: "border-red/40 bg-red/5 opacity-60",
+  };
 
 const STATUS_NOTE: Record<BookableStatus, string | null> = {
   BOOKABLE: null,
@@ -98,22 +85,26 @@ export function WeekPlanner({
   const hours = hoursInRange(range);
 
   const byCell = new Map<string, PlannerSession[]>();
+  const busyHours = new Set<number>();
   for (const session of sessions) {
-    const key = `${localDayKey(session.startsAt)}T${String(localHour(session.startsAt)).padStart(2, "0")}`;
+    const hour = localHour(session.startsAt);
+    busyHours.add(hour);
+    const key = `${localDayKey(session.startsAt)}T${String(hour).padStart(2, "0")}`;
     const bucket = byCell.get(key);
     if (bucket) bucket.push(session);
     else byCell.set(key, [session]);
   }
+
+  // Godziny bez zajęć w całym tygodniu zwijamy - na telefonie klienta puste
+  // pasy między porankiem a wieczorem to było kilka ekranów przewijania.
+  const rows = collapseEmptyHours(hours, busyHours);
 
   const todayKey = localDayKey(now);
 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[52rem]">
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}
-        >
+        <div className="grid gap-1" style={{ gridTemplateColumns: GRID_COLUMNS }}>
           <div />
           {days.map((day) => {
             const key = dayKeyOf(day);
@@ -132,18 +123,23 @@ export function WeekPlanner({
             );
           })}
 
-          {hours.map((hour) => (
-            <PlannerRow
-              key={hour}
-              hour={hour}
-              days={days}
-              byCell={byCell}
-              memberId={memberId}
-              now={now}
-              horizonEnd={horizonEnd}
-              returnTo={returnTo}
-            />
-          ))}
+          {rows.map((row) =>
+            row.kind === "gap" ? (
+              <CollapsedGap key={`gap-${row.hours[0]}`} hours={row.hours} days={days} />
+            ) : (
+              <PlannerRow
+                key={row.hour}
+                hour={row.hour}
+                empty={row.empty}
+                days={days}
+                byCell={byCell}
+                memberId={memberId}
+                now={now}
+                horizonEnd={horizonEnd}
+                returnTo={returnTo}
+              />
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -152,6 +148,7 @@ export function WeekPlanner({
 
 function PlannerRow({
   hour,
+  empty,
   days,
   byCell,
   memberId,
@@ -160,6 +157,7 @@ function PlannerRow({
   returnTo,
 }: {
   hour: number;
+  empty: boolean;
   days: CalendarDate[];
   byCell: Map<string, PlannerSession[]>;
   memberId: string;
@@ -169,15 +167,13 @@ function PlannerRow({
 }) {
   return (
     <>
-      <div className="text-muted-brand border-line-soft border-t py-2 text-right font-mono text-xs">
-        {String(hour).padStart(2, "0")}:00
-      </div>
+      <HourLabelCell hour={hour} empty={empty} />
       {days.map((day) => {
         const cellSessions = byCell.get(gridCellKey(day, hour)) ?? [];
         return (
           <div
             key={`${dayKeyOf(day)}-${hour}`}
-            className="border-line-soft flex min-h-14 flex-col gap-1 border-t py-1"
+            className={`border-line-soft flex flex-col gap-1 border-t py-1 ${cellHeightClass(empty)}`}
           >
             {cellSessions.map((session) => (
               <SessionTile

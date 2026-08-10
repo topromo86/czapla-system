@@ -18,7 +18,7 @@ import {
 } from "@/lib/domain/absence";
 import { zonedTimeToUtc } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
-import { decrementPassEntryIfLimited } from "@/lib/services/pass";
+import { decrementPassEntryIfLimited, findPassForSession } from "@/lib/services/pass";
 import { logActivity } from "@/lib/services/activity";
 import { notify } from "@/lib/services/notification";
 import { formatDate, formatDayTime } from "@/lib/format";
@@ -74,10 +74,9 @@ export async function bookSessionAction(formData: FormData) {
   });
   const grantedConsentKeys = new Set(consents.map((c) => c.consentType.key));
 
-  const activePass = await prisma.pass.findFirst({
-    where: { memberId, status: "ACTIVE" },
-    orderBy: { endsAt: "desc" },
-  });
+  // Ten sam karnet, z którego potem zejdzie wejście - inaczej klient
+  // przechodziłby kontrolę na jednym karnecie, a płacił drugim.
+  const activePass = await findPassForSession(prisma, memberId, session.kind);
 
   const bookedCount = session.bookings.filter((b) => b.status === "BOOKED").length;
 
@@ -210,7 +209,9 @@ export async function reportSessionAbsenceAction(formData: FormData) {
     // odwołaniu - zgłoszenie powodu nie jest furtką. Trener może zwrócić
     // wejście ręcznie.
     const chargedPassId =
-      outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, booking.memberId) : null;
+      outcome === "NO_SHOW"
+        ? await decrementPassEntryIfLimited(tx, booking.memberId, booking.session.kind)
+        : null;
 
     await tx.booking.update({
       where: { id: bookingId },
@@ -286,7 +287,9 @@ export async function reportAbsencePeriodAction(formData: FormData) {
           : resolveAbsenceOutcome(booking.session.startsAt, now, freeCancellationHours);
 
       const chargedPassId =
-        outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, memberId) : null;
+        outcome === "NO_SHOW"
+          ? await decrementPassEntryIfLimited(tx, memberId, booking.session.kind)
+          : null;
       if (outcome === "NO_SHOW") lostEntries++;
 
       await tx.booking.update({
@@ -341,7 +344,9 @@ export async function cancelBookingAction(formData: FormData) {
     // realnej obecności (SPEC.md sekcja 2). Zapisujemy karnet, z którego
     // zeszło wejście, żeby trener mógł je precyzyjnie zwrócić.
     const chargedPassId =
-      outcome === "NO_SHOW" ? await decrementPassEntryIfLimited(tx, booking.memberId) : null;
+      outcome === "NO_SHOW"
+        ? await decrementPassEntryIfLimited(tx, booking.memberId, booking.session.kind)
+        : null;
 
     await tx.booking.update({
       where: { id: bookingId },

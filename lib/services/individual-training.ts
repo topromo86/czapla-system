@@ -6,6 +6,7 @@ import { buildSlots, findSlot, findSlotAt } from "@/lib/domain/availability";
 import { evaluateBookingEligibility } from "@/lib/domain/booking";
 import { loadClubAvailability } from "@/lib/services/availability";
 import { logActivity } from "@/lib/services/activity";
+import { findPassForSession } from "@/lib/services/pass";
 import { formatDayTime } from "@/lib/format";
 
 // Zapis na trening indywidualny - jedna procedura dla dwóch wejść: klient
@@ -73,7 +74,9 @@ export async function bookIndividualTraining(input: BookIndividualInput): Promis
       where: { memberId, revokedAt: null },
       include: { consentType: true },
     }),
-    prisma.pass.findFirst({ where: { memberId, status: "ACTIVE" }, orderBy: { endsAt: "desc" } }),
+    // Karnet na treningi indywidualne, jeśli klient go ma - to z niego
+    // zejdzie wejście, więc na nim sprawdzamy uprawnienie.
+    findPassForSession(prisma, memberId, "INDIVIDUAL"),
     prisma.booking.count({ where: { memberId, status: { not: "CANCELLED" } } }),
   ]);
 

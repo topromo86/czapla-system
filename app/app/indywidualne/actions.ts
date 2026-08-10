@@ -76,7 +76,7 @@ export async function cancelIndividualSlotAction(formData: FormData) {
           cancelledReason: `Odwołane przez klienta mniej niż ${freeCancellationHours} godz. przed startem`,
         },
       });
-      await decrementPassEntryIfLimited(tx, booking.memberId);
+      await decrementPassEntryIfLimited(tx, booking.memberId, "INDIVIDUAL");
     });
   }
 

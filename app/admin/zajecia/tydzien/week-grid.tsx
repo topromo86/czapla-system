@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "next/link";
 import {
   collapseEmptyHours,
@@ -7,18 +6,18 @@ import {
   hoursInRange,
   weekDays,
 } from "@/lib/domain/schedule";
-import { plural } from "@/lib/domain/polish";
 import type { CalendarDate } from "@/lib/domain/time";
 import { formatTime } from "@/lib/format";
+import {
+  cellHeightClass,
+  CollapsedGap,
+  dayKeyOf,
+  GRID_COLUMNS,
+  HourLabelCell,
+  localDayKey,
+  localHour,
+} from "@/app/week-grid-parts";
 import { DeleteSessionButton } from "./delete-session-button";
-
-// Szerokość kolumny godzin + siedem dni. Jedno miejsce, bo tej samej siatki
-// używa wiersz zwiniętej przerwy, żeby kolumny się nie rozjechały.
-const GRID_COLUMNS = "3.5rem repeat(7, minmax(0, 1fr))";
-
-function hourLabel(hour: number): string {
-  return `${String(hour).padStart(2, "0")}:00`;
-}
 
 const dayNameFormatter = new Intl.DateTimeFormat("pl-PL", {
   timeZone: "Europe/Warsaw",
@@ -38,32 +37,6 @@ export type GridSession = {
   // rodzajów naraz (lib/domain/class-color.ts), żeby kolory się nie powtarzały.
   stripe: string;
 };
-
-// Godzina/dzień w czasie klubu - kafelek ma trafić do pasa, który widać na
-// zegarze recepcji, nie w UTC serwera. Te same przeliczenia co w plannerze
-// klienta, żeby oba widoki układały zajęcia identycznie.
-function localHour(date: Date): number {
-  return Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Warsaw",
-      hour: "2-digit",
-      hourCycle: "h23",
-    }).format(date),
-  );
-}
-
-function localDayKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Warsaw",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function dayKeyOf(day: CalendarDate): string {
-  return `${day.year}-${String(day.month).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
-}
 
 // Widok tygodniowy dla admina - ten sam układ siatki, który widzą zapisujący się
 // klienci. Kafelek pokazuje obłożenie (komplet/odwołane wyróżnione kolorem) i po
@@ -161,25 +134,15 @@ function GridRow({
   now: Date;
   returnTo: string;
 }) {
-  // Pusta godzina zostaje w siatce (oś czasu ma być ciągła), ale na jedną
-  // trzecią wysokości - nie ma tam czego pokazywać.
-  const cellHeight = empty ? "min-h-5" : "min-h-14";
-
   return (
     <>
-      <div
-        className={`text-muted-brand border-line-soft border-t text-right font-mono text-xs ${
-          empty ? "py-0.5 opacity-60" : "py-2"
-        }`}
-      >
-        {hourLabel(hour)}
-      </div>
+      <HourLabelCell hour={hour} empty={empty} />
       {days.map((day) => {
         const cellSessions = byCell.get(gridCellKey(day, hour)) ?? [];
         return (
           <div
             key={`${dayKeyOf(day)}-${hour}`}
-            className={`border-line-soft flex flex-col gap-1 border-t py-1 ${cellHeight}`}
+            className={`border-line-soft flex flex-col gap-1 border-t py-1 ${cellHeightClass(empty)}`}
           >
             {cellSessions.map((s) => (
               <GridTile key={s.id} session={s} now={now} returnTo={returnTo} />
@@ -188,48 +151,6 @@ function GridRow({
         );
       })}
     </>
-  );
-}
-
-// Zwinięta przerwa: jeden pasek zamiast kilku pustych pasów. Natywne <details>,
-// więc rozwijanie działa bez JS - tak jak menu kafelków.
-function CollapsedGap({ hours, days }: { hours: number[]; days: CalendarDate[] }) {
-  const from = hours[0];
-  const to = hours[hours.length - 1];
-  const label = `${hours.length} ${plural(hours.length, {
-    one: "godzina",
-    few: "godziny",
-    many: "godzin",
-  })} bez zajęć`;
-
-  return (
-    <details className="border-line-soft col-span-full border-t">
-      <summary className="text-muted-brand hover:text-brand-red flex cursor-pointer items-center gap-2 py-1 font-mono text-[11px] tracking-widest uppercase [&::-webkit-details-marker]:hidden">
-        <span className="border-line-soft flex-1 border-b" aria-hidden="true" />
-        <span>
-          + {label} · {hourLabel(from)}-{hourLabel(to)}
-        </span>
-        <span className="border-line-soft flex-1 border-b" aria-hidden="true" />
-      </summary>
-
-      {/* Rozwinięte godziny dostają tę samą siatkę kolumn, więc oś czasu
-          i dni zostają w jednej linii z resztą grafiku. */}
-      <div className="grid gap-1" style={{ gridTemplateColumns: GRID_COLUMNS }}>
-        {hours.map((hour) => (
-          <React.Fragment key={hour}>
-            <div className="text-muted-brand border-line-soft border-t py-2 text-right font-mono text-xs">
-              {hourLabel(hour)}
-            </div>
-            {days.map((day) => (
-              <div
-                key={`${dayKeyOf(day)}-${hour}`}
-                className="border-line-soft min-h-14 border-t"
-              />
-            ))}
-          </React.Fragment>
-        ))}
-      </div>
-    </details>
   );
 }
 

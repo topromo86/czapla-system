@@ -13,6 +13,9 @@ export type ClubPlan = {
   entriesPerMonth: number | null;
   durationDays: number;
   forMinors: boolean;
+  // Karnet na treningi indywidualne - decyduje, z którego karnetu zejdzie
+  // wejście, gdy klient ma naraz grupowy i indywidualny.
+  forIndividual: boolean;
 };
 
 export const CLUB_PLANS: readonly ClubPlan[] = [
@@ -22,6 +25,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 12,
     durationDays: 30,
     forMinors: false,
+    forIndividual: false,
   },
   {
     name: "Dorośli 2× w tygodniu",
@@ -29,6 +33,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 8,
     durationDays: 30,
     forMinors: false,
+    forIndividual: false,
   },
 
   {
@@ -37,6 +42,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 12,
     durationDays: 30,
     forMinors: true,
+    forIndividual: false,
   },
   {
     name: "Kids/Junior 2× w tygodniu",
@@ -44,6 +50,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 8,
     durationDays: 30,
     forMinors: true,
+    forIndividual: false,
   },
 
   // Treningi indywidualne rozliczane wejściami, ważne 30 dni od zakupu.
@@ -53,6 +60,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 1,
     durationDays: 30,
     forMinors: false,
+    forIndividual: true,
   },
   {
     name: "Trening indywidualny 4×",
@@ -60,6 +68,7 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 4,
     durationDays: 30,
     forMinors: false,
+    forIndividual: true,
   },
   {
     name: "Trening indywidualny 8×",
@@ -67,5 +76,6 @@ export const CLUB_PLANS: readonly ClubPlan[] = [
     entriesPerMonth: 8,
     durationDays: 30,
     forMinors: false,
+    forIndividual: true,
   },
 ];

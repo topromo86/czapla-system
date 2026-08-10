@@ -42,6 +42,9 @@ function readForm(formData: FormData) {
     // Puste = OPEN, czyli karnet bez limitu wejść.
     entriesPerMonth: rawEntries ? Number(rawEntries) : null,
     forMinors: formData.get("forMinors") === "on",
+    // Karnet na treningi indywidualne - decyduje, z którego karnetu zejdzie
+    // wejście, gdy klient ma naraz grupowy i indywidualny.
+    forIndividual: formData.get("forIndividual") === "on",
   };
 }
 

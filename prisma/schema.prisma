@@ -701,6 +701,10 @@ model Plan {
   entriesPerMonth Int? // null = OPEN
   durationDays    Int     @default(30)
   forMinors       Boolean @default(false)
+  // Karnet na treningi indywidualne. Klient potrafi mieć naraz karnet grupowy
+  // i indywidualny - bez tego rozróżnienia wejście schodziło z tego, który
+  // kończy się później, czyli często z niewłaściwego.
+  forIndividual   Boolean @default(false)
   active          Boolean @default(true)
 
   passes     Pass[]

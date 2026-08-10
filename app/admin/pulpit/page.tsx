@@ -153,7 +153,10 @@ export default async function AdminDashboardPage() {
 
   const shortcuts = [
     { label: "Dodaj klienta", href: "/admin/klienci/nowy" },
-    { label: "Kasa", href: "/admin/kasa" },
+    // "Wpłaty", nie "Kasa": /admin/kasa to zamknięcie dnia kasowego, a w biegu
+    // potrzebne jest przyjęcie pieniędzy od klienta.
+    { label: "Wpłaty", href: "/admin/wplaty" },
+    { label: "Rodzaje karnetów", href: "/admin/karnety" },
     { label: "Grafik zajęć", href: "/admin/zajecia" },
     { label: "Obłożenie sal", href: "/admin/oblozenie" },
     { label: "Finanse", href: "/admin/finanse" },

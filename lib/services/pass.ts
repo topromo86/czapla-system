@@ -4,6 +4,7 @@ import { markJoinedIfNeeded } from "./member";
 import { logActivity } from "./activity";
 import { formatMoney } from "@/lib/format";
 import { settlePass, sumPayments, validatePaymentAmount } from "@/lib/domain/payment-status";
+import { pickPassForSession, type SessionKindForPass } from "@/lib/domain/pass";
 import {
   applyGiftCard,
   discountedPrice,
@@ -31,16 +32,37 @@ export class SaleError extends Error {}
 export async function decrementPassEntryIfLimited(
   tx: Tx,
   memberId: string,
+  kind: SessionKindForPass,
 ): Promise<string | null> {
-  const pass = await tx.pass.findFirst({
-    where: { memberId, status: "ACTIVE" },
-    orderBy: { endsAt: "desc" },
-  });
+  const pass = await findPassForSession(tx, memberId, kind);
   if (pass && pass.entriesLeft != null) {
     await tx.pass.update({ where: { id: pass.id }, data: { entriesLeft: { decrement: 1 } } });
     return pass.id;
   }
   return null;
+}
+
+// Karnet, który obsługuje zajęcia danego rodzaju - jedno miejsce dla zapisu
+// (czy klient w ogóle ma czym zapłacić) i dla zdjęcia wejścia. Gdyby te dwa
+// pytania odpowiadały sobie różnymi karnetami, klient przechodziłby kontrolę
+// na jednym karnecie, a wejście schodziłoby z drugiego.
+export async function findPassForSession(tx: Tx, memberId: string, kind: SessionKindForPass) {
+  const passes = await tx.pass.findMany({
+    where: { memberId, status: "ACTIVE" },
+    include: { plan: { select: { forIndividual: true } } },
+  });
+
+  const chosen = pickPassForSession(
+    passes.map((p) => ({
+      id: p.id,
+      endsAt: p.endsAt,
+      entriesLeft: p.entriesLeft,
+      forIndividual: p.plan.forIndividual,
+    })),
+    kind,
+  );
+
+  return chosen ? (passes.find((p) => p.id === chosen.id) ?? null) : null;
 }
 
 // Zwrot wejścia na konkretny karnet - odwrotność powyższego. Świadomie bez

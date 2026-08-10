@@ -81,7 +81,11 @@ export async function markManualAttendanceAction(formData: FormData) {
   const { trainer } = await requireTrainerSelf();
   const bookingId = String(formData.get("bookingId"));
 
-  const booking = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  const booking = await prisma.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    // Rodzaj zajęć decyduje, z którego karnetu zejdzie wejście.
+    include: { session: { select: { kind: true } } },
+  });
   await requireOwnsSession(booking.sessionId);
 
   await prisma.$transaction(async (tx) => {
@@ -96,7 +100,7 @@ export async function markManualAttendanceAction(formData: FormData) {
       update: {},
     });
     await tx.booking.update({ where: { id: bookingId }, data: { status: "ATTENDED" } });
-    await decrementPassEntryIfLimited(tx, booking.memberId);
+    await decrementPassEntryIfLimited(tx, booking.memberId, booking.session.kind);
     await markJoinedIfNeeded(tx, booking.memberId, new Date());
   });
 
@@ -244,7 +248,9 @@ export async function respondToSubstituteAction(formData: FormData) {
 
   // Odpowiadać może wyłącznie wskazany zastępca i wyłącznie dopóki czeka.
   if (!awaitsResponseFrom(target, trainer.id)) {
-    redirect(`/trainer?error=${encodeURIComponent("To zastępstwo nie czeka już na Twoją odpowiedź.")}`);
+    redirect(
+      `/trainer?error=${encodeURIComponent("To zastępstwo nie czeka już na Twoją odpowiedź.")}`,
+    );
   }
   if (!accept && !canDecline(target)) {
     redirect(
@@ -282,7 +288,11 @@ export async function respondToSubstituteAction(formData: FormData) {
     : `${myName} ODRZUCIŁ(A) zastępstwo na "${target.name}" ${formatDayTime(target.startsAt)}. Zajęcia wracają do trenera pierwotnego.${reason ? ` Powód: ${reason}` : ""}`;
 
   if (target.substituteRequestedById) {
-    await notifyUser(target.substituteRequestedById, accept ? "Zastępstwo potwierdzone" : "Zastępstwo odrzucone", notice);
+    await notifyUser(
+      target.substituteRequestedById,
+      accept ? "Zastępstwo potwierdzone" : "Zastępstwo odrzucone",
+      notice,
+    );
   }
   await notifyAdminsAboutSubstitute({
     title: accept ? "Zastępstwo potwierdzone" : "Zastępstwo ODRZUCONE",

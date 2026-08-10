@@ -21,3 +21,47 @@ export function classifyPassStatus(
   if (pass.endsAt <= warningThreshold) return "EXPIRING_SOON";
   return "ACTIVE";
 }
+
+// --- Który karnet obsługuje te zajęcia -------------------------------------
+//
+// Klub sprzedaje osobno karnety na zajęcia grupowe i na treningi indywidualne,
+// więc klient potrafi mieć oba naraz. Wcześniej wejście schodziło zawsze
+// z karnetu o najpóźniejszej dacie końca - czyli trening indywidualny umiał
+// zjeść wejście z karnetu grupowego i odwrotnie.
+//
+// Reguła: najpierw karnet pasujący do rodzaju zajęć, a wśród pasujących ten,
+// który kończy się najwcześniej. Inaczej klient, który dokupił kolejny karnet
+// przed końcem starego, zużywałby nowy, a stary przepadałby z wejściami.
+
+export type PassForSession = {
+  id: string;
+  endsAt: Date;
+  entriesLeft: number | null;
+  /** Z planu: czy to karnet na treningi indywidualne. */
+  forIndividual: boolean;
+};
+
+export type SessionKindForPass = "GROUP" | "INDIVIDUAL";
+
+// OPEN (entriesLeft null) jest zawsze do użycia; limitowany tylko dopóki ma
+// wejścia. Karnet bez wejść nie może obsłużyć zapisu - schodzenie poniżej zera
+// zamieniłoby limit w fikcję.
+function hasEntriesLeft(pass: PassForSession): boolean {
+  return pass.entriesLeft == null || pass.entriesLeft > 0;
+}
+
+export function pickPassForSession(
+  passes: readonly PassForSession[],
+  kind: SessionKindForPass,
+): PassForSession | null {
+  const wantsIndividual = kind === "INDIVIDUAL";
+  const usable = passes.filter(hasEntriesLeft);
+
+  // Karnet niepasujący do rodzaju zajęć jest ostatnią deską ratunku: lepiej
+  // pobrać wejście z czegokolwiek niż wpuścić za darmo. Klub z jednym rodzajem
+  // karnetu (tak było do tej pory) działa dzięki temu jak wcześniej.
+  const matching = usable.filter((p) => p.forIndividual === wantsIndividual);
+  const pool = matching.length > 0 ? matching : usable;
+
+  return [...pool].sort((a, b) => a.endsAt.getTime() - b.endsAt.getTime())[0] ?? null;
+}

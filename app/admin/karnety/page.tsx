@@ -155,6 +155,15 @@ export default async function AdminPlansPage({
               />
               Karnet dla dzieci
             </label>
+            <label className="text-text flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="forIndividual"
+                defaultChecked={edited?.forIndividual ?? false}
+                className="size-4"
+              />
+              Na treningi indywidualne
+            </label>
           </div>
 
           <div className="flex items-end gap-2 sm:col-span-2">
@@ -192,6 +201,7 @@ export default async function AdminPlansPage({
                 <p className="text-text font-medium">
                   {plan.name}
                   {plan.forMinors ? " (dzieci)" : ""}
+                  {plan.forIndividual ? " (indywidualne)" : ""}
                   {plan.active ? "" : " · wycofany"}
                 </p>
                 <p className="text-muted-brand mt-1 font-mono text-xs">
