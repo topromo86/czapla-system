@@ -14,6 +14,7 @@ import { requestBaseUrl } from "@/lib/base-url";
 import { formatTime } from "@/lib/format";
 import { qrSvg } from "@/lib/qr";
 import { ClassScanner } from "./class-scanner";
+import { KioskClock } from "./kiosk-clock";
 
 // Stacja z kodem zajęć - tablet albo telefon leżący przy wejściu na salę.
 // Zalogowany personel otwiera ten ekran i zostawia go włączony; nie ma tu nic
@@ -103,11 +104,9 @@ export default async function ClassQrStationPage({
     <main className="mx-auto flex min-h-full w-full max-w-2xl flex-1 flex-col gap-5 p-4">
       <meta httpEquiv="refresh" content={String(REFRESH_SECONDS)} />
 
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-brand-red text-2xl tracking-wide">Kod na zajęcia</h1>
-        <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          {formatTime(now)}
-        </p>
+        <KioskClock initial={formatTime(now)} />
       </div>
 
       {locations.length > 1 ? (
