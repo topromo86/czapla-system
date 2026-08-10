@@ -8,6 +8,8 @@
 // do `Pass.entriesLeft`, więc znaczy po prostu "wejścia w tym karnecie".
 // W interfejsie mówimy "liczba wejść", bo tak to działa.
 
+import { plural } from "./polish";
+
 export const PLAN_PERIODS = [
   { days: 30, label: "Miesięczny" },
   { days: 90, label: "Kwartalny" },
@@ -61,15 +63,9 @@ export function periodLabel(days: number): string {
   return PLAN_PERIODS.find((p) => p.days === days)?.label ?? `${days} dni`;
 }
 
-// Polska odmiana: 1 wejście, 2-4 wejścia, 5-21 wejść, 22-24 wejścia...
 // Bez tego cennik pisze "24 wejść", co w polskim tekście po prostu razi.
 export function entriesWord(count: number): string {
-  const abs = Math.abs(count);
-  if (abs === 1) return "wejście";
-  const last = abs % 10;
-  const lastTwo = abs % 100;
-  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return "wejścia";
-  return "wejść";
+  return plural(count, { one: "wejście", few: "wejścia", many: "wejść" });
 }
 
 export function entriesLabel(entriesPerMonth: number | null): string {

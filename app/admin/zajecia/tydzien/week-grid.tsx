@@ -1,8 +1,24 @@
+import React from "react";
 import Link from "next/link";
-import { gridCellKey, hourRange, hoursInRange, weekDays } from "@/lib/domain/schedule";
+import {
+  collapseEmptyHours,
+  gridCellKey,
+  hourRange,
+  hoursInRange,
+  weekDays,
+} from "@/lib/domain/schedule";
+import { plural } from "@/lib/domain/polish";
 import type { CalendarDate } from "@/lib/domain/time";
 import { formatTime } from "@/lib/format";
 import { DeleteSessionButton } from "./delete-session-button";
+
+// Szerokość kolumny godzin + siedem dni. Jedno miejsce, bo tej samej siatki
+// używa wiersz zwiniętej przerwy, żeby kolumny się nie rozjechały.
+const GRID_COLUMNS = "3.5rem repeat(7, minmax(0, 1fr))";
+
+function hourLabel(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
 
 const dayNameFormatter = new Intl.DateTimeFormat("pl-PL", {
   timeZone: "Europe/Warsaw",
@@ -68,12 +84,19 @@ export function AdminWeekGrid({
   const hours = hoursInRange(range);
 
   const byCell = new Map<string, GridSession[]>();
+  const busyHours = new Set<number>();
   for (const s of sessions) {
-    const key = `${localDayKey(s.startsAt)}T${String(localHour(s.startsAt)).padStart(2, "0")}`;
+    const hour = localHour(s.startsAt);
+    busyHours.add(hour);
+    const key = `${localDayKey(s.startsAt)}T${String(hour).padStart(2, "0")}`;
     const bucket = byCell.get(key);
     if (bucket) bucket.push(s);
     else byCell.set(key, [s]);
   }
+
+  // Godziny bez ani jednych zajęć w całym tygodniu zwijamy - przerwa między
+  // porankiem a wieczorem potrafiła zajmować więcej ekranu niż sam grafik.
+  const rows = collapseEmptyHours(hours, busyHours);
 
   const todayKey = localDayKey(now);
 
@@ -83,10 +106,7 @@ export function AdminWeekGrid({
     // przycinałby menu kafelków z dolnego rzędu.
     <div className="overflow-x-auto lg:overflow-x-visible">
       <div className="min-w-[52rem]">
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}
-        >
+        <div className="grid gap-1" style={{ gridTemplateColumns: GRID_COLUMNS }}>
           <div />
           {days.map((day) => {
             const key = dayKeyOf(day);
@@ -105,16 +125,21 @@ export function AdminWeekGrid({
             );
           })}
 
-          {hours.map((hour) => (
-            <GridRow
-              key={hour}
-              hour={hour}
-              days={days}
-              byCell={byCell}
-              now={now}
-              returnTo={returnTo}
-            />
-          ))}
+          {rows.map((row) =>
+            row.kind === "gap" ? (
+              <CollapsedGap key={`gap-${row.hours[0]}`} hours={row.hours} days={days} />
+            ) : (
+              <GridRow
+                key={row.hour}
+                hour={row.hour}
+                empty={row.empty}
+                days={days}
+                byCell={byCell}
+                now={now}
+                returnTo={returnTo}
+              />
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -123,28 +148,38 @@ export function AdminWeekGrid({
 
 function GridRow({
   hour,
+  empty,
   days,
   byCell,
   now,
   returnTo,
 }: {
   hour: number;
+  empty: boolean;
   days: CalendarDate[];
   byCell: Map<string, GridSession[]>;
   now: Date;
   returnTo: string;
 }) {
+  // Pusta godzina zostaje w siatce (oś czasu ma być ciągła), ale na jedną
+  // trzecią wysokości - nie ma tam czego pokazywać.
+  const cellHeight = empty ? "min-h-5" : "min-h-14";
+
   return (
     <>
-      <div className="text-muted-brand border-line-soft border-t py-2 text-right font-mono text-xs">
-        {String(hour).padStart(2, "0")}:00
+      <div
+        className={`text-muted-brand border-line-soft border-t text-right font-mono text-xs ${
+          empty ? "py-0.5 opacity-60" : "py-2"
+        }`}
+      >
+        {hourLabel(hour)}
       </div>
       {days.map((day) => {
         const cellSessions = byCell.get(gridCellKey(day, hour)) ?? [];
         return (
           <div
             key={`${dayKeyOf(day)}-${hour}`}
-            className="border-line-soft flex min-h-14 flex-col gap-1 border-t py-1"
+            className={`border-line-soft flex flex-col gap-1 border-t py-1 ${cellHeight}`}
           >
             {cellSessions.map((s) => (
               <GridTile key={s.id} session={s} now={now} returnTo={returnTo} />
@@ -153,6 +188,48 @@ function GridRow({
         );
       })}
     </>
+  );
+}
+
+// Zwinięta przerwa: jeden pasek zamiast kilku pustych pasów. Natywne <details>,
+// więc rozwijanie działa bez JS - tak jak menu kafelków.
+function CollapsedGap({ hours, days }: { hours: number[]; days: CalendarDate[] }) {
+  const from = hours[0];
+  const to = hours[hours.length - 1];
+  const label = `${hours.length} ${plural(hours.length, {
+    one: "godzina",
+    few: "godziny",
+    many: "godzin",
+  })} bez zajęć`;
+
+  return (
+    <details className="border-line-soft col-span-full border-t">
+      <summary className="text-muted-brand hover:text-brand-red flex cursor-pointer items-center gap-2 py-1 font-mono text-[11px] tracking-widest uppercase [&::-webkit-details-marker]:hidden">
+        <span className="border-line-soft flex-1 border-b" aria-hidden="true" />
+        <span>
+          + {label} · {hourLabel(from)}-{hourLabel(to)}
+        </span>
+        <span className="border-line-soft flex-1 border-b" aria-hidden="true" />
+      </summary>
+
+      {/* Rozwinięte godziny dostają tę samą siatkę kolumn, więc oś czasu
+          i dni zostają w jednej linii z resztą grafiku. */}
+      <div className="grid gap-1" style={{ gridTemplateColumns: GRID_COLUMNS }}>
+        {hours.map((hour) => (
+          <React.Fragment key={hour}>
+            <div className="text-muted-brand border-line-soft border-t py-2 text-right font-mono text-xs">
+              {hourLabel(hour)}
+            </div>
+            {days.map((day) => (
+              <div
+                key={`${dayKeyOf(day)}-${hour}`}
+                className="border-line-soft min-h-14 border-t"
+              />
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </details>
   );
 }
 

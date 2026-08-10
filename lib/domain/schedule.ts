@@ -56,12 +56,7 @@ export function bookingHorizonEnd(input: {
 }
 
 export type BookableStatus =
-  | "BOOKABLE"
-  | "PAST"
-  | "BEYOND_HORIZON"
-  | "CANCELLED"
-  | "FULL"
-  | "ALREADY_BOOKED";
+  "BOOKABLE" | "PAST" | "BEYOND_HORIZON" | "CANCELLED" | "FULL" | "ALREADY_BOOKED";
 
 // Status kafelka w plannerze. Świadomie rozdzielone od
 // evaluateBookingEligibility (lib/domain/booking.ts): tam sprawdzamy prawo
@@ -114,6 +109,47 @@ export function hoursInRange(range: { from: number; to: number }): number[] {
 // w pasie 18:00 - planner ma pokazywać rozkład dnia, a nie minutowy kalendarz.
 export function gridCellKey(day: CalendarDate, hour: number): string {
   return `${day.year}-${String(day.month).padStart(2, "0")}-${String(day.day).padStart(2, "0")}T${String(hour).padStart(2, "0")}`;
+}
+
+// Wiersz siatki: albo konkretna godzina, albo zwinięta dziura między porannymi
+// a popołudniowymi zajęciami.
+export type GridRowSpec =
+  { kind: "hour"; hour: number; empty: boolean } | { kind: "gap"; hours: number[] };
+
+// Ile pustych godzin z rzędu zwijamy w jeden pasek. Jedna pusta godzina zostaje
+// jako godzina - zwinięcie jej w pasek "1 godzina bez zajęć" zajmuje tyle samo
+// miejsca, a dokłada klikanie.
+export const MIN_COLLAPSED_GAP_HOURS = 2;
+
+// Klub trenuje rano i wieczorem, a między 11:00 a 16:00 siatka to pięć pustych
+// pasów - tyle samo miejsca co realny grafik. Zwijamy je w jeden pasek do
+// rozwinięcia; pojedyncze puste godziny zostają, tylko niższe (`empty`).
+export function collapseEmptyHours(
+  hours: readonly number[],
+  busyHours: ReadonlySet<number>,
+  minGap: number = MIN_COLLAPSED_GAP_HOURS,
+): GridRowSpec[] {
+  const rows: GridRowSpec[] = [];
+  let run: number[] = [];
+
+  const flush = () => {
+    if (run.length === 0) return;
+    if (run.length >= minGap) rows.push({ kind: "gap", hours: run });
+    else for (const hour of run) rows.push({ kind: "hour", hour, empty: true });
+    run = [];
+  };
+
+  for (const hour of hours) {
+    if (busyHours.has(hour)) {
+      flush();
+      rows.push({ kind: "hour", hour, empty: false });
+    } else {
+      run.push(hour);
+    }
+  }
+  flush();
+
+  return rows;
 }
 
 export function describeHorizon(mode: BookingHorizonMode, days: number): string {

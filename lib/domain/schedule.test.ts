@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bookingHorizonEnd,
+  collapseEmptyHours,
   describeHorizon,
   gridCellKey,
   hourRange,
@@ -165,9 +166,9 @@ describe("sessionBookableStatus", () => {
   });
 
   it("własny zapis widać przed informacją o pełnym komplecie", () => {
-    expect(
-      sessionBookableStatus({ ...base, memberAlreadyBooked: true, bookedCount: 12 }),
-    ).toBe("ALREADY_BOOKED");
+    expect(sessionBookableStatus({ ...base, memberAlreadyBooked: true, bookedCount: 12 })).toBe(
+      "ALREADY_BOOKED",
+    );
   });
 
   it("termin z przeszłości", () => {
@@ -232,5 +233,65 @@ describe("describeHorizon", () => {
 
   it("opisuje tryb stałej liczby dni", () => {
     expect(describeHorizon("FIXED_DAYS", 21)).toBe("21 dni do przodu");
+  });
+});
+
+describe("collapseEmptyHours", () => {
+  const busy = (...hours: number[]) => new Set(hours);
+
+  it("nie zwija, gdy wszystkie godziny mają zajęcia", () => {
+    const rows = collapseEmptyHours([16, 17, 18], busy(16, 17, 18));
+    expect(rows).toEqual([
+      { kind: "hour", hour: 16, empty: false },
+      { kind: "hour", hour: 17, empty: false },
+      { kind: "hour", hour: 18, empty: false },
+    ]);
+  });
+
+  // Sedno: rano zajęcia, wieczorem zajęcia, a między nimi pięć pustych pasów,
+  // które zajmowały tyle samo miejsca co cały realny grafik.
+  it("zwija dziurę między rankiem a wieczorem w jeden pasek", () => {
+    const rows = collapseEmptyHours([9, 10, 11, 12, 13, 14, 15, 16, 17], busy(9, 10, 16, 17));
+    expect(rows).toEqual([
+      { kind: "hour", hour: 9, empty: false },
+      { kind: "hour", hour: 10, empty: false },
+      { kind: "gap", hours: [11, 12, 13, 14, 15] },
+      { kind: "hour", hour: 16, empty: false },
+      { kind: "hour", hour: 17, empty: false },
+    ]);
+  });
+
+  // Zwijanie jednej godziny nic nie oszczędza, a dokłada klikanie - zostaje
+  // jako niski wiersz.
+  it("pojedyncza pusta godzina zostaje wierszem", () => {
+    const rows = collapseEmptyHours([16, 17, 18], busy(16, 18));
+    expect(rows).toEqual([
+      { kind: "hour", hour: 16, empty: false },
+      { kind: "hour", hour: 17, empty: true },
+      { kind: "hour", hour: 18, empty: false },
+    ]);
+  });
+
+  it("zwija także dziurę na końcu zakresu", () => {
+    const rows = collapseEmptyHours([16, 17, 18, 19], busy(16));
+    expect(rows).toEqual([
+      { kind: "hour", hour: 16, empty: false },
+      { kind: "gap", hours: [17, 18, 19] },
+    ]);
+  });
+
+  it("tydzień bez zajęć to jeden pasek", () => {
+    const rows = collapseEmptyHours([8, 9, 10], busy());
+    expect(rows).toEqual([{ kind: "gap", hours: [8, 9, 10] }]);
+  });
+
+  it("próg zwijania da się podnieść", () => {
+    const rows = collapseEmptyHours([16, 17, 18, 19], busy(16, 19), 3);
+    expect(rows).toEqual([
+      { kind: "hour", hour: 16, empty: false },
+      { kind: "hour", hour: 17, empty: true },
+      { kind: "hour", hour: 18, empty: true },
+      { kind: "hour", hour: 19, empty: false },
+    ]);
   });
 });
