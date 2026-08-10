@@ -6,8 +6,15 @@ import { Input } from "@/components/ui/input";
 import { seesSessionWhere } from "@/lib/domain/substitute";
 import { formatDayTime } from "@/lib/format";
 import {
+  classifyTrainerCheckIn,
+  TRAINER_CHECK_IN_LABEL,
+  trainerDeadline,
+} from "@/lib/domain/class-qr";
+import { getClubSettings } from "@/lib/services/settings";
+import {
   assignSubstituteAction,
   cancelSessionAction,
+  confirmAttendanceAction,
   confirmConsentDeliveryAction,
   markManualAttendanceAction,
   respondToSubstituteAction,
@@ -23,8 +30,10 @@ function formatTime(date: Date): string {
 
 export default async function TrainerTodayPage() {
   const { trainer } = await requireTrainerSelf();
+  const settings = await getClubSettings();
+  const now = new Date();
 
-  const today = todayInTimeZone(new Date());
+  const today = todayInTimeZone(now);
   const tomorrow = addCalendarDays(today, 1);
   const todayStart = zonedTimeToUtc(today.year, today.month, today.day, 0, 0);
   const todayEnd = zonedTimeToUtc(tomorrow.year, tomorrow.month, tomorrow.day, 0, 0);
@@ -114,7 +123,11 @@ export default async function TrainerTodayPage() {
                     <form action={respondToSubstituteAction} className="flex items-center gap-2">
                       <input type="hidden" name="sessionId" value={s.id} />
                       <input type="hidden" name="decision" value="DECLINE" />
-                      <Input name="reason" placeholder="Powód odmowy (opcjonalnie)" className="w-56" />
+                      <Input
+                        name="reason"
+                        placeholder="Powód odmowy (opcjonalnie)"
+                        className="w-56"
+                      />
                       <Button type="submit" variant="outline" size="sm">
                         Nie mogę
                       </Button>
@@ -125,7 +138,8 @@ export default async function TrainerTodayPage() {
             ))}
           </ul>
           <p className="text-muted-brand mt-3 text-xs">
-            Dopóki nie potwierdzisz, zajęcia prowadzi trener pierwotny - nikt nie zostaje bez opieki.
+            Dopóki nie potwierdzisz, zajęcia prowadzi trener pierwotny - nikt nie zostaje bez
+            opieki.
           </p>
         </section>
       ) : null}
@@ -174,6 +188,62 @@ export default async function TrainerTodayPage() {
               Potwierdź zastępstwo powyżej, żeby móc prowadzić listę obecności.
             </p>
           ) : null}
+
+          {/* Stan odbić na tych zajęciach: czy prowadzący się odbił i ile
+              osób odbiło kod. Zatwierdzenie zamyka listę. */}
+          <div className="border-line-soft bg-surface-2 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 font-mono text-xs">
+            <span
+              className={
+                s.trainerCheckedInAt
+                  ? s.trainerCheckedInAt <= trainerDeadline(s, settings.trainerCheckInMinutesBefore)
+                    ? "text-jade"
+                    : "text-amber"
+                  : now > trainerDeadline(s, settings.trainerCheckInMinutesBefore)
+                    ? "text-red"
+                    : "text-muted-brand"
+              }
+            >
+              {
+                TRAINER_CHECK_IN_LABEL[
+                  classifyTrainerCheckIn({
+                    session: s,
+                    checkedInAt: s.trainerCheckedInAt,
+                    now,
+                    minutesBefore: settings.trainerCheckInMinutesBefore,
+                  })
+                ]
+              }
+            </span>
+            <span className="text-muted-brand">
+              Odbić: {s.attendances.length}/{s.bookings.length}
+            </span>
+          </div>
+
+          {s.attendanceConfirmedAt ? (
+            <p className="border-jade/40 bg-jade/5 text-jade mt-2 rounded-md border p-2 text-sm">
+              Obecność potwierdzona: {s.attendanceConfirmedCount} os.
+            </p>
+          ) : (
+            <form
+              action={confirmAttendanceAction}
+              className="border-line-soft mt-2 flex flex-wrap items-center gap-2 rounded-md border p-2"
+            >
+              <input type="hidden" name="sessionId" value={s.id} />
+              <span className="text-muted-brand text-sm">Policzone na sali:</span>
+              <Input
+                name="count"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                defaultValue={s.attendances.length}
+                aria-label="Liczba osób policzonych na sali"
+                className="border-line bg-surface h-9 w-20"
+              />
+              <Button type="submit" size="sm" variant="outline">
+                Potwierdź obecność
+              </Button>
+            </form>
+          )}
 
           <ul className="mt-3 flex flex-col gap-2">
             {s.bookings.map((b) => {

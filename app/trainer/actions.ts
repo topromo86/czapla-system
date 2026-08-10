@@ -315,3 +315,45 @@ export async function confirmConsentDeliveryAction(formData: FormData) {
   revalidatePath("/trainer");
   revalidatePath("/trainer/podopieczni");
 }
+
+// Potwierdzenie listy obecności przez prowadzącego.
+//
+// Odbicia kodem QR dają listę wstępną - po zajęciach trener przelicza salę
+// i zatwierdza liczbę, którą realnie policzył. Zapisujemy jego liczbę OBOK
+// liczby odbić, bo rozjazd między nimi jest właśnie tą informacją, dla której
+// to robimy: ktoś przyszedł bez odbicia albo odbił się i wyszedł.
+export async function confirmAttendanceAction(formData: FormData) {
+  const { session } = await requireTrainerSelf();
+  const sessionId = String(formData.get("sessionId") ?? "");
+  await requireOwnsSession(sessionId);
+
+  const klasa = await prisma.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: { attendances: { select: { id: true } } },
+  });
+
+  const raw = String(formData.get("count") ?? "").trim();
+  const counted = raw ? Number(raw) : klasa.attendances.length;
+  if (!Number.isInteger(counted) || counted < 0 || counted > 500) {
+    redirect("/trainer?blad=liczba");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.session.update({
+      where: { id: sessionId },
+      data: { attendanceConfirmedAt: new Date(), attendanceConfirmedCount: counted },
+    });
+    await logActivity(tx, {
+      actorUserId: session.user.id,
+      action: "SESSION_UPDATED",
+      summary:
+        counted === klasa.attendances.length
+          ? `Potwierdzono obecność na "${klasa.name}": ${counted} os.`
+          : `Potwierdzono obecność na "${klasa.name}": ${counted} os. (odbić: ${klasa.attendances.length})`,
+    });
+  });
+
+  revalidatePath("/trainer");
+  revalidatePath("/admin/pulpit");
+  redirect("/trainer?potwierdzono=1");
+}

@@ -374,6 +374,14 @@ model ClubSettings {
   // tym czasie to wciąż to samo wejście. 0 = brak wymogu.
   floorMinMinutes Int @default(0)
 
+  // Kod QR zajęć pojawia się tyle minut przed startem. Nowy kod dla każdych
+  // zajęć - zdjęcie wczorajszego ekranu nic nie daje.
+  qrOpensMinutesBefore Int @default(15)
+
+  // Do ilu minut przed startem trener ma odbić kod. Po tym czasie odbicie
+  // liczy się jako spóźnione i trafia do właściciela na pulpit.
+  trainerCheckInMinutesBefore Int @default(5)
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 }
@@ -524,6 +532,21 @@ model Session {
   updatedAt DateTime @updatedAt @db.Timestamptz
 
   categoryId String?
+
+  // Kod QR tych zajęć - jednorazowy, losowany przy pierwszym pokazaniu na
+  // stacji. Osobny dla każdych zajęć, więc kod raz sfotografowany nie wpuści
+  // nikogo na kolejny trening.
+  qrToken String? @unique
+
+  // Odbicie prowadzącego: kto i kiedy. Bez tego nie da się stwierdzić, czy
+  // trener był na sali przed zajęciami, czy dopisał obecność po fakcie.
+  trainerCheckedInAt     DateTime? @db.Timestamptz
+  trainerCheckedInUserId String?
+
+  // Potwierdzenie obecności przez prowadzącego: liczba osób, którą zatwierdził,
+  // i moment zatwierdzenia. Dopóki tego nie ma, lista obecności jest wstępna.
+  attendanceConfirmedAt    DateTime? @db.Timestamptz
+  attendanceConfirmedCount Int?
 
   category          ClassCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   template          ClassTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)

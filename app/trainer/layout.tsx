@@ -63,7 +63,13 @@ export default async function TrainerLayout({ children }: { children: React.Reac
         { href: "/trainer/aktywnosc", label: "Aktywność" },
       ],
     },
-    { label: "Stacja", items: [{ href: "/skaner", label: "Stacja skanera" }] },
+    {
+      label: "Stacja",
+      items: [
+        { href: "/kod-zajec", label: "Kod na zajęcia" },
+        { href: "/skaner", label: "Stacja skanera" },
+      ],
+    },
   ];
 
   return (

@@ -4,6 +4,10 @@ import type { BookingHorizonMode } from "@/lib/domain/schedule";
 import { FREE_CANCELLATION_WINDOW_HOURS } from "@/lib/domain/booking";
 import { BONUS_THRESHOLD_SCORE } from "@/lib/domain/scoring";
 import { resolveFontTheme, type FontThemeId } from "@/lib/domain/font-themes";
+import {
+  DEFAULT_QR_OPENS_MINUTES_BEFORE,
+  DEFAULT_TRAINER_CHECK_IN_MINUTES_BEFORE,
+} from "@/lib/domain/class-qr";
 
 export type ClubSettingsView = {
   bookingHorizonMode: BookingHorizonMode;
@@ -13,6 +17,8 @@ export type ClubSettingsView = {
   freeCancellationHours: number;
   fontTheme: FontThemeId;
   floorMinMinutes: number;
+  qrOpensMinutesBefore: number;
+  trainerCheckInMinutesBefore: number;
 };
 
 // Ustawienia klubu z bezpiecznym domyślnym stanem. Wiersz "singleton" jest
@@ -31,5 +37,8 @@ export async function getClubSettings(): Promise<ClubSettingsView> {
     freeCancellationHours: settings?.freeCancellationHours ?? FREE_CANCELLATION_WINDOW_HOURS,
     fontTheme: resolveFontTheme(settings?.fontTheme),
     floorMinMinutes: settings?.floorMinMinutes ?? 0,
+    qrOpensMinutesBefore: settings?.qrOpensMinutesBefore ?? DEFAULT_QR_OPENS_MINUTES_BEFORE,
+    trainerCheckInMinutesBefore:
+      settings?.trainerCheckInMinutesBefore ?? DEFAULT_TRAINER_CHECK_IN_MINUTES_BEFORE,
   };
 }

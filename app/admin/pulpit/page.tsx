@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { formatMoney } from "@/lib/format";
+import { classifyTrainerCheckIn } from "@/lib/domain/class-qr";
+import { getClubSettings } from "@/lib/services/settings";
 
 // Pulpit właściciela - ekran startowy admina po zalogowaniu. Dwie rzeczy naraz:
 // szybki obraz kondycji klubu (KPI) i lista tego, co dziś wymaga jego decyzji
@@ -28,6 +30,7 @@ function time(date: Date): string {
 
 export default async function AdminDashboardPage() {
   const session = await requireRole("ADMIN");
+  const settings = await getClubSettings();
   const now = new Date();
   const today = todayInTimeZone(now);
   const tomorrow = addCalendarDays(today, 1);
@@ -58,6 +61,7 @@ export default async function AdminDashboardPage() {
     pendingLinks,
     substituteAlerts,
     openRetentionTasks,
+    todayNoTrainerCheckIn,
     revenue6m,
   ] = await Promise.all([
     prisma.member.count({ where: { status: "ACTIVE" } }),
@@ -88,6 +92,17 @@ export default async function AdminDashboardPage() {
       },
     }),
     prisma.retentionTask.count({ where: { closedAt: null } }),
+    // Zajęcia, na których minął termin odbicia prowadzącego, a odbicia nie ma.
+    // Właściciel ma się o tym dowiedzieć z systemu, a nie od klientów.
+    prisma.session.findMany({
+      where: {
+        status: "SCHEDULED",
+        trainerCheckedInAt: null,
+        startsAt: { gte: todayStart, lt: todayEnd },
+      },
+      include: { trainer: { include: { user: true } }, location: true },
+      orderBy: { startsAt: "asc" },
+    }),
     prisma.payment.findMany({
       where: { recordedAt: { gte: sixMonthsStart, lt: todayEnd } },
       select: { amountGross: true, recordedAt: true },
@@ -140,6 +155,18 @@ export default async function AdminDashboardPage() {
     },
   ];
 
+  // Termin odbicia minął, a trenera nie ma - dopiero to jest alertem.
+  // Zajęcia, do których jest jeszcze czas, nie zawracają nikomu głowy.
+  const missingCheckIns = todayNoTrainerCheckIn.filter(
+    (s) =>
+      classifyTrainerCheckIn({
+        session: s,
+        checkedInAt: s.trainerCheckedInAt,
+        now,
+        minutesBefore: settings.trainerCheckInMinutesBefore,
+      }) === "MISSING",
+  );
+
   const attention = [
     {
       count: pendingMinors,
@@ -149,6 +176,11 @@ export default async function AdminDashboardPage() {
     { count: pendingLinks, label: "Prośby rodziców o powiązanie", href: "/admin/zatwierdzenia" },
     { count: substituteAlerts, label: "Zastępstwa do potwierdzenia", href: "/admin/zastepstwa" },
     { count: openRetentionTasks, label: "Otwarte alerty retencji", href: "/admin/retencja" },
+    {
+      count: missingCheckIns.length,
+      label: "Zajęcia bez odbicia prowadzącego",
+      href: "/admin/zajecia",
+    },
   ].filter((a) => a.count > 0);
 
   const shortcuts = [

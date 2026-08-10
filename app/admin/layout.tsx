@@ -67,6 +67,7 @@ const NAV_GROUPS: HeaderNavGroup[] = [
       { href: "/admin/ustawienia/email", label: "Poczta e-mail" },
       { href: "/admin/ustawienia/wyglad", label: "Wygląd" },
       { href: "/admin/ustawienia/sala", label: "Sala (odbicia)" },
+      { href: "/kod-zajec", label: "Kod na zajęcia" },
       { href: "/skaner", label: "Stacja skanera" },
     ],
   },
