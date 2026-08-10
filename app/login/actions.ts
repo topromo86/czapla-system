@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/domain/registration";
 import type { Role } from "@/app/generated/prisma/client";
 
 const ROLE_HOME: Record<Role, string> = {
@@ -36,6 +37,11 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
   // Nie polegamy tu na auth() zaraz po signIn() - świeżo ustawiony cookie sesji
   // bywa niewidoczny w tym samym wywołaniu Server Action (potwierdzone empirycznie).
-  const user = await prisma.user.findUnique({ where: { email }, select: { role: true } });
+  // Ta sama normalizacja co przy sprawdzaniu hasła - inaczej "Kiosk" zalogowałby
+  // się poprawnie, ale nie znaleźlibyśmy konta do wyboru ekranu startowego.
+  const user = await prisma.user.findUnique({
+    where: { email: normalizeEmail(email) },
+    select: { role: true },
+  });
   redirect(ROLE_HOME[user?.role ?? "MEMBER"]);
 }
