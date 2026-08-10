@@ -1,8 +1,17 @@
 // Wymiana cennika: kasuje demonstracyjną historię karnetów i wgrywa realne
 // rodzaje karnetów klubu (prisma/club-plans.ts).
 //
+// Baza deweloperska (domyślnie .env):
 //   npx tsx prisma/reset-cennik.ts            <- tylko pokazuje, co zniknie
 //   npx tsx prisma/reset-cennik.ts --usun     <- naprawdę kasuje i wgrywa
+//
+// Inna baza (np. produkcyjna) - wskaż plik z adresem, skrypt sam go wczyta:
+//   npx tsx prisma/reset-cennik.ts --env .env.vercel
+//   npx tsx prisma/reset-cennik.ts --env .env.vercel --usun
+//
+// Na Windows/PowerShell: npx.cmd zamiast npx (polityka wykonywania blokuje
+// npx.ps1). Adres bazy wczytuje skrypt, więc hasło nie przechodzi przez wiersz
+// poleceń ani przez historię terminala.
 //
 // Kasowanie jest nieodwracalne, więc domyślnie skrypt NIC nie robi - najpierw
 // wypisuje, co ma zniknąć, i dopiero druga świadoma decyzja to wykonuje.
@@ -12,17 +21,37 @@
 // Czego NIE rusza: klientów, zajęć, grafiku, kont, zamknięć kasy. Tylko
 // karnety, wpłaty za nie i sam cennik.
 
+import { existsSync } from "node:fs";
+import dotenv from "dotenv";
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { pickConnectionString } from "../lib/domain/connection-string";
 import { entriesLabel } from "../lib/domain/plan";
 import { CLUB_PLANS } from "./club-plans";
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: pickConnectionString(process.env) }),
-});
-
 const wykonaj = process.argv.includes("--usun");
+
+// --env <plik>. Bez tego bierzemy .env, czyli bazę deweloperską - żeby
+// "uruchomiłem bez parametrów" nigdy nie znaczyło "uderzyłem w produkcję".
+const envIndex = process.argv.indexOf("--env");
+const envFile = envIndex >= 0 ? process.argv[envIndex + 1] : ".env";
+
+if (!envFile || !existsSync(envFile)) {
+  console.error(`Nie znaleziono pliku z adresem bazy: ${envFile}`);
+  process.exit(1);
+}
+dotenv.config({ path: envFile, override: true, quiet: true });
+
+const connectionString = pickConnectionString(process.env);
+if (!connectionString) {
+  console.error(`W pliku ${envFile} nie ma adresu bazy (DATABASE_URL).`);
+  process.exit(1);
+}
+
+// Host bez hasła - potwierdzenie, w co uderzamy, bez pokazywania sekretu.
+console.log(`Baza: ${connectionString.replace(/:\/\/[^@]*@/, "://***@")} (z ${envFile})\n`);
+
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 function zl(grosze: number): string {
   return (grosze / 100).toFixed(2).replace(/\.00$/, "");

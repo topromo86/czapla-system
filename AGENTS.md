@@ -94,8 +94,10 @@ ceny i wracały one na każdą odtworzoną bazę.
 Wymiana cennika wraz z wyczyszczeniem demonstracyjnej historii karnetów:
 
 ```
-npx tsx prisma/reset-cennik.ts          # tylko pokazuje, co zniknie
-npx tsx prisma/reset-cennik.ts --usun   # kasuje i wgrywa
+npx tsx prisma/reset-cennik.ts                        # dev, tylko podgląd
+npx tsx prisma/reset-cennik.ts --usun                 # dev, wykonanie
+npx tsx prisma/reset-cennik.ts --env .env.vercel      # produkcja, podgląd
+npx tsx prisma/reset-cennik.ts --env .env.vercel --usun
 ```
 
 Skrypt kasuje karnety, wpłaty i cennik; nie rusza klientów, zajęć, grafiku,
