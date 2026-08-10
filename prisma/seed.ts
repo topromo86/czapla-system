@@ -11,6 +11,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../app/generated/prisma/client";
+import { CLUB_PLANS } from "./club-plans";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -249,21 +250,17 @@ async function main() {
     await prisma.churnReason.create({ data: r });
   }
 
-  const planAdultOpen = await prisma.plan.create({
-    data: { name: "OPEN Dorośli", priceGross: 24900, durationDays: 30, forMinors: false },
-  });
-  const planAdultLimited = await prisma.plan.create({
-    data: {
-      name: "Karnet 8 wejść",
-      priceGross: 17900,
-      entriesPerMonth: 8,
-      durationDays: 30,
-      forMinors: false,
-    },
-  });
-  const planKids = await prisma.plan.create({
-    data: { name: "OPEN Dzieci", priceGross: 19900, durationDays: 30, forMinors: true },
-  });
+  // Cennik bierzemy z jednego źródła (club-plans.ts), a nie wymyślamy tutaj -
+  // wcześniej seed tworzył własne, demonstracyjne ceny i wracały one na każdą
+  // odtworzoną bazę, także po wgraniu prawdziwego cennika klubu.
+  for (const plan of CLUB_PLANS) {
+    await prisma.plan.create({ data: plan });
+  }
+  const planByName = async (name: string) => prisma.plan.findFirstOrThrow({ where: { name } });
+
+  const planAdultOpen = await planByName("Dorośli 3× w tygodniu");
+  const planAdultLimited = await planByName("Dorośli 2× w tygodniu");
+  const planKids = await planByName("Kids/Junior 3× w tygodniu");
 
   // --- Właściciel + trenerzy --------------------------------------------------------
   const ownerUser = await prisma.user.create({

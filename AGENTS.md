@@ -84,3 +84,23 @@ dostawcę bazy, żeby awaria po jego stronie nie zabrała ze sobą kopii.
 którego sterownik `node-postgres` nie otworzy. Tam też jest jawne
 `sslmode=verify-full`, żeby aktualizacja `pg` nie wyłączyła po cichu
 sprawdzania certyfikatu.
+
+## Cennik karnetów
+
+Rodzaje karnetów żyją w `prisma/club-plans.ts` - jedno miejsce, z którego
+korzysta seed i skrypt wymiany cennika. Wcześniej seed miał własne, wymyślone
+ceny i wracały one na każdą odtworzoną bazę.
+
+Wymiana cennika wraz z wyczyszczeniem demonstracyjnej historii karnetów:
+
+```
+npx tsx prisma/reset-cennik.ts          # tylko pokazuje, co zniknie
+npx tsx prisma/reset-cennik.ts --usun   # kasuje i wgrywa
+```
+
+Skrypt kasuje karnety, wpłaty i cennik; nie rusza klientów, zajęć, grafiku,
+kont ani zamknięć kasy. Bez `--usun` nic nie robi - kasowanie `Payment`
+(w normalnej pracy append-only) jest nieodwracalne.
+
+Codzienne zmiany cen robi właściciel na ekranie **Pieniądze → Rodzaje
+karnetów**, bez programisty.
