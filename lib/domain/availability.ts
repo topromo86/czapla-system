@@ -8,17 +8,20 @@
 // 23:00 jest niemożliwy nawet przy spreparowanym formularzu, a nie tylko
 // schowany w UI.
 //
-// Druga reguła: SALA jest zasobem, nie tylko trener. W Mikołowie i w Tychach
-// w jednym momencie trwa najwyżej jeden trening indywidualny - klub ma dwie
-// sale, nie dwanaście. Jeśli o 17:00 we wtorek ktoś umówił się z Jackiem w
-// Mikołowie, to 17:00 w Mikołowie jest zajęte dla wszystkich pozostałych
-// trenerów, choćby mieli wolne okno. Tychy w tym samym czasie zostają wolne.
-// Zajęcia grupowe zajmują salę tak samo jak indywidualne - w sali z grupą nie
-// da się prowadzić treningu jeden na jeden.
+// Druga reguła dotyczy SALI i ma trzy stopnie, bo nie każde "zajęte" znaczy
+// to samo:
+//
+// 1. Zajęcia grupowe zajmują salę całkowicie - obok dwudziestu ćwiczących nie
+//    da się prowadzić treningu jeden na jeden. Twarda blokada.
+// 2. Trwający obok trening indywidualny NIE blokuje. Klub potrafi prowadzić
+//    dwa personalne naraz, więc to informacja dla klienta ("ktoś jeszcze tam
+//    będzie"), a decyzję zostawiamy jemu.
+// 3. Wyjątek od punktu 2: nie łączymy osoby nieletniej z obcym dorosłym na
+//    jednej macie. To jedyny przypadek, w którym sąsiedztwo jest blokadą,
+//    i nie jest to preferencja, tylko zasada klubu.
 //
 // Dlatego trenerzy mogą spokojnie wpisywać te same dni i godziny dostępności:
-// klient wybiera, z kim chce trenować, a system pilnuje, żeby dwie osoby nie
-// stanęły w tej samej sali o tej samej porze.
+// klient wybiera, z kim chce trenować, a system pilnuje reguł powyżej.
 
 import {
   addCalendarDays,
@@ -124,18 +127,25 @@ export function slotStartsWithinWindow(window: {
   return starts;
 }
 
-// Zajęty kawałek grafiku: konkretne zajęcia (grupowe albo indywidualne), które
-// blokują i trenera, i salę.
+// Zajęty kawałek grafiku. Rodzaj ma znaczenie: zajęcia grupowe zajmują salę
+// całkowicie, a trwający obok trening indywidualny to tylko druga osoba na
+// macie - klub potrafi prowadzić dwa personalne naraz.
 export type BusyInterval = {
   trainerId: string;
   locationId: string;
   startsAt: Date;
   endsAt: Date;
+  kind: "GROUP" | "INDIVIDUAL";
+  // Kto ćwiczy na tym treningu indywidualnym - potrzebne do reguły wieku.
+  hasMinor: boolean;
+  hasAdult: boolean;
 };
 
-// Dlaczego slot odpadł. TRAINER_BUSY = ten trener ma wtedy co innego,
-// ROOM_BUSY = sala jest wtedy zajęta przez kogoś innego.
-export type SlotBlockReason = "TRAINER_BUSY" | "ROOM_BUSY";
+// Dlaczego slot odpadł.
+// TRAINER_BUSY  - ten trener ma wtedy co innego,
+// GROUP_IN_ROOM - w sali są wtedy zajęcia grupowe, nie ma gdzie stanąć,
+// AGE_MIX       - obok trenowałaby osoba nieletnia z obcym dorosłym.
+export type SlotBlockReason = "TRAINER_BUSY" | "GROUP_IN_ROOM" | "AGE_MIX";
 
 export type Slot = {
   windowId: string;
@@ -145,6 +155,10 @@ export type Slot = {
   endsAt: Date;
   // null = wolny slot, można się zapisać.
   blockedBy: SlotBlockReason | null;
+  // Ile innych treningów indywidualnych trwa w tej sali o tej porze. Zero to
+  // sala tylko dla siebie; więcej to informacja, a nie przeszkoda - klient sam
+  // decyduje, czy chce ćwiczyć obok kogoś.
+  sharedWith: number;
 };
 
 export type BuildSlotsInput = {
@@ -155,6 +169,10 @@ export type BuildSlotsInput = {
   now: Date;
   horizonDays?: number;
   leadHours?: number;
+  // Czy zapisuje się osoba nieletnia. Potrzebne do reguły wieku; pominięte
+  // (undefined) znaczy "nie wiemy, kto to będzie" - wtedy reguły nie stosujemy,
+  // bo nie ma jej do czego przyłożyć.
+  forMinor?: boolean;
 };
 
 function overlaps(a: { startsAt: Date; endsAt: Date }, b: { startsAt: Date; endsAt: Date }) {
@@ -199,18 +217,32 @@ export function buildSlots(input: BuildSlotsInput): Slot[] {
         };
 
         // Nakładanie się, nie równość godzin: trening 60-minutowy od 17:00
-        // zajmuje salę także temu, kto ma sloty półgodzinne i celuje w 17:30.
+        // koliduje także z kimś, kto ma sloty półgodzinne i celuje w 17:30.
         const trainerBusy = input.busy.some(
           (busy) => busy.trainerId === window.trainerId && overlaps(candidate, busy),
         );
-        const roomBusy = input.busy.some(
+
+        const inRoom = input.busy.filter(
           (busy) => busy.locationId === window.locationId && overlaps(candidate, busy),
         );
+        const groupInRoom = inRoom.some((busy) => busy.kind === "GROUP");
+        const individualsInRoom = inRoom.filter((busy) => busy.kind === "INDIVIDUAL");
+
+        // Reguła wieku: dziecko nie zostaje na macie sam na sam z obcym
+        // dorosłym i odwrotnie. Dwoje dzieci albo dwoje dorosłych to już
+        // decyzja klienta, nie systemu.
+        const ageMix =
+          input.forMinor === undefined
+            ? false
+            : individualsInRoom.some((busy) => (input.forMinor ? busy.hasAdult : busy.hasMinor));
+
         const blockedBy: SlotBlockReason | null = trainerBusy
           ? "TRAINER_BUSY"
-          : roomBusy
-            ? "ROOM_BUSY"
-            : null;
+          : groupInRoom
+            ? "GROUP_IN_ROOM"
+            : ageMix
+              ? "AGE_MIX"
+              : null;
 
         slots.push({
           windowId: window.id,
@@ -219,6 +251,7 @@ export function buildSlots(input: BuildSlotsInput): Slot[] {
           startsAt: candidate.startsAt,
           endsAt: candidate.endsAt,
           blockedBy,
+          sharedWith: individualsInRoom.length,
         });
       }
     }
@@ -232,7 +265,7 @@ export function isSlotFree(slot: Slot): boolean {
 }
 
 // Slot o danej godzinie u danego trenera - wolny albo nie. Do komunikatów
-// ("sala zajęta") i do podglądu w panelu trenera.
+// i do podglądu w panelu trenera.
 export function findSlotAt(slots: readonly Slot[], trainerId: string, startsAt: Date): Slot | null {
   return (
     slots.find(
@@ -243,7 +276,8 @@ export function findSlotAt(slots: readonly Slot[], trainerId: string, startsAt: 
 
 // Weryfikacja żądania zapisu: czy dokładnie ten moment jest WOLNYM slotem tego
 // trenera. Serwer musi to wywołać przed utworzeniem sesji - to jest miejsce,
-// w którym odpada zapis na godzinę spoza okien i na zajętą salę.
+// w którym odpada zapis na godzinę spoza okien, na salę zajętą grupą i na
+// termin łamiący regułę wieku.
 export function findSlot(slots: readonly Slot[], trainerId: string, startsAt: Date): Slot | null {
   const slot = findSlotAt(slots, trainerId, startsAt);
   return slot && isSlotFree(slot) ? slot : null;
@@ -315,4 +349,21 @@ export function findOverlappingSession<T extends { id: string; startsAt: Date; e
         candidate.startsAt < session.endsAt,
     ) ?? null
   );
+}
+
+export const SLOT_BLOCK_MESSAGE: Record<SlotBlockReason, string> = {
+  TRAINER_BUSY: "Ten trener ma o tej porze inne zajęcia.",
+  GROUP_IN_ROOM: "W tej sali trwają wtedy zajęcia grupowe.",
+  AGE_MIX:
+    "O tej porze na sali trwa trening osoby z innej grupy wiekowej - klub nie łączy dorosłych z nieletnimi na jednej macie. Wybierz inny termin.",
+};
+
+// Informacja, nie przeszkoda: ktoś inny ma wtedy personalny w tej samej sali.
+// Klient ma o tym wiedzieć PRZED zapisem i sam zdecydować, czy mu to nie
+// przeszkadza - sala jest duża, ale nie każdy chce ćwiczyć przy kimś.
+export function sharedRoomNotice(slot: Slot): string | null {
+  if (slot.sharedWith === 0) return null;
+  return slot.sharedWith === 1
+    ? "W tym czasie w sali trwa jeszcze jeden trening indywidualny."
+    : `W tym czasie w sali trwają jeszcze ${slot.sharedWith} treningi indywidualne.`;
 }

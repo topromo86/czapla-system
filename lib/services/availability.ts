@@ -52,6 +52,13 @@ export async function loadClubAvailability(now: Date): Promise<{
         locationId: true,
         startsAt: true,
         endsAt: true,
+        kind: true,
+        // Wiek zapisanych - klub nie łączy nieletnich z dorosłymi na jednej
+        // macie, a bez tej informacji nie da się tego sprawdzić.
+        bookings: {
+          where: { status: { in: ["BOOKED", "ATTENDED"] } },
+          select: { member: { select: { isMinor: true } } },
+        },
       },
     }),
   ]);
@@ -65,6 +72,9 @@ export async function loadClubAvailability(now: Date): Promise<{
       locationId: s.locationId,
       startsAt: s.startsAt,
       endsAt: s.endsAt,
+      kind: s.kind,
+      hasMinor: s.bookings.some((b) => b.member.isMinor),
+      hasAdult: s.bookings.some((b) => !b.member.isMinor),
     })),
   };
 }

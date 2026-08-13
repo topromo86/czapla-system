@@ -1,0 +1,12 @@
+-- Dwa treningi indywidualne mogą trwać w jednej sali równocześnie.
+--
+-- Wcześniej sala była zasobem wyłącznym: jeden personal naraz. Klub pracuje
+-- inaczej - dwóch trenerów potrafi prowadzić dwa treningi na jednej macie.
+-- Decyzję "czy chcę ćwiczyć obok kogoś" podejmuje klient, widząc informację
+-- przy terminie; system blokuje już tylko dwa przypadki: zajęcia grupowe w tej
+-- sali oraz łączenie osoby nieletniej z obcym dorosłym (lib/domain/availability.ts).
+--
+-- Indeks wyłączności sali musi więc zniknąć, bo odrzucałby zapisy, na które
+-- reguła klubu pozwala. Indeks trenera zostaje: jeden człowiek nie prowadzi
+-- dwóch treningów naraz i to się nie zmienia.
+DROP INDEX IF EXISTS "Session_individual_room_key";

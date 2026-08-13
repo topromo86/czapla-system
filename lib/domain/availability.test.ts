@@ -28,9 +28,22 @@ function window(overrides: Partial<Parameters<typeof buildSlots>[0]["windows"][n
   };
 }
 
-// Godzinny kawałek grafiku, który komuś zajmuje salę.
-function busyAt(startsAt: Date, who: { trainerId: string; locationId: string }) {
-  return { ...who, startsAt, endsAt: new Date(startsAt.getTime() + 60 * 60_000) };
+// Godzinny kawałek grafiku. Domyślnie trening indywidualny osoby dorosłej -
+// najczęstszy przypadek w tych testach.
+function busyAt(
+  startsAt: Date,
+  who: { trainerId: string; locationId: string },
+  extra: Partial<{ kind: "GROUP" | "INDIVIDUAL"; hasMinor: boolean; hasAdult: boolean }> = {},
+) {
+  return {
+    ...who,
+    startsAt,
+    endsAt: new Date(startsAt.getTime() + 60 * 60_000),
+    kind: "INDIVIDUAL" as const,
+    hasMinor: false,
+    hasAdult: true,
+    ...extra,
+  };
 }
 
 describe("parseTimeToMinutes", () => {
@@ -183,9 +196,9 @@ describe("buildSlots", () => {
     expect(marked.filter(isSlotFree)).toHaveLength(all.length - 1);
   });
 
-  // Sedno reguły sali: w Mikołowie trwa jeden trening indywidualny naraz,
-  // choćby wolnych trenerów było pięciu.
-  it("blokuje salę innym trenerom w tej samej sali", () => {
+  // Drugi personalny w tej samej sali JEST dozwolony - to informacja, nie
+  // blokada. Klub prowadzi dwa treningi naraz.
+  it("drugi trening indywidualny w sali nie blokuje, tylko zgłasza sąsiedztwo", () => {
     const windows = [
       window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
       window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
@@ -201,7 +214,98 @@ describe("buildSlots", () => {
     const adamSlot = marked.find(
       (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
     );
-    expect(adamSlot?.blockedBy).toBe("ROOM_BUSY");
+    expect(adamSlot?.blockedBy).toBeNull();
+    expect(adamSlot?.sharedWith).toBe(1);
+  });
+
+  // Zajęcia grupowe to co innego: obok dwudziestu ćwiczących nie ma gdzie
+  // stanąć.
+  it("zajęcia grupowe blokują salę twardo", () => {
+    const windows = [window({ trainerId: "adam", locationId: "mikolow" })];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+
+    const marked = buildSlots({
+      windows,
+      busy: [busyAt(at17, { trainerId: "ktosInny", locationId: "mikolow" }, { kind: "GROUP" })],
+      now: NOW,
+    });
+    expect(marked[0].blockedBy).toBe("GROUP_IN_ROOM");
+  });
+
+  // Jedyny przypadek, w którym sąsiedztwo jest blokadą: dziecko obok obcego
+  // dorosłego. To zasada klubu, nie preferencja klienta.
+  it("nie łączy nieletniego z dorosłym", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const busy = [
+      busyAt(
+        at17,
+        { trainerId: "jacek", locationId: "mikolow" },
+        { hasMinor: false, hasAdult: true },
+      ),
+    ];
+
+    const dlaDziecka = buildSlots({ windows, busy, now: NOW, forMinor: true }).find(
+      (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(dlaDziecka?.blockedBy).toBe("AGE_MIX");
+
+    const dlaDoroslego = buildSlots({ windows, busy, now: NOW, forMinor: false }).find(
+      (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(dlaDoroslego?.blockedBy).toBeNull();
+  });
+
+  it("dwoje dzieci obok siebie jest w porządku", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const marked = buildSlots({
+      windows,
+      busy: [
+        busyAt(
+          at17,
+          { trainerId: "jacek", locationId: "mikolow" },
+          { hasMinor: true, hasAdult: false },
+        ),
+      ],
+      now: NOW,
+      forMinor: true,
+    });
+    const adamSlot = marked.find(
+      (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(adamSlot?.blockedBy).toBeNull();
+    expect(adamSlot?.sharedWith).toBe(1);
+  });
+
+  // Bez wskazania, kto się zapisuje, reguły wieku nie ma do czego przyłożyć.
+  it("bez podanego wieku reguła wieku nie działa", () => {
+    const windows = [
+      window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
+      window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
+    ];
+    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
+    const marked = buildSlots({
+      windows,
+      busy: [
+        busyAt(
+          at17,
+          { trainerId: "jacek", locationId: "mikolow" },
+          { hasMinor: true, hasAdult: false },
+        ),
+      ],
+      now: NOW,
+    });
+    const adamSlot = marked.find(
+      (s) => s.trainerId === "adam" && s.startsAt.getTime() === at17.getTime(),
+    );
+    expect(adamSlot?.blockedBy).toBeNull();
   });
 
   it("druga sala zostaje wolna", () => {
@@ -222,20 +326,6 @@ describe("buildSlots", () => {
     expect(tychy?.blockedBy).toBeNull();
   });
 
-  // Zajęcia grupowe zajmują salę tak samo - trener nie poprowadzi treningu
-  // jeden na jeden w sali, w której ćwiczy dwadzieścia osób.
-  it("zajęcia grupowe blokują salę na trening indywidualny", () => {
-    const windows = [window({ trainerId: "adam", locationId: "mikolow" })];
-    const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
-
-    const marked = buildSlots({
-      windows,
-      busy: [busyAt(at17, { trainerId: "ktosInny", locationId: "mikolow" })],
-      now: NOW,
-    });
-    expect(marked[0].blockedBy).toBe("ROOM_BUSY");
-  });
-
   it("blokada liczy nakładanie się, nie równy start", () => {
     // Trening 60-minutowy od 17:00 zajmuje salę także slotowi 17:30.
     const windows = [
@@ -245,18 +335,11 @@ describe("buildSlots", () => {
 
     const marked = buildSlots({
       windows,
-      busy: [
-        {
-          trainerId: "jacek",
-          locationId: "mikolow",
-          startsAt: at17,
-          endsAt: new Date(at17.getTime() + 60 * 60_000),
-        },
-      ],
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
       now: NOW,
     });
     const at1730 = marked.find((s) => s.startsAt.getTime() === at17.getTime() + 30 * 60_000);
-    expect(at1730?.blockedBy).toBe("ROOM_BUSY");
+    expect(at1730?.sharedWith).toBe(1);
   });
 
   it("zajęty trener ma pierwszeństwo w powodzie blokady", () => {
@@ -333,9 +416,9 @@ describe("findSlot", () => {
     expect(findSlot(slots, "innyTrener", slots[0].startsAt)).toBeNull();
   });
 
-  // Bez tego zapis na zajętą salę przeszedłby przez spreparowany formularz -
+  // Bez tego zapis na salę z grupą przeszedłby przez spreparowany formularz -
   // UI pokazuje taki termin jako wyłączony, ale serwer jest jedyną barierą.
-  it("odrzuca slot zablokowany przez zajętą salę", () => {
+  it("odrzuca slot zablokowany przez zajęcia grupowe", () => {
     const windows = [
       window({ id: "wJacek", trainerId: "jacek", locationId: "mikolow" }),
       window({ id: "wAdam", trainerId: "adam", locationId: "mikolow" }),
@@ -343,7 +426,7 @@ describe("findSlot", () => {
     const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
     const marked = buildSlots({
       windows,
-      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" }, { kind: "GROUP" })],
       now: NOW,
     });
     expect(findSlot(marked, "adam", at17)).toBeNull();
@@ -360,7 +443,7 @@ describe("findSlotInOtherRoom", () => {
     const at17 = buildSlots({ windows, busy: [], now: NOW })[0].startsAt;
     const slots = buildSlots({
       windows,
-      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" })],
+      busy: [busyAt(at17, { trainerId: "jacek", locationId: "mikolow" }, { kind: "GROUP" })],
       now: NOW,
     });
     const blocked = slots.find(
@@ -377,8 +460,8 @@ describe("findSlotInOtherRoom", () => {
     const slots = buildSlots({
       windows,
       busy: [
-        busyAt(at17, { trainerId: "jacek", locationId: "mikolow" }),
-        busyAt(at17, { trainerId: "jakub", locationId: "tychy" }),
+        busyAt(at17, { trainerId: "jacek", locationId: "mikolow" }, { kind: "GROUP" }),
+        busyAt(at17, { trainerId: "jakub", locationId: "tychy" }, { kind: "GROUP" }),
       ],
       now: NOW,
     });

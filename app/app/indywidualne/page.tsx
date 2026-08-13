@@ -6,6 +6,8 @@ import {
   findSlotInOtherRoom,
   isSlotFree,
   MIN_BOOKING_LEAD_HOURS,
+  sharedRoomNotice,
+  SLOT_BLOCK_MESSAGE,
 } from "@/lib/domain/availability";
 import { canCancelFree } from "@/lib/domain/booking";
 import { loadClubAvailability } from "@/lib/services/availability";
@@ -74,7 +76,14 @@ export default async function IndividualTrainingPage({
 
   // Sloty całego klubu, nie tylko wybranego trenera: bez tego nie da się ani
   // sprawdzić, czy sala jest wolna, ani podpowiedzieć drugiej lokalizacji.
-  const allSlots = buildSlots({ windows: availability.windows, busy: availability.busy, now });
+  // forMinor: reguła "nie łączymy dziecka z obcym dorosłym" zależy od tego,
+  // KTO się zapisuje - liczymy sloty dla wybranej kartoteki.
+  const allSlots = buildSlots({
+    windows: availability.windows,
+    busy: availability.busy,
+    now,
+    forMinor: activeMember.isMinor,
+  });
 
   const trainerSlots = allSlots.filter(
     (slot) =>
@@ -253,6 +262,17 @@ export default async function IndividualTrainingPage({
                                   {locationNames.get(slot.locationId)}
                                 </span>
                               ) : null}
+                              {/* Ktoś inny ma wtedy personalny w tej sali.
+                                  To nie przeszkoda - klient ma o tym wiedzieć
+                                  przed zapisem i sam zdecydować. */}
+                              {slot.sharedWith > 0 ? (
+                                <span
+                                  className="text-amber max-w-32 text-[11px] leading-tight"
+                                  title={sharedRoomNotice(slot) ?? undefined}
+                                >
+                                  + ktoś jeszcze trenuje
+                                </span>
+                              ) : null}
                             </form>
                           );
                         }
@@ -268,7 +288,9 @@ export default async function IndividualTrainingPage({
                               size="sm"
                               variant="outline"
                               disabled
-                              title={`Sala ${locationNames.get(slot.locationId) ?? ""} jest o tej porze zajęta`}
+                              title={
+                                slot.blockedBy ? SLOT_BLOCK_MESSAGE[slot.blockedBy] : undefined
+                              }
                             >
                               {formatTime(slot.startsAt)}
                             </Button>
@@ -281,6 +303,8 @@ export default async function IndividualTrainingPage({
                                   wolne w: {locationNames.get(elsewhere.locationId)} (
                                   {trainerNames.get(elsewhere.trainerId)})
                                 </a>
+                              ) : slot.blockedBy === "AGE_MIX" ? (
+                                "inna grupa wiekowa"
                               ) : (
                                 "sala zajęta"
                               )}
@@ -295,11 +319,14 @@ export default async function IndividualTrainingPage({
             )}
 
             <p className="text-muted-brand mt-4 text-xs">
-              W jednej sali trwa naraz jeden trening indywidualny, więc godzina zajęta przez kogoś
-              innego jest nieaktywna - ale ta sama pora bywa wolna w drugiej lokalizacji. Terminy
-              znikają z listy, gdy do startu zostało mniej niż {MIN_BOOKING_LEAD_HOURS} godz.
-              Odwołanie na mniej niż {settings.freeCancellationHours} godz. przed treningiem
-              kosztuje wejście z karnetu - tak samo jak przy zajęciach grupowych.
+              Przy niektórych godzinach zobaczysz „+ ktoś jeszcze trenuje” - to znaczy, że w tej
+              sali trwa wtedy drugi trening indywidualny. Możesz się zapisać, jeśli Ci to nie
+              przeszkadza. Nieaktywne są tylko godziny z zajęciami grupowymi w sali oraz te, w
+              których ćwiczyłaby obok osoba z innej grupy wiekowej - dorosłych i nieletnich nie
+              łączymy na jednej macie. Terminy znikają z listy, gdy do startu zostało mniej niż{" "}
+              {MIN_BOOKING_LEAD_HOURS} godz. Odwołanie na mniej niż {settings.freeCancellationHours}{" "}
+              godz. przed treningiem kosztuje wejście z karnetu - tak samo jak przy zajęciach
+              grupowych.
             </p>
           </section>
         </>

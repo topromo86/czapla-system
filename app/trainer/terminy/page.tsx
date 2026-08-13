@@ -9,6 +9,7 @@ import {
   SLOT_MINUTES_OPTIONS,
   WEEKDAY_LABELS,
   type Slot,
+  type SlotBlockReason,
 } from "@/lib/domain/availability";
 import { loadClubAvailability } from "@/lib/services/availability";
 import { formatTime } from "@/lib/format";
@@ -38,10 +39,11 @@ function dayKey(date: Date): string {
 
 // Trener widzi wprost, czemu dana godzina nie jest do wzięcia. Bez tego okno
 // 16:00-20:00 nachodzące na grupowe zajęcia wyglądałoby na zepsute.
-const BLOCK_LABEL = {
+const BLOCK_LABEL: Record<SlotBlockReason, string> = {
   TRAINER_BUSY: "masz wtedy zajęcia",
-  ROOM_BUSY: "sala zajęta",
-} as const;
+  GROUP_IN_ROOM: "w sali są zajęcia grupowe",
+  AGE_MIX: "inna grupa wiekowa na sali",
+};
 
 export default async function TrainerSlotsPage({
   searchParams,
