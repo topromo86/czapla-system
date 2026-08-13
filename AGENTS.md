@@ -125,3 +125,21 @@ npx tsx prisma/kiosk-account.ts --env .env.vercel --haslo <haslo>
 Kamera działa tylko po HTTPS - na Vercelu tak, na tablecie wpiętym po adresie
 IP w sieci lokalnej nie. Dekodowanie ma dwie drogi: natywny `BarcodeDetector`
 (Chrome/Android) i `jsQR` dla Safari na iPadzie.
+
+## Hasła kadry
+
+Konta trenerów powstały ze wspólnym hasłem tymczasowym wpisanym w skrypcie
+zakładającym kadrę. Jedno hasło do wszystkich kont, widoczne dla każdego, kto
+zajrzy do repozytorium, otwiera kartotekę klientów - dlatego przed oddaniem
+systemu klubowi trzeba je wymienić:
+
+```
+npx tsx prisma/hasla-trenerow.ts                        # podgląd listy kont
+npx tsx prisma/hasla-trenerow.ts --ustaw                # dev, nowe hasła
+npx tsx prisma/hasla-trenerow.ts --env .env.vercel --ustaw
+```
+
+Hasła nie trafiają na ekran ani do repozytorium - lądują w pliku
+`hasla-instruktorow-<data>.txt` obok projektu (wykluczonym z gita).
+Rozdaje się je osobiście, potem plik się kasuje. Wypisanie ich w konsoli
+zostawiłoby je w historii terminala.

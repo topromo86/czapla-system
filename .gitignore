@@ -51,3 +51,7 @@ next-env.d.ts
 .env*
 serwer-unixstorm/dane/*
 !serwer-unixstorm/dane/.htaccess
+
+# Lista haseł kadry generowana przez prisma/hasla-trenerow.ts.
+# Powstaje obok projektu, rozdaje się ją osobiście i kasuje - nigdy do repo.
+hasla-instruktorow-*.txt
