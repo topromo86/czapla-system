@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogoutButton } from "../logout-button";
+import { PHONE_HINT, PHONE_PREFIX } from "@/lib/domain/phone";
 import { changePasswordAction } from "./actions";
 
 // Ekran wymuszonej zmiany hasła. Wchodzi się tu z każdego miejsca w aplikacji,
@@ -23,8 +24,12 @@ export default async function ChangePasswordPage({
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, role: true, phone: true },
   });
+
+  // Numer zbieramy od kadry - właściciel dzwoni do prowadzącego, gdy przed
+  // zajęciami nie ma odbicia. Klubowicza o numer nie pytamy.
+  const staff = user?.role === "TRAINER" || user?.role === "ADMIN";
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-sm flex-1 flex-col justify-center gap-5 p-4">
@@ -72,6 +77,30 @@ export default async function ChangePasswordPage({
             className="border-line bg-surface-2"
           />
         </div>
+
+        {staff ? (
+          <div className="border-line-soft flex flex-col gap-2 border-t pt-4">
+            <Label htmlFor="phone" className="font-mono text-xs tracking-widest uppercase">
+              Twój numer telefonu
+            </Label>
+            <p className="text-muted-brand text-sm">
+              Klub dzwoni pod ten numer, gdy przed zajęciami nie ma odbicia prowadzącego. Numer
+              widzi wyłącznie właściciel - nie trafia do klientów.
+            </p>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              required
+              defaultValue={user?.phone ?? PHONE_PREFIX}
+              placeholder="+48 500 600 700"
+              autoComplete="tel"
+              className="border-line bg-surface-2"
+            />
+            <p className="text-muted-brand text-xs">{PHONE_HINT}</p>
+          </div>
+        ) : null}
 
         <Button type="submit">Zapisz i wejdź do systemu</Button>
       </form>

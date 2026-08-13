@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSessionRaw } from "@/lib/auth/guard";
 import { validatePassword } from "@/lib/domain/registration";
+import { parsePolishPhone, PHONE_ERROR_MESSAGE } from "@/lib/domain/phone";
 import { logActivity } from "@/lib/services/activity";
 import type { Role } from "@/app/generated/prisma/client";
 
@@ -32,6 +33,7 @@ export async function changePasswordAction(formData: FormData) {
 
   const password = String(formData.get("password") ?? "");
   const repeat = String(formData.get("repeat") ?? "");
+  const phoneRaw = String(formData.get("phone") ?? "").trim();
 
   function fail(message: string): never {
     redirect(`/zmiana-hasla?blad=${encodeURIComponent(message)}`);
@@ -44,8 +46,20 @@ export async function changePasswordAction(formData: FormData) {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { passwordHash: true, role: true },
+    select: { passwordHash: true, role: true, phone: true },
   });
+
+  // Numer bierzemy od kadry: właściciel musi mieć jak zadzwonić, gdy przed
+  // zajęciami nie ma odbicia prowadzącego. Od klubowiczów nie wymagamy -
+  // im numer do niczego nie służy.
+  const staff = user.role === "TRAINER" || user.role === "ADMIN";
+  let phone: string | null = user.phone;
+
+  if (phoneRaw || staff) {
+    const parsed = parsePolishPhone(phoneRaw);
+    if ("error" in parsed) fail(PHONE_ERROR_MESSAGE[parsed.error]);
+    phone = parsed.phone;
+  }
 
   // Wpisanie z powrotem hasła otrzymanego od klubu nie kończy sprawy - wtedy
   // nadal zna je dwoje ludzi, a o to właśnie chodziło.
@@ -56,7 +70,11 @@ export async function changePasswordAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: session.user.id },
-      data: { passwordHash: await bcrypt.hash(password, 10), mustChangePassword: false },
+      data: {
+        passwordHash: await bcrypt.hash(password, 10),
+        mustChangePassword: false,
+        phone,
+      },
     });
     await logActivity(tx, {
       actorUserId: session.user.id,

@@ -8,6 +8,7 @@ import {
   TRAINER_CHECK_IN_LABEL,
   type TrainerCheckInState,
 } from "@/lib/domain/class-qr";
+import { formatPolishPhone } from "@/lib/domain/phone";
 import { getClubSettings } from "@/lib/services/settings";
 
 // Pulpit właściciela - ekran startowy admina po zalogowaniu. Dwie rzeczy naraz:
@@ -315,6 +316,52 @@ export default async function AdminDashboardPage() {
           </ul>
         )}
       </section>
+
+      {/* Szczegóły alertu o braku odbicia. Sam alert nazywa problem, a tutaj
+          jest to, czego właściciel potrzebuje, żeby zareagować: które zajęcia,
+          kto miał je prowadzić i pod jaki numer zadzwonić. */}
+      {missingCheckIns.length > 0 ? (
+        <section id="bez-odbicia" className="flex flex-col gap-3">
+          <h2 className="text-amber font-mono text-xs tracking-widest uppercase">
+            Bez odbicia prowadzącego
+          </h2>
+          <p className="text-muted-brand text-sm">
+            Minął termin odbicia ({settings.trainerCheckInMinutesBefore} min przed startem), a kodu
+            nikt nie zeskanował. Zadzwoń albo sprawdź, czy ktoś jest na sali.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {missingCheckIns.map((s) => (
+              <li
+                key={s.id}
+                className="border-amber bg-amber/5 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-text font-medium">
+                    <span className="text-muted-brand font-mono text-xs">{time(s.startsAt)}</span>{" "}
+                    {s.name}
+                  </p>
+                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                    {s.location.name} · {s.trainer.user.name}
+                    {s.trainer.user.phone ? ` · ${formatPolishPhone(s.trainer.user.phone)}` : ""}
+                  </p>
+                </div>
+                {/* Numer jako odnośnik tel: - na telefonie właściciela to jedno
+                    dotknięcie zamiast przepisywania cyfr. */}
+                {s.trainer.user.phone ? (
+                  <a
+                    href={`tel:${s.trainer.user.phone}`}
+                    className="border-amber text-amber hover:bg-amber/10 shrink-0 rounded-md border px-3 py-1.5 font-mono text-xs tracking-widest uppercase"
+                  >
+                    Zadzwoń
+                  </a>
+                ) : (
+                  <span className="text-muted-brand shrink-0 font-mono text-xs">brak numeru</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* Dziś na sali */}
       <section className="flex flex-col gap-3">
