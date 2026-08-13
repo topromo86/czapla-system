@@ -115,7 +115,14 @@ export function parseCsv(input: string): string[][] {
   return rows.filter((r) => r.some((cell) => cell.trim().length > 0));
 }
 
-const NAME_ALIASES = ["full_name", "full name", "imię i nazwisko", "imie i nazwisko", "name", "nazwa"];
+const NAME_ALIASES = [
+  "full_name",
+  "full name",
+  "imię i nazwisko",
+  "imie i nazwisko",
+  "name",
+  "nazwa",
+];
 const EMAIL_ALIASES = ["email", "e-mail", "adres e-mail"];
 const PHONE_ALIASES = ["phone_number", "phone number", "phone", "numer telefonu", "telefon"];
 const CAMPAIGN_ALIASES = ["campaign_name", "campaign", "kampania", "form_name", "formularz"];
@@ -190,4 +197,48 @@ export function parseLeadsCsv(input: string): ParseResult {
   }
 
   return { leads, skipped };
+}
+
+// Treść e-maila powitalnego - alternatywa dla SMS-a. Ten sam moment kontaktu,
+// inny kanał: SMS trafia szybciej, mail unosi więcej treści i nic nie kosztuje,
+// dopóki klub nie ma bramki SMS.
+export function buildWelcomeEmail(firstName: string): { subject: string; text: string } {
+  const name = firstName.trim();
+  const hello = name.length > 0 ? `Cześć ${name}!` : "Cześć!";
+  return {
+    subject: "Czapla Boxing - dziękujemy za rozmowę",
+    text: [
+      hello,
+      "",
+      "Dziękujemy za rozmowę. Cieszymy się, że myślisz o treningu u nas.",
+      "",
+      "Gdy zdecydujesz się przyjść, odezwij się - dobierzemy grupę i godzinę do Twojego planu.",
+      "Pierwszy trening jest po to, żebyś sprawdził(a), czy to miejsce dla Ciebie.",
+      "",
+      "Do zobaczenia na sali,",
+      "Czapla Boxing",
+    ].join("\n"),
+  };
+}
+
+// Kanał powitania wybrany przez obsługującego lead.
+export type WelcomeChannel = "NONE" | "SMS" | "EMAIL" | "BOTH";
+
+export function parseWelcomeChannel(raw: string | null | undefined): WelcomeChannel {
+  return raw === "SMS" || raw === "EMAIL" || raw === "BOTH" ? raw : "NONE";
+}
+
+// Czego brakuje, żeby wysłać powitanie wybranym kanałem. null = da się wysłać.
+// Sprawdzamy PRZED zapisem, bo komunikat "podaj numer" po fakcie jest bez
+// wartości - podsumowanie już by się zapisało, a SMS nie poszedł.
+export function missingWelcomeContact(
+  channel: WelcomeChannel,
+  contact: { phone: string | null; email: string | null },
+): string | null {
+  const needsPhone = channel === "SMS" || channel === "BOTH";
+  const needsEmail = channel === "EMAIL" || channel === "BOTH";
+  if (needsPhone && !contact.phone)
+    return "Aby wysłać SMS powitalny, podaj poprawny numer telefonu.";
+  if (needsEmail && !contact.email) return "Aby wysłać e-mail powitalny, podaj adres e-mail leada.";
+  return null;
 }

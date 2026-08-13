@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireLeadAccess } from "@/lib/auth/guard";
-import {
-  LEAD_SOURCE_LABEL,
-  LEAD_STATUS_LABEL,
-  LEAD_STATUS_ORDER,
-} from "@/lib/domain/lead-import";
+import { LEAD_SOURCE_LABEL, LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/lib/domain/lead-import";
 import { formatDayTime } from "@/lib/format";
-import { isMetaLeadsConfigured } from "@/lib/services/meta-leads";
+import { canFetchLeadDetails, isMetaLeadsConfigured } from "@/lib/services/meta-leads";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { importCsvAction } from "./actions";
@@ -37,7 +33,13 @@ const IMPORT_MESSAGE = (p: {
 export default async function LeadsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; import?: string; created?: string; dup?: string; skip?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    import?: string;
+    created?: string;
+    dup?: string;
+    skip?: string;
+  }>;
 }) {
   await requireLeadAccess();
   const params = await searchParams;
@@ -46,6 +48,9 @@ export default async function LeadsListPage({
     : null;
   const importMsg = IMPORT_MESSAGE(params);
   const metaConfigured = isMetaLeadsConfigured();
+  // Dwa stopnie: gniazdo przyjmuje zgłoszenia (verify token + sekret), a token
+  // strony dokłada automatyczne pobranie danych osoby.
+  const metaFullData = canFetchLeadDetails();
 
   const leads = await prisma.lead.findMany({
     where: activeStatus ? { status: activeStatus } : {},
@@ -81,7 +86,7 @@ export default async function LeadsListPage({
             type="file"
             name="file"
             accept=".csv,text/csv"
-            className="text-text text-sm file:mr-3 file:rounded-md file:border-0 file:bg-brand-red file:px-3 file:py-1.5 file:text-white"
+            className="text-text file:bg-brand-red text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-white"
           />
           <details>
             <summary className="text-brand-red cursor-pointer text-sm">
@@ -110,9 +115,12 @@ export default async function LeadsListPage({
             <b className={metaConfigured ? "text-jade" : "text-text"}>
               {metaConfigured ? "skonfigurowany" : "nieaktywny"}
             </b>
-            . {metaConfigured
-              ? "Leady mogą być pobierane bez eksportu CSV."
-              : "Gniazdo gotowe - podłączenie konta Meta doda automatyczne pobieranie leadów."}
+            .{" "}
+            {metaConfigured
+              ? metaFullData
+                ? "Leady wpadają tu same, w sekundę po wysłaniu formularza."
+                : "Zgłoszenia wpadają, ale bez tokenu strony dane osoby trzeba uzupełnić ręcznie."
+              : "Gniazdo gotowe - w panelu Meta wskaż adres /api/leady/meta i uzupełnij META_VERIFY_TOKEN oraz META_APP_SECRET."}
           </p>
         </div>
       </section>
@@ -172,7 +180,9 @@ export default async function LeadsListPage({
                     {lead.assignedTo ? ` · opiekun: ${lead.assignedTo.name}` : ""}
                   </p>
                   {lead.reminderAt ? (
-                    <p className={`mt-0.5 font-mono text-xs ${overdue ? "text-red" : "text-amber"}`}>
+                    <p
+                      className={`mt-0.5 font-mono text-xs ${overdue ? "text-red" : "text-amber"}`}
+                    >
                       {overdue ? "⏰ zaległy kontakt: " : "przypomnienie: "}
                       {formatDayTime(lead.reminderAt)}
                     </p>

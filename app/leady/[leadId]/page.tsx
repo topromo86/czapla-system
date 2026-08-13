@@ -70,7 +70,7 @@ export default async function LeadCardPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/leady" className="text-muted-brand text-xs hover:text-brand-red">
+        <Link href="/leady" className="text-muted-brand hover:text-brand-red text-xs">
           ← Leady
         </Link>
         <h1 className="font-display text-brand-red mt-1 text-2xl tracking-wide">{lead.fullName}</h1>
@@ -220,7 +220,13 @@ export default async function LeadCardPage({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="homeLocationId">Lokalizacja domowa</Label>
-                  <select id="homeLocationId" name="homeLocationId" required defaultValue="" className={fieldClass}>
+                  <select
+                    id="homeLocationId"
+                    name="homeLocationId"
+                    required
+                    defaultValue=""
+                    className={fieldClass}
+                  >
                     <option value="" disabled>
                       Wybierz…
                     </option>
@@ -233,7 +239,13 @@ export default async function LeadCardPage({
                 </div>
                 <div>
                   <Label htmlFor="ownerTrainerId">Trener-opiekun</Label>
-                  <select id="ownerTrainerId" name="ownerTrainerId" required defaultValue="" className={fieldClass}>
+                  <select
+                    id="ownerTrainerId"
+                    name="ownerTrainerId"
+                    required
+                    defaultValue=""
+                    className={fieldClass}
+                  >
                     <option value="" disabled>
                       Wybierz…
                     </option>
@@ -312,7 +324,7 @@ export default async function LeadCardPage({
               Umówiony na {formatDayTime(lead.reminderAt)}.
               <form action={clearReminderAction} className="mt-1">
                 <input type="hidden" name="leadId" value={lead.id} />
-                <button type="submit" className="text-muted-brand text-xs hover:text-brand-red">
+                <button type="submit" className="text-muted-brand hover:text-brand-red text-xs">
                   Usuń przypomnienie
                 </button>
               </form>
@@ -335,7 +347,11 @@ export default async function LeadCardPage({
           <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">Opiekun</h2>
           <form action={assignLeadAction} className="flex flex-wrap items-center gap-2">
             <input type="hidden" name="leadId" value={lead.id} />
-            <select name="assignedToUserId" defaultValue={lead.assignedToUserId ?? ""} className={selectClass}>
+            <select
+              name="assignedToUserId"
+              defaultValue={lead.assignedToUserId ?? ""}
+              className={selectClass}
+            >
               <option value="">Nieprzypisany</option>
               {assignees.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -378,15 +394,47 @@ export default async function LeadCardPage({
                 className="border-line bg-surface-2 w-48"
               />
             </div>
-            <label className="flex items-center gap-2 pb-2 text-sm">
-              <input type="checkbox" name="sendWelcome" className="size-4" />
-              <span className="text-text">Wyślij SMS powitalny</span>
-            </label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="summaryEmail" className="font-mono text-xs tracking-widest uppercase">
+                E-mail
+              </Label>
+              <Input
+                id="summaryEmail"
+                name="email"
+                type="email"
+                defaultValue={lead.email ?? ""}
+                placeholder="adres@…"
+                className="border-line bg-surface-2 w-56"
+              />
+            </div>
+
+            {/* Powitanie jako wybór kanału, nie checkbox: klub ma dziś czynną
+                pocztę, a bramkę SMS dopiero podepnie - i tak samo bywa
+                z leadem, który zostawił tylko jedną daną kontaktową. */}
+            <div className="flex flex-col gap-1">
+              <Label
+                htmlFor="welcomeChannel"
+                className="font-mono text-xs tracking-widest uppercase"
+              >
+                Powitanie
+              </Label>
+              <select
+                id="welcomeChannel"
+                name="welcomeChannel"
+                defaultValue="NONE"
+                className="border-line bg-surface-2 text-text rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="NONE">Nie wysyłaj</option>
+                <option value="SMS">SMS powitalny</option>
+                <option value="EMAIL">E-mail powitalny</option>
+                <option value="BOTH">SMS i e-mail</option>
+              </select>
+            </div>
           </div>
           <p className="text-muted-brand text-xs">
             Podsumowanie zapisze się w notatkach i będzie widoczne także z karty klienta po
-            założeniu konta. SMS powitalny wyśle się, gdy podłączony jest dostawca SMS - w
-            przeciwnym razie próba zostanie odnotowana w historii.
+            założeniu konta. Powitanie wychodzi po zapisaniu notatki - jeśli bramka SMS albo poczta
+            nie są podłączone, notatka i tak zostanie, a nieudana próba trafi do historii kontaktu.
           </p>
           <Button type="submit" size="sm" className="self-start">
             Zapisz podsumowanie

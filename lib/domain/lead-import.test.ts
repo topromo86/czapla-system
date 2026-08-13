@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWelcomeSms,
+  buildWelcomeEmail,
+  parseWelcomeChannel,
+  missingWelcomeContact,
   normalizePhone,
   parseCsv,
   parseLeadsCsv,
@@ -144,5 +147,58 @@ describe("parseLeadsCsv", () => {
 
   it("pusty plik / sam nagłówek → brak leadów", () => {
     expect(parseLeadsCsv("full_name,email")).toEqual({ leads: [], skipped: 0 });
+  });
+});
+
+describe("buildWelcomeEmail", () => {
+  it("wita po imieniu", () => {
+    expect(buildWelcomeEmail("Marek").text).toContain("Cześć Marek!");
+  });
+
+  it("bez imienia nie zostawia dziury", () => {
+    const mail = buildWelcomeEmail("");
+    expect(mail.text).toContain("Cześć!");
+    expect(mail.text).not.toContain("Cześć !");
+  });
+
+  it("ma temat z nazwą klubu", () => {
+    expect(buildWelcomeEmail("Ala").subject).toContain("Czapla Boxing");
+  });
+});
+
+describe("parseWelcomeChannel", () => {
+  it("czyta wartości z formularza", () => {
+    expect(parseWelcomeChannel("SMS")).toBe("SMS");
+    expect(parseWelcomeChannel("EMAIL")).toBe("EMAIL");
+    expect(parseWelcomeChannel("BOTH")).toBe("BOTH");
+  });
+
+  // Domyślnie NIC nie wysyłamy - powitanie musi być świadomym wyborem.
+  it("wszystko inne to brak wysyłki", () => {
+    expect(parseWelcomeChannel(null)).toBe("NONE");
+    expect(parseWelcomeChannel("")).toBe("NONE");
+    expect(parseWelcomeChannel("cokolwiek")).toBe("NONE");
+  });
+});
+
+describe("missingWelcomeContact", () => {
+  it("SMS wymaga telefonu", () => {
+    expect(missingWelcomeContact("SMS", { phone: null, email: "a@b.pl" })).toContain("numer");
+    expect(missingWelcomeContact("SMS", { phone: "500600700", email: null })).toBeNull();
+  });
+
+  it("e-mail wymaga adresu", () => {
+    expect(missingWelcomeContact("EMAIL", { phone: "500600700", email: null })).toContain("e-mail");
+    expect(missingWelcomeContact("EMAIL", { phone: null, email: "a@b.pl" })).toBeNull();
+  });
+
+  it("oba kanały wymagają obu danych", () => {
+    expect(missingWelcomeContact("BOTH", { phone: "500600700", email: null })).toContain("e-mail");
+    expect(missingWelcomeContact("BOTH", { phone: null, email: "a@b.pl" })).toContain("numer");
+    expect(missingWelcomeContact("BOTH", { phone: "500600700", email: "a@b.pl" })).toBeNull();
+  });
+
+  it("brak powitania nie wymaga niczego", () => {
+    expect(missingWelcomeContact("NONE", { phone: null, email: null })).toBeNull();
   });
 });

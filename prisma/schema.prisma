@@ -1246,6 +1246,7 @@ enum LeadActivityKind {
   NOTE_ADDED
   SUMMARY
   WELCOME_SMS
+  WELCOME_EMAIL
   CONVERTED
 }
 

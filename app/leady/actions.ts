@@ -11,12 +11,15 @@ import {
   LEAD_STATUS_ORDER,
   normalizePhone,
   splitFullName,
+  buildWelcomeEmail,
+  parseWelcomeChannel,
+  missingWelcomeContact,
 } from "@/lib/domain/lead-import";
 import { calculateAge } from "@/lib/domain/booking";
 import { isValidEmail, normalizeEmail } from "@/lib/domain/registration";
 import { importLeadsFromCsv, logLeadActivity } from "@/lib/services/lead";
 import { logActivity } from "@/lib/services/activity";
-import { sendSms } from "@/lib/services/notify";
+import { sendEmail, sendSms } from "@/lib/services/notify";
 import type { LeadStatus, Sex } from "@/app/generated/prisma/client";
 
 // Import CSV: plik z inputa albo wklejony tekst. Po imporcie wracamy na listę
@@ -56,7 +59,10 @@ export async function setReminderAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     // Ustawienie przypomnienia zwykle znaczy "oddzwonić później" - podnosimy
     // status do CALLBACK, o ile lead nie jest już potwierdzony/zamknięty.
-    const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, select: { status: true } });
+    const lead = await tx.lead.findUniqueOrThrow({
+      where: { id: leadId },
+      select: { status: true },
+    });
     const bumpToCallback = lead.status === "NEW" || lead.status === "IN_PROGRESS";
     await tx.lead.update({
       where: { id: leadId },
@@ -155,7 +161,9 @@ export async function convertLeadToMemberAction(formData: FormData) {
   const ownerTrainerId = String(formData.get("ownerTrainerId") ?? "");
 
   if (!firstName || !lastName || !birthDateStr || !homeLocationId || !ownerTrainerId) {
-    fail("Uzupełnij wszystkie wymagane pola (imię, nazwisko, data urodzenia, lokalizacja, trener).");
+    fail(
+      "Uzupełnij wszystkie wymagane pola (imię, nazwisko, data urodzenia, lokalizacja, trener).",
+    );
   }
   if (sex !== "MALE" && sex !== "FEMALE") fail("Wybierz płeć.");
 
@@ -222,7 +230,8 @@ export async function saveCallSummaryAction(formData: FormData) {
   const leadId = String(formData.get("leadId"));
   const summary = String(formData.get("summary") ?? "").trim();
   const phoneRaw = String(formData.get("phone") ?? "").trim();
-  const sendWelcome = formData.get("sendWelcome") === "on";
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const channel = parseWelcomeChannel(String(formData.get("welcomeChannel") ?? ""));
 
   function fail(message: string): never {
     redirect(`/leady/${leadId}?blad=${encodeURIComponent(message)}`);
@@ -232,17 +241,22 @@ export async function saveCallSummaryAction(formData: FormData) {
 
   const lead = await prisma.lead.findUniqueOrThrow({
     where: { id: leadId },
-    select: { fullName: true, phone: true },
+    select: { fullName: true, phone: true, email: true },
   });
 
-  // Numer do SMS: z formularza (jeśli podano), inaczej ten z leada.
+  // Dane kontaktowe: z formularza (jeśli uzupełniono), inaczej te z leada.
   const phone = phoneRaw ? normalizePhone(phoneRaw) : lead.phone;
   if (phoneRaw && !phone) fail("Podany numer telefonu jest niepoprawny.");
-  if (sendWelcome && !phone) fail("Aby wysłać SMS powitalny, podaj poprawny numer telefonu.");
+  const email = emailRaw || lead.email;
+
+  // Braki wyłapujemy PRZED zapisem - komunikat "podaj numer" po fakcie jest bez
+  // wartości, bo podsumowanie już by się zapisało, a powitanie nie poszło.
+  const missing = missingWelcomeContact(channel, { phone, email });
+  if (missing) fail(missing);
 
   await prisma.$transaction(async (tx) => {
-    if (phone && phone !== lead.phone) {
-      await tx.lead.update({ where: { id: leadId }, data: { phone } });
+    if ((phone && phone !== lead.phone) || (email && email !== lead.email)) {
+      await tx.lead.update({ where: { id: leadId }, data: { phone, email } });
     }
     await tx.leadNote.create({
       data: { leadId, authorUserId: session.user.id, body: `Podsumowanie rozmowy:\n${summary}` },
@@ -255,8 +269,12 @@ export async function saveCallSummaryAction(formData: FormData) {
     });
   });
 
-  if (sendWelcome && phone) {
-    const { firstName } = splitFullName(lead.fullName);
+  // Powitanie idzie PO zapisaniu podsumowania: gdyby bramka SMS albo poczta
+  // odmówiła, notatka z rozmowy i tak zostaje. Odwrotna kolejność gubiłaby
+  // treść rozmowy przez awarię cudzej usługi.
+  const { firstName } = splitFullName(lead.fullName);
+
+  if ((channel === "SMS" || channel === "BOTH") && phone) {
     const sent = await sendSms(phone, buildWelcomeSms(firstName));
     await prisma.$transaction(async (tx) => {
       await logLeadActivity(tx, {
@@ -265,7 +283,22 @@ export async function saveCallSummaryAction(formData: FormData) {
         kind: "WELCOME_SMS",
         summary: sent
           ? `Wysłano SMS powitalny na ${phone}`
-          : `SMS powitalny na ${phone} - dostawca SMS nieaktywny, nie wysłano`,
+          : `SMS powitalny na ${phone} - bramka SMS nieaktywna, nie wysłano`,
+      });
+    });
+  }
+
+  if ((channel === "EMAIL" || channel === "BOTH") && email) {
+    const mail = buildWelcomeEmail(firstName);
+    const sent = await sendEmail(email, mail.subject, mail.text);
+    await prisma.$transaction(async (tx) => {
+      await logLeadActivity(tx, {
+        leadId,
+        actorUserId: session.user.id,
+        kind: "WELCOME_EMAIL",
+        summary: sent
+          ? `Wysłano e-mail powitalny na ${email}`
+          : `E-mail powitalny na ${email} - poczta nieskonfigurowana, nie wysłano`,
       });
     });
   }
