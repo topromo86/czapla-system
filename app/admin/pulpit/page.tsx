@@ -8,7 +8,7 @@ import {
   TRAINER_CHECK_IN_LABEL,
   type TrainerCheckInState,
 } from "@/lib/domain/class-qr";
-import { formatPolishPhone } from "@/lib/domain/phone";
+import { formatPhone } from "@/lib/domain/phone";
 import { getClubSettings } from "@/lib/services/settings";
 
 // Pulpit właściciela - ekran startowy admina po zalogowaniu. Dwie rzeczy naraz:
@@ -342,7 +342,7 @@ export default async function AdminDashboardPage() {
                   </p>
                   <p className="text-muted-brand mt-0.5 font-mono text-xs">
                     {s.location.name} · {s.trainer.user.name}
-                    {s.trainer.user.phone ? ` · ${formatPolishPhone(s.trainer.user.phone)}` : ""}
+                    {s.trainer.user.phone ? ` · ${formatPhone(s.trainer.user.phone)}` : ""}
                   </p>
                 </div>
                 {/* Numer jako odnośnik tel: - na telefonie właściciela to jedno

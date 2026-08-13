@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSessionRaw } from "@/lib/auth/guard";
 import { validatePassword } from "@/lib/domain/registration";
-import { parsePolishPhone, PHONE_ERROR_MESSAGE } from "@/lib/domain/phone";
+import { parsePhone, PHONE_ERROR_MESSAGE } from "@/lib/domain/phone";
 import { logActivity } from "@/lib/services/activity";
 import type { Role } from "@/app/generated/prisma/client";
 
@@ -56,7 +56,7 @@ export async function changePasswordAction(formData: FormData) {
   let phone: string | null = user.phone;
 
   if (phoneRaw || staff) {
-    const parsed = parsePolishPhone(phoneRaw);
+    const parsed = parsePhone(phoneRaw);
     if ("error" in parsed) fail(PHONE_ERROR_MESSAGE[parsed.error]);
     phone = parsed.phone;
   }

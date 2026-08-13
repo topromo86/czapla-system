@@ -1,50 +1,80 @@
-// Numery telefonu w formacie polskim.
+// Numery telefonu.
 //
-// Klub działa w Polsce i dzwoni do kadry z Polski, więc jedyny akceptowany
-// kierunkowy to +48. Numer zapisujemy zawsze w jednej postaci (+48XXXXXXXXX),
-// bo dopiero wtedy odnośnik `tel:` działa wszędzie tak samo, a dwa zapisy tego
-// samego numeru nie wyglądają w bazie jak dwie różne osoby.
+// Klub stoi w Polsce, ale kadra i klubowicze bywają z Ukrainy, Niemiec czy
+// skądkolwiek indziej - numer zagraniczny musi przejść. Dlatego zasada jest
+// taka: numer z kierunkowym (+380, +49, +48...) przyjmujemy taki, jaki jest,
+// a numer bez kierunkowego traktujemy jako polski i dopisujemy +48. To pokrywa
+// oba realne przypadki: Polak wpisujący dziewięć cyfr z pamięci i obcokrajowiec
+// wklejający pełny numer.
+//
+// Do bazy zawsze trafia jedna postać (+ i same cyfry), bo dopiero wtedy
+// odnośnik `tel:` działa wszędzie tak samo, a dwa zapisy tego samego numeru
+// nie wyglądają w kartotece jak dwie osoby.
 
 export const PHONE_PREFIX = "+48";
-export const PHONE_HINT = "Numer w formacie +48 i dziewięć cyfr, np. +48 500 600 700.";
+export const PHONE_HINT =
+  "Numer polski wystarczy podać jako dziewięć cyfr. Zagraniczny - z kierunkowym, np. +380 67 123 45 67.";
 
-export type PhoneError = "EMPTY" | "FOREIGN_PREFIX" | "WRONG_LENGTH";
+// Zakres długości numeru międzynarodowego według E.164: od 8 cyfr (z
+// kierunkowym) do 15. Poniżej i powyżej to na pewno pomyłka, a nie egzotyczny
+// kraj.
+const MIN_INTERNATIONAL_DIGITS = 8;
+const MAX_INTERNATIONAL_DIGITS = 15;
+const POLISH_DIGITS = 9;
+
+export type PhoneError = "EMPTY" | "NOT_A_NUMBER" | "WRONG_LENGTH" | "POLISH_WRONG_LENGTH";
 
 export const PHONE_ERROR_MESSAGE: Record<PhoneError, string> = {
   EMPTY: "Podaj numer telefonu.",
-  FOREIGN_PREFIX: "Przyjmujemy numery polskie, z kierunkowym +48.",
-  WRONG_LENGTH: "Polski numer ma dziewięć cyfr, np. +48 500 600 700.",
+  NOT_A_NUMBER: "Numer może zawierać tylko cyfry, spacje, myślniki i kierunkowy.",
+  WRONG_LENGTH: `Numer z kierunkowym ma od ${MIN_INTERNATIONAL_DIGITS} do ${MAX_INTERNATIONAL_DIGITS} cyfr.`,
+  POLISH_WRONG_LENGTH: `Polski numer ma ${POLISH_DIGITS} cyfr (np. 500 600 700). Numer zagraniczny podaj z kierunkowym, np. +380 67 123 45 67.`,
 };
 
-// Zwraca numer w postaci +48XXXXXXXXX albo powód odrzucenia. Przyjmuje to, co
-// ludzie realnie wpisują: ze spacjami, myślnikami, w nawiasach, z zerami
-// wiodącymi (0048) i bez kierunkowego.
-export function parsePolishPhone(raw: string): { phone: string } | { error: PhoneError } {
+export type PhoneResult = { phone: string } | { error: PhoneError };
+
+// Zwraca numer w postaci +<kierunkowy><numer> albo powód odrzucenia.
+// Przyjmuje to, co ludzie realnie wpisują: ze spacjami, myślnikami, w
+// nawiasach, z zerami wiodącymi (0048, 00380) i bez kierunkowego.
+export function parsePhone(raw: string): PhoneResult {
   const cleaned = raw.replace(/[\s()-]/g, "");
   if (cleaned.length === 0) return { error: "EMPTY" };
 
-  let digits = cleaned;
-  if (digits.startsWith("+")) {
-    if (!digits.startsWith("+48")) return { error: "FOREIGN_PREFIX" };
-    digits = digits.slice(3);
-  } else if (digits.startsWith("0048")) {
-    digits = digits.slice(4);
-  } else if (digits.startsWith("48") && digits.length === 11) {
-    digits = digits.slice(2);
-  } else if (digits.startsWith("0") && digits.length === 10) {
-    // Zapis "0 500 600 700" z czasów wybierania międzymiastowego.
-    digits = digits.slice(1);
+  // Kierunkowy podany wprost albo przez 00 (zapis z klawiatury telefonu).
+  const international = cleaned.startsWith("+")
+    ? cleaned.slice(1)
+    : cleaned.startsWith("00")
+      ? cleaned.slice(2)
+      : null;
+
+  if (international !== null) {
+    if (!/^\d+$/.test(international)) return { error: "NOT_A_NUMBER" };
+    if (
+      international.length < MIN_INTERNATIONAL_DIGITS ||
+      international.length > MAX_INTERNATIONAL_DIGITS
+    ) {
+      return { error: "WRONG_LENGTH" };
+    }
+    return { phone: `+${international}` };
   }
 
-  if (!/^\d+$/.test(digits)) return { error: "WRONG_LENGTH" };
-  if (digits.length !== 9) return { error: "WRONG_LENGTH" };
+  // Bez kierunkowego = numer krajowy. "0 500 600 700" to zapis z czasów
+  // wybierania międzymiastowego, wciąż spotykany na wizytówkach.
+  let digits = cleaned;
+  if (digits.startsWith("0") && digits.length === POLISH_DIGITS + 1) digits = digits.slice(1);
+
+  if (!/^\d+$/.test(digits)) return { error: "NOT_A_NUMBER" };
+  if (digits.length !== POLISH_DIGITS) return { error: "POLISH_WRONG_LENGTH" };
 
   return { phone: `${PHONE_PREFIX}${digits}` };
 }
 
-// Do wyświetlania: +48 500 600 700. Numer w bazie zostaje bez spacji.
-export function formatPolishPhone(phone: string): string {
-  const digits = phone.startsWith(PHONE_PREFIX) ? phone.slice(3) : phone;
-  if (digits.length !== 9) return phone;
+// Do wyświetlania. Polskie numery rozdzielamy po trzy cyfry (+48 500 600 700),
+// bo tak się je u nas czyta. Zagranicznych nie grupujemy - każdy kraj robi to
+// inaczej i zgadywanie skończyłoby się gorzej niż brak grupowania.
+export function formatPhone(phone: string): string {
+  if (!phone.startsWith(PHONE_PREFIX)) return phone;
+  const digits = phone.slice(PHONE_PREFIX.length);
+  if (digits.length !== POLISH_DIGITS) return phone;
   return `${PHONE_PREFIX} ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
 }

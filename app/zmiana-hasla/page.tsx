@@ -94,7 +94,7 @@ export default async function ChangePasswordPage({
               inputMode="tel"
               required
               defaultValue={user?.phone ?? PHONE_PREFIX}
-              placeholder="+48 500 600 700"
+              placeholder="500 600 700 albo +380 67 123 45 67"
               autoComplete="tel"
               className="border-line bg-surface-2"
             />
