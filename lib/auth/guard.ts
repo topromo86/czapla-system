@@ -10,9 +10,30 @@ import type { Member, Role } from "@/app/generated/prisma/client";
 
 export class ForbiddenError extends Error {}
 
-export async function requireSession() {
+// Adres ekranu wymuszonej zmiany hasła. Wydzielony, żeby strażnik i sam ekran
+// mówiły o tym samym miejscu.
+export const CHANGE_PASSWORD_PATH = "/zmiana-hasla";
+
+// Sesja BEZ sprawdzania wymuszonej zmiany hasła. Używa jej wyłącznie ekran
+// zmiany hasła - inaczej strażnik odsyłałby go do samego siebie w kółko.
+export async function requireSessionRaw() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  return session;
+}
+
+export async function requireSession() {
+  const session = await requireSessionRaw();
+
+  // Konto z hasłem nadanym przez klub nie wchodzi nigdzie poza ekran zmiany
+  // hasła. Sprawdzamy w strażniku, a nie po zalogowaniu: inaczej wystarczyłoby
+  // wpisać dowolny adres z pominięciem przekierowania.
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { mustChangePassword: true },
+  });
+  if (user?.mustChangePassword) redirect(CHANGE_PASSWORD_PATH);
+
   return session;
 }
 

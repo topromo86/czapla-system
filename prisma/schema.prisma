@@ -46,6 +46,10 @@ model User {
   // identyfikuje KONTO, więc "trener też się odbija" działa tym samym
   // mechanizmem. Generowany leniwie przy pierwszym wyświetleniu kodu. Bearer:
   // liczy się, że skan odbywa się na zaufanej stacji na sali.
+  // Wymuszenie zmiany hasła przy najbliższym logowaniu. Ustawiane wszędzie
+  // tam, gdzie hasło nadaje ktoś inny niż właściciel konta (skrypt kadrowy,
+  // reset przez klub) - hasło znane dwóm osobom przestaje być hasłem.
+  mustChangePassword Boolean @default(false)
   checkInToken    String?   @unique
   emailVerifiedAt DateTime? @db.Timestamptz
   lastLoginAt     DateTime? @db.Timestamptz

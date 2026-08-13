@@ -41,7 +41,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // się poprawnie, ale nie znaleźlibyśmy konta do wyboru ekranu startowego.
   const user = await prisma.user.findUnique({
     where: { email: normalizeEmail(email) },
-    select: { role: true },
+    select: { role: true, mustChangePassword: true },
   });
+  // Hasło nadane przez klub zna dwoje ludzi - do systemu wchodzi się dopiero
+  // po ustawieniu własnego.
+  if (user?.mustChangePassword) redirect("/zmiana-hasla");
   redirect(ROLE_HOME[user?.role ?? "MEMBER"]);
 }

@@ -89,7 +89,9 @@ async function main() {
     const haslo = generatePassword();
     await prisma.user.update({
       where: { id: t.id },
-      data: { passwordHash: await bcrypt.hash(haslo, 10) },
+      // Flaga wymuszenia: trener ustawi własne hasło przy pierwszym logowaniu.
+      // Hasło podane głosem w szatni zna dwoje ludzi, więc nie jest hasłem.
+      data: { passwordHash: await bcrypt.hash(haslo, 10), mustChangePassword: true },
     });
     wiersze.push(`${t.name}`);
     wiersze.push(`  login:  ${t.email}`);
@@ -103,6 +105,7 @@ async function main() {
   console.log(`\nZmieniono hasła: ${trenerzy.length}.`);
   console.log(`Lista zapisana w pliku: ${nazwa}`);
   console.log("Plik jest wykluczony z gita. Rozdaj hasła i skasuj go.");
+  console.log("Każdy trener ustawi własne hasło przy pierwszym logowaniu.");
 }
 
 main()

@@ -143,3 +143,11 @@ Hasła nie trafiają na ekran ani do repozytorium - lądują w pliku
 `hasla-instruktorow-<data>.txt` obok projektu (wykluczonym z gita).
 Rozdaje się je osobiście, potem plik się kasuje. Wypisanie ich w konsoli
 zostawiłoby je w historii terminala.
+
+Konto z hasłem nadanym przez klub dostaje `User.mustChangePassword`. Dopóki
+flaga jest zapalona, strażnik sesji (`requireSession`) przepuszcza wyłącznie
+na `/zmiana-hasla` - sprawdzenie siedzi w strażniku, a nie w przekierowaniu po
+zalogowaniu, bo inaczej wystarczyłoby wpisać dowolny adres. Ekran zmiany hasła
+korzysta z `requireSessionRaw`, żeby nie odsyłał sam do siebie. Wpisanie z
+powrotem hasła otrzymanego od klubu jest odrzucane - wtedy nadal znałoby je
+dwoje ludzi.
