@@ -3,7 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/guard";
 import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/time";
 import { formatMoney } from "@/lib/format";
-import { classifyTrainerCheckIn } from "@/lib/domain/class-qr";
+import {
+  classifyTrainerCheckIn,
+  TRAINER_CHECK_IN_LABEL,
+  type TrainerCheckInState,
+} from "@/lib/domain/class-qr";
 import { getClubSettings } from "@/lib/services/settings";
 
 // Pulpit właściciela - ekran startowy admina po zalogowaniu. Dwie rzeczy naraz:
@@ -27,6 +31,13 @@ function time(date: Date): string {
     minute: "2-digit",
   }).format(date);
 }
+
+const CHECK_IN_STYLE: Record<TrainerCheckInState, string> = {
+  ON_TIME: "text-jade",
+  LATE: "text-amber",
+  MISSING: "text-red",
+  PENDING: "text-muted-brand",
+};
 
 export default async function AdminDashboardPage() {
   const session = await requireRole("ADMIN");
@@ -179,7 +190,10 @@ export default async function AdminDashboardPage() {
     {
       count: missingCheckIns.length,
       label: "Zajęcia bez odbicia prowadzącego",
-      href: "/admin/zajecia",
+      // Kotwica do sekcji niżej, nie ogólny grafik: alert nazywa konkretny
+      // problem, więc ma prowadzić do konkretnych zajęć, a nie do listy
+      // wszystkiego, w której trzeba ich szukać samemu.
+      href: "#bez-odbicia",
     },
   ].filter((a) => a.count > 0);
 
@@ -337,13 +351,38 @@ export default async function AdminDashboardPage() {
                       {s.location.name} · {runner}
                     </p>
                   </div>
-                  <span
-                    className={`shrink-0 font-mono text-xs tracking-widest uppercase ${
-                      full ? "text-amber" : "text-jade"
-                    }`}
-                  >
-                    {s.bookings.length}/{s.capacity} {full ? "komplet" : "miejsc"}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <span
+                      className={`font-mono text-xs tracking-widest uppercase ${
+                        full ? "text-amber" : "text-jade"
+                      }`}
+                    >
+                      {s.bookings.length}/{s.capacity} {full ? "komplet" : "miejsc"}
+                    </span>
+                    <span
+                      className={`font-mono text-[11px] ${
+                        CHECK_IN_STYLE[
+                          classifyTrainerCheckIn({
+                            session: s,
+                            checkedInAt: s.trainerCheckedInAt,
+                            now,
+                            minutesBefore: settings.trainerCheckInMinutesBefore,
+                          })
+                        ]
+                      }`}
+                    >
+                      {
+                        TRAINER_CHECK_IN_LABEL[
+                          classifyTrainerCheckIn({
+                            session: s,
+                            checkedInAt: s.trainerCheckedInAt,
+                            now,
+                            minutesBefore: settings.trainerCheckInMinutesBefore,
+                          })
+                        ]
+                      }
+                    </span>
+                  </div>
                 </li>
               );
             })}
