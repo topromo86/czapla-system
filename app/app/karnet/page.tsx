@@ -94,9 +94,7 @@ export default async function MyPassPage({
             ) : null}
           </div>
         ) : (
-          <p className="text-red mt-2 text-sm">
-            Brak aktywnego karnetu - skontaktuj się z klubem.
-          </p>
+          <p className="text-red mt-2 text-sm">Brak aktywnego karnetu - skontaktuj się z klubem.</p>
         )}
       </section>
 

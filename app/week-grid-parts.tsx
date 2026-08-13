@@ -67,7 +67,10 @@ export function CollapsedGap({ hours, days }: { hours: number[]; days: CalendarD
               {hourLabel(hour)}
             </div>
             {days.map((day) => (
-              <div key={`${dayKeyOf(day)}-${hour}`} className="border-line-soft min-h-14 border-t" />
+              <div
+                key={`${dayKeyOf(day)}-${hour}`}
+                className="border-line-soft min-h-14 border-t"
+              />
             ))}
           </React.Fragment>
         ))}

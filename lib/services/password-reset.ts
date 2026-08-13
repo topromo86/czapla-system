@@ -54,7 +54,10 @@ export type ResetResult = "OK" | "INVALID_OR_EXPIRED";
 
 // Ustawienie nowego hasła na podstawie tokenu z linku. Token jest jednorazowy
 // i wygasa; walidację siły hasła robi warstwa wyżej (lib/domain/registration).
-export async function resetPassword(rawToken: string, passwordHashInput: string): Promise<ResetResult> {
+export async function resetPassword(
+  rawToken: string,
+  passwordHashInput: string,
+): Promise<ResetResult> {
   const token = await prisma.passwordResetToken.findUnique({
     where: { tokenHash: hashToken(rawToken) },
     select: { id: true, userId: true, expiresAt: true, usedAt: true },

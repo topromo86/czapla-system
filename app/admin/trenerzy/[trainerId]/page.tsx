@@ -64,9 +64,9 @@ export default async function TrainerDetailPage({
               {trainer.user.name}
             </h1>
             <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
-              {(trainer.locations.length > 0
+              {trainer.locations.length > 0
                 ? trainer.locations.map((l) => l.name).join(", ")
-                : trainer.location.name)}{" "}
+                : trainer.location.name}{" "}
               · {trainer.user.email}
               {trainer.active ? "" : " · wyciszony"}
             </p>

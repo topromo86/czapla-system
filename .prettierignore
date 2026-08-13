@@ -1,1 +1,8 @@
 *.md
+
+# Klient Prisma generowany do repozytorium roboczego - formatuje go generator,
+# nie my. Bez tego każde `prisma generate` robiłoby z formatowania ruchomy cel.
+app/generated/
+
+# Wyniki budowania.
+.next/

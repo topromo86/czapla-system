@@ -63,7 +63,9 @@ export default async function TrainerActivityPage({
               <span className="text-brand-red font-medium">
                 {ACTION_LABEL[log.action] ?? log.action}
               </span>
-              <span className="text-muted-brand font-mono text-xs">{formatDate(log.createdAt)}</span>
+              <span className="text-muted-brand font-mono text-xs">
+                {formatDate(log.createdAt)}
+              </span>
             </div>
             <p className="text-text mt-1 text-sm">{log.summary}</p>
           </li>

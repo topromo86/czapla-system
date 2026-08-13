@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PROSE_WIDTH } from "../../shell";
 import { adminAssignSubstituteAction } from "./actions";
 
-const selectClass =
-  "border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm";
+const selectClass = "border-line bg-surface-2 text-text rounded-md border px-2 py-1 text-sm";
 
 export default async function AdminSubstitutesPage({
   searchParams,
@@ -65,9 +64,7 @@ export default async function AdminSubstitutesPage({
         <h1 className="text-brand-red font-[family-name:var(--font-anton)] text-2xl uppercase">
           Zastępstwa
         </h1>
-        <p className="text-muted-brand mt-1 text-sm">
-          Kto kogo zastępuje i czy to potwierdził.
-        </p>
+        <p className="text-muted-brand mt-1 text-sm">Kto kogo zastępuje i czy to potwierdził.</p>
       </div>
 
       {error ? (
@@ -116,8 +113,7 @@ export default async function AdminSubstitutesPage({
                   {formatDayTime(s.startsAt)} · {s.location.name}
                 </p>
                 <p className="text-text mt-1 text-sm">
-                  <b>{s.substituteTrainer?.user.name}</b> ma zastąpić{" "}
-                  <b>{s.trainer.user.name}</b>
+                  <b>{s.substituteTrainer?.user.name}</b> ma zastąpić <b>{s.trainer.user.name}</b>
                   {s.substituteByAdmin ? " (wyznaczone przez Ciebie)" : " (prośba trenera)"}
                 </p>
                 <p className="text-amber mt-1 font-mono text-xs tracking-widest uppercase">

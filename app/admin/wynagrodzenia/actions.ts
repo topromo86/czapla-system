@@ -126,7 +126,8 @@ export async function createCostAction(formData: FormData) {
   const locationId = String(formData.get("locationId") ?? "");
 
   if (name.length < 2) back(month, "Podaj nazwę kosztu.");
-  if (kindRaw !== "RECURRING_MONTHLY" && kindRaw !== "ONE_OFF") back(month, "Wybierz rodzaj kosztu.");
+  if (kindRaw !== "RECURRING_MONTHLY" && kindRaw !== "ONE_OFF")
+    back(month, "Wybierz rodzaj kosztu.");
 
   const amountGross = parseAmountToGrosze(amountRaw);
   if (amountGross == null) back(month, "Podaj kwotę w złotych, np. 3000 albo 3000,50.");
@@ -136,7 +137,8 @@ export async function createCostAction(formData: FormData) {
 
   const endsOn = endsOnRaw ? parseDateOnly(endsOnRaw) : null;
   if (endsOnRaw && !endsOn) back(month, "Nieprawidłowa data zakończenia.");
-  if (endsOn && endsOn < startsOn) back(month, "Data zakończenia nie może być wcześniejsza niż początek.");
+  if (endsOn && endsOn < startsOn)
+    back(month, "Data zakończenia nie może być wcześniejsza niż początek.");
 
   await prisma.$transaction(async (tx) => {
     await tx.clubCost.create({
@@ -200,7 +202,8 @@ export async function endCostAction(formData: FormData) {
 
   const cost = await prisma.clubCost.findUniqueOrThrow({ where: { id: costId } });
   if (cost.kind !== "RECURRING_MONTHLY") back(month, "Tylko koszt stały można zakończyć.");
-  if (endsOn < cost.startsOn) back(month, "Data zakończenia nie może być wcześniejsza niż początek.");
+  if (endsOn < cost.startsOn)
+    back(month, "Data zakończenia nie może być wcześniejsza niż początek.");
 
   await prisma.$transaction(async (tx) => {
     await tx.clubCost.update({ where: { id: costId }, data: { endsOn } });

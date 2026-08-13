@@ -9,10 +9,7 @@ import type { CalendarDate } from "@/lib/domain/time";
 // Nazwa zajęć jest opcjonalna. Gdy właściciel jej nie poda, zajęcia nazywają
 // się dokładnie tak jak ich rodzaj (kategoria) - to była wprost prośba: "nazwa
 // nie wymagana, bo zajęcia nazywają się tak jak pozycje w RODZAJ".
-export function resolveClassName(
-  name: string | null | undefined,
-  categoryName: string,
-): string {
+export function resolveClassName(name: string | null | undefined, categoryName: string): string {
   const trimmed = (name ?? "").trim();
   return trimmed.length > 0 ? trimmed : categoryName;
 }

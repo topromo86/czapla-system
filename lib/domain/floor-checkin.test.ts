@@ -22,19 +22,21 @@ describe("elapsedMinutes", () => {
 
 describe("resolveScanOutcome", () => {
   it("pierwsze odbicie to zawsze nowe wejście", () => {
-    expect(resolveScanOutcome({ lastEnteredAt: null, now: base, minMinutes: 30 })).toBe("NEW_ENTRY");
+    expect(resolveScanOutcome({ lastEnteredAt: null, now: base, minMinutes: 30 })).toBe(
+      "NEW_ENTRY",
+    );
   });
 
   it("powtórne odbicie w oknie to wciąż to samo wejście", () => {
-    expect(
-      resolveScanOutcome({ lastEnteredAt: base, now: minsLater(10), minMinutes: 30 }),
-    ).toBe("ALREADY_ON_FLOOR");
+    expect(resolveScanOutcome({ lastEnteredAt: base, now: minsLater(10), minMinutes: 30 })).toBe(
+      "ALREADY_ON_FLOOR",
+    );
   });
 
   it("odbicie po oknie to nowe wejście", () => {
-    expect(
-      resolveScanOutcome({ lastEnteredAt: base, now: minsLater(31), minMinutes: 30 }),
-    ).toBe("NEW_ENTRY");
+    expect(resolveScanOutcome({ lastEnteredAt: base, now: minsLater(31), minMinutes: 30 })).toBe(
+      "NEW_ENTRY",
+    );
   });
 
   it("przy progu 0 każde odbicie jest nowym wejściem", () => {

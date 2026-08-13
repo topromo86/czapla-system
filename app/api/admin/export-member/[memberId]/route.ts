@@ -6,10 +6,7 @@ import { requireRole } from "@/lib/auth/guard";
 // system wie o kliencie, jako plik do pobrania. Admin-only (klient prosi
 // osobiście/mailowo, nie ma samoobsługowego eksportu - brak infrastruktury
 // pewnej weryfikacji tożsamości przez /app).
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ memberId: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ memberId: string }> }) {
   await requireRole("ADMIN");
   const { memberId } = await params;
 

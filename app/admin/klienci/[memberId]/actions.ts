@@ -49,11 +49,15 @@ export async function provisionLoginAccountAction(formData: FormData) {
 
   const jar = await cookies();
   // Krótkie życie: hasło jest jednorazowe do przekazania, nie do trzymania.
-  jar.set("provisioned-account", JSON.stringify({ email, password: result.password, emailed: result.emailed }), {
-    httpOnly: true,
-    maxAge: 60,
-    path: back,
-  });
+  jar.set(
+    "provisioned-account",
+    JSON.stringify({ email, password: result.password, emailed: result.emailed }),
+    {
+      httpOnly: true,
+      maxAge: 60,
+      path: back,
+    },
+  );
 
   revalidatePath(back);
   redirect(`${back}?konto=utworzone`);

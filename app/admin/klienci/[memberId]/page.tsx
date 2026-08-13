@@ -68,7 +68,10 @@ export default async function AdminMemberCardPage({
         // i pełną historię kontaktu sprzed założenia konta.
         convertedLead: {
           include: {
-            notes: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+            notes: {
+              include: { author: { select: { name: true } } },
+              orderBy: { createdAt: "desc" },
+            },
             activities: {
               include: { actor: { select: { name: true } } },
               orderBy: { createdAt: "desc" },
@@ -105,16 +108,17 @@ export default async function AdminMemberCardPage({
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <Link href="/admin" className="text-muted-brand text-xs hover:text-brand-red">
+        <Link href="/admin" className="text-muted-brand hover:text-brand-red text-xs">
           ← Karnety
         </Link>
         <h1 className="font-display text-brand-red mt-1 text-2xl tracking-wide">
           {member.firstName} {member.lastName}
         </h1>
         <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
-          {age} lat · {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
-          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} · Status{" "}
-          {STATUS_LABEL[member.status]}
+          {age} lat ·{" "}
+          {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
+          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} ·
+          Status {STATUS_LABEL[member.status]}
         </p>
         <p className="text-muted-brand mt-1 text-sm">
           Opiekun: {member.ownerTrainer.user.name} · Lokalizacja domowa: {member.homeLocation.name}
@@ -239,7 +243,9 @@ export default async function AdminMemberCardPage({
             </li>
           ))}
           {member.passes.length === 0 ? (
-            <li className="text-muted-brand text-sm">Brak karnetów - jeszcze żaden nie sprzedany.</li>
+            <li className="text-muted-brand text-sm">
+              Brak karnetów - jeszcze żaden nie sprzedany.
+            </li>
           ) : null}
         </ul>
       </section>
@@ -515,7 +521,10 @@ export default async function AdminMemberCardPage({
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex flex-col gap-1">
-                <Label htmlFor="provision-email" className="font-mono text-xs tracking-widest uppercase">
+                <Label
+                  htmlFor="provision-email"
+                  className="font-mono text-xs tracking-widest uppercase"
+                >
                   E-mail klienta
                 </Label>
                 <Input
@@ -534,9 +543,7 @@ export default async function AdminMemberCardPage({
       </section>
 
       <section>
-        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-          RODO
-        </h2>
+        <h2 className="text-muted-brand font-mono text-xs tracking-widest uppercase">RODO</h2>
         <div className="mt-2 flex flex-col gap-4">
           <div>
             <a

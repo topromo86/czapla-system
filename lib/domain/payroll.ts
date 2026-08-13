@@ -35,11 +35,7 @@ export type RateEntry = {
 // Stawka obowiązująca w danym momencie: najpóźniejsza, która zaczęła
 // obowiązywać nie później niż wtedy. Dzięki temu podwyżka od 1 sierpnia nie
 // zmienia tego, co trener zarobił w lipcu.
-export function rateAt(
-  rates: readonly RateEntry[],
-  kind: SessionKind,
-  at: Date,
-): number | null {
+export function rateAt(rates: readonly RateEntry[], kind: SessionKind, at: Date): number | null {
   const applicable = rates
     .filter((rate) => rate.kind === kind && rate.validFrom <= at)
     .sort((a, b) => b.validFrom.getTime() - a.validFrom.getTime());

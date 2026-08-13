@@ -79,10 +79,7 @@ export const SUBSTITUTE_STATUS_LABEL: Record<SubstituteStatus, string> = {
 };
 
 export type AssignSubstituteError =
-  | "SAME_TRAINER"
-  | "SESSION_CANCELLED"
-  | "SESSION_STARTED"
-  | "ALREADY_ACCEPTED";
+  "SAME_TRAINER" | "SESSION_CANCELLED" | "SESSION_STARTED" | "ALREADY_ACCEPTED";
 
 // Walidacja wyznaczenia. Osobno od bazy, żeby dało się ją przetestować bez
 // stawiania Postgresa.

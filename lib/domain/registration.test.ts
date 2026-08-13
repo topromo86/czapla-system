@@ -102,7 +102,10 @@ describe("validateRegistration", () => {
   });
 
   it("zwraca błąd hasła jako obiekt", () => {
-    const result = validateRegistration(baseInput({ password: "abc", confirmPassword: "abc" }), NOW);
+    const result = validateRegistration(
+      baseInput({ password: "abc", confirmPassword: "abc" }),
+      NOW,
+    );
     expect(result).toEqual({ password: "TOO_SHORT" });
   });
 

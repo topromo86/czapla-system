@@ -60,7 +60,10 @@ type Pattern = { visits: number; lastVisit: Date };
 
 // Zbiera nawyki z historii. Wyeksportowane osobno, bo przydaje się też do
 // pokazania klientowi "twoje stałe terminy".
-export function buildPatterns(history: readonly AttendedSession[], now: Date): Map<string, Pattern> {
+export function buildPatterns(
+  history: readonly AttendedSession[],
+  now: Date,
+): Map<string, Pattern> {
   const cutoff = new Date(now.getTime() - HISTORY_WEEKS * 7 * 86_400_000);
   const patterns = new Map<string, Pattern>();
 

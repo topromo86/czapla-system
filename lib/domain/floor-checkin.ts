@@ -29,7 +29,8 @@ export function resolveScanOutcome(input: {
 }): ScanOutcome {
   if (!input.lastEnteredAt) return "NEW_ENTRY";
   if (input.minMinutes <= 0) return "NEW_ENTRY";
-  const withinWindow = input.now.getTime() - input.lastEnteredAt.getTime() < input.minMinutes * MINUTE_MS;
+  const withinWindow =
+    input.now.getTime() - input.lastEnteredAt.getTime() < input.minMinutes * MINUTE_MS;
   return withinWindow ? "ALREADY_ON_FLOOR" : "NEW_ENTRY";
 }
 

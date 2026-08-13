@@ -136,8 +136,10 @@ export default async function AdminRankingPage({
         <h1 className="font-display text-brand-red text-2xl tracking-wide">Ranking trenerów</h1>
         <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
           Okres {period} · próg premii {settings.bonusThresholdScore} ·{" "}
-          {settings.bonusAmountGross > 0 ? formatMoney(settings.bonusAmountGross) : "kwota nieustawiona"} ·
-          policzono {formatDate(latestScore.computedAt)}
+          {settings.bonusAmountGross > 0
+            ? formatMoney(settings.bonusAmountGross)
+            : "kwota nieustawiona"}{" "}
+          · policzono {formatDate(latestScore.computedAt)}
         </p>
       </div>
 
@@ -231,19 +233,30 @@ export default async function AdminRankingPage({
             </p>
             <div className="flex flex-wrap gap-4">
               <span className="flex items-center gap-2">
-                <span className="inline-block size-3 rounded-full" style={{ backgroundColor: colorForRatio(0) }} />
+                <span
+                  className="inline-block size-3 rounded-full"
+                  style={{ backgroundColor: colorForRatio(0) }}
+                />
                 0-39% - nisko
               </span>
               <span className="flex items-center gap-2">
-                <span className="inline-block size-3 rounded-full" style={{ backgroundColor: colorForRatio(0.5) }} />
+                <span
+                  className="inline-block size-3 rounded-full"
+                  style={{ backgroundColor: colorForRatio(0.5) }}
+                />
                 40-69% - średnio
               </span>
               <span className="flex items-center gap-2">
-                <span className="inline-block size-3 rounded-full" style={{ backgroundColor: colorForRatio(1) }} />
+                <span
+                  className="inline-block size-3 rounded-full"
+                  style={{ backgroundColor: colorForRatio(1) }}
+                />
                 70-100% - wysoko
               </span>
             </div>
-            <p className="mt-1">Kolor zmienia się płynnie, powyższe progi to tylko punkty orientacyjne.</p>
+            <p className="mt-1">
+              Kolor zmienia się płynnie, powyższe progi to tylko punkty orientacyjne.
+            </p>
           </div>
 
           <div>
@@ -251,11 +264,12 @@ export default async function AdminRankingPage({
               Wynik (0-100) i jego składowe
             </p>
             <p>
-              Liczony raz w miesiącu, 1. dnia, za okres poprzedni - to zdjęcie migawkowe, nie licznik
-              na żywo. To ważona suma czterech pasków: <b>Retencja</b> (45% wagi), <b>Ocena</b> (20%),
-              <b> Terminowość</b> (20%) i <b>Onboarding</b> (15%). „Za mało danych (X/5)” oznacza, że
-              trener ma mniej niż 5 klientów w dojrzałej kohorcie (przypisanych do niego i zapisanych
-              min. 90 dni temu) - to brak wystarczającej próbki, nie ocena negatywna.
+              Liczony raz w miesiącu, 1. dnia, za okres poprzedni - to zdjęcie migawkowe, nie
+              licznik na żywo. To ważona suma czterech pasków: <b>Retencja</b> (45% wagi),{" "}
+              <b>Ocena</b> (20%),
+              <b> Terminowość</b> (20%) i <b>Onboarding</b> (15%). „Za mało danych (X/5)” oznacza,
+              że trener ma mniej niż 5 klientów w dojrzałej kohorcie (przypisanych do niego i
+              zapisanych min. 90 dni temu) - to brak wystarczającej próbki, nie ocena negatywna.
             </p>
           </div>
 
@@ -265,29 +279,33 @@ export default async function AdminRankingPage({
             </p>
             <p>
               To liczba <b>względna</b>: retencja tego trenera podzielona przez średnią retencję
-              całego klubu w tym samym segmencie (dzieci/dorośli), ograniczona do 100%. 100% = trener
-              trzyma się poziomu średniej klubowej (albo lepiej). Np. retencja 60% przy średniej
-              klubowej 75% daje tu <b>80%</b> - nie 60%.
+              całego klubu w tym samym segmencie (dzieci/dorośli), ograniczona do 100%. 100% =
+              trener trzyma się poziomu średniej klubowej (albo lepiej). Np. retencja 60% przy
+              średniej klubowej 75% daje tu <b>80%</b> - nie 60%.
             </p>
           </div>
 
           <div>
-            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">Ocena, Terminowość, Onboarding</p>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Ocena, Terminowość, Onboarding
+            </p>
             <p>
-              <b>Ocena</b> - średnia z ocen klientów (1-5) po zajęciach tego trenera z ostatnich 90 dni;
-              brak ocen liczy się neutralnie, nie jako kara. <b>Terminowość</b> - % zadań retencyjnych
-              zamkniętych przed terminem w ostatnich 90 dniach. <b>Onboarding</b> - % już wymagalnych
-              etapów wdrożenia nowego klienta, które trener ukończył na czas.
+              <b>Ocena</b> - średnia z ocen klientów (1-5) po zajęciach tego trenera z ostatnich 90
+              dni; brak ocen liczy się neutralnie, nie jako kara. <b>Terminowość</b> - % zadań
+              retencyjnych zamkniętych przed terminem w ostatnich 90 dniach. <b>Onboarding</b> - %
+              już wymagalnych etapów wdrożenia nowego klienta, które trener ukończył na czas.
             </p>
           </div>
 
           <div>
-            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">Postęp do premii</p>
+            <p className="text-text mb-1 font-mono text-xs tracking-widest uppercase">
+              Postęp do premii
+            </p>
             <p>
               Duży pasek pod każdym trenerem pokazuje Wynik na skali 0-100 z kreskowanym znacznikiem
-              progu premii ({settings.bonusThresholdScore}). Po przekroczeniu progu pasek płynie dalej w prawo
-              (zakreskowany fragment) - to pokazuje, że premia to nie sufit, wynik może dalej rosnąć
-              aż do 100.
+              progu premii ({settings.bonusThresholdScore}). Po przekroczeniu progu pasek płynie
+              dalej w prawo (zakreskowany fragment) - to pokazuje, że premia to nie sufit, wynik
+              może dalej rosnąć aż do 100.
             </p>
           </div>
         </div>

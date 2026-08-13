@@ -78,9 +78,7 @@ describe("validateHandover", () => {
   });
 
   it("brak pozycji do przepisania to poprawny stan", () => {
-    expect(
-      validateHandover({ ...base, items: [], targets: new Map() }),
-    ).toBeNull();
+    expect(validateHandover({ ...base, items: [], targets: new Map() })).toBeNull();
   });
 
   // Sedno: ani jedna grupa i ani jeden klient nie może zostać bez opiekuna.

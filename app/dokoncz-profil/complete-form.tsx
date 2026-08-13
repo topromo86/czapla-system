@@ -81,7 +81,13 @@ export function CompleteProfileForm({
         <Label htmlFor="homeLocationId" className={labelClass}>
           Lokalizacja
         </Label>
-        <select id="homeLocationId" name="homeLocationId" required defaultValue="" className={selectClass}>
+        <select
+          id="homeLocationId"
+          name="homeLocationId"
+          required
+          defaultValue=""
+          className={selectClass}
+        >
           <option value="" disabled>
             Wybierz lokalizację
           </option>
@@ -97,7 +103,13 @@ export function CompleteProfileForm({
         <Label htmlFor="ownerTrainerId" className={labelClass}>
           Trener prowadzący
         </Label>
-        <select id="ownerTrainerId" name="ownerTrainerId" required defaultValue="" className={selectClass}>
+        <select
+          id="ownerTrainerId"
+          name="ownerTrainerId"
+          required
+          defaultValue=""
+          className={selectClass}
+        >
           <option value="" disabled>
             Wybierz trenera
           </option>

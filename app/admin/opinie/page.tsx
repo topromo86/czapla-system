@@ -117,7 +117,9 @@ export default async function AdminOpinionsPage({
           <Link
             href={linkWith({ trener: null })}
             className={`rounded-md border px-3 py-1.5 text-sm ${
-              !trener ? "border-brand-red text-brand-red font-medium" : "border-line bg-surface text-text"
+              !trener
+                ? "border-brand-red text-brand-red font-medium"
+                : "border-line bg-surface text-text"
             }`}
           >
             Wszyscy
@@ -254,9 +256,10 @@ export default async function AdminOpinionsPage({
             </p>
             <p>
               Ekran jest dostępny wyłącznie dla roli właściciela. Trener widzi swoją średnią ocenę
-              na „Mojej karcie” i w Rankingu, ale <b>nigdy pojedynczych opinii, ich treści ani
-              tego, kto je napisał</b>. Dokładnie to obiecujemy klubowiczowi przy polu opinii:
-              „anonimowa dla trenera, czyta ją właściciel i widzi Twoje imię”.
+              na „Mojej karcie” i w Rankingu, ale{" "}
+              <b>nigdy pojedynczych opinii, ich treści ani tego, kto je napisał</b>. Dokładnie to
+              obiecujemy klubowiczowi przy polu opinii: „anonimowa dla trenera, czyta ją właściciel
+              i widzi Twoje imię”.
             </p>
           </div>
 

@@ -8,11 +8,7 @@ export const metadata: Metadata = {
   title: "Potwierdzenie e-maila - toFitCONTROL",
 };
 
-export default async function VerifyEmailPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+export default async function VerifyEmailPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const result = await verifyEmailToken(token);
 

@@ -41,9 +41,7 @@ export default async function ConsentPrintPage({
     (a, b) => ORDER.indexOf(a.consentType.key) - ORDER.indexOf(b.consentType.key),
   );
 
-  const signatoryLabel = member.isMinor
-    ? "Czytelny podpis opiekuna prawnego"
-    : "Czytelny podpis";
+  const signatoryLabel = member.isMinor ? "Czytelny podpis opiekuna prawnego" : "Czytelny podpis";
 
   return (
     <main className="min-h-full bg-neutral-200 print:bg-white">

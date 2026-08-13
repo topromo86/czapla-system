@@ -50,11 +50,7 @@ export function ThemeToggle() {
   // getServerSnapshot = false: serwer i pierwszy render po stronie klienta
   // zakładają jasny (skrypt w <head> ustawia właściwą klasę przed malowaniem, a
   // useSyncExternalStore po hydratacji odczyta realny stan). Brak niezgodności.
-  const dark = useSyncExternalStore(
-    subscribeTheme,
-    isDarkNow,
-    () => false,
-  );
+  const dark = useSyncExternalStore(subscribeTheme, isDarkNow, () => false);
 
   function toggle() {
     const next = !isDarkNow();

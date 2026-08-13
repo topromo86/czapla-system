@@ -82,12 +82,18 @@ describe("validateClassTemplate", () => {
   });
 
   it("odrzuca złą godzinę", () => {
-    expect(validateClassTemplate({ ...base, startTime: "25:00" })).toEqual({ error: "INVALID_TIME" });
-    expect(validateClassTemplate({ ...base, startTime: "brak" })).toEqual({ error: "INVALID_TIME" });
+    expect(validateClassTemplate({ ...base, startTime: "25:00" })).toEqual({
+      error: "INVALID_TIME",
+    });
+    expect(validateClassTemplate({ ...base, startTime: "brak" })).toEqual({
+      error: "INVALID_TIME",
+    });
   });
 
   it("odrzuca niepoprawny czas trwania", () => {
-    expect(validateClassTemplate({ ...base, durationMin: 0 })).toEqual({ error: "INVALID_DURATION" });
+    expect(validateClassTemplate({ ...base, durationMin: 0 })).toEqual({
+      error: "INVALID_DURATION",
+    });
     expect(validateClassTemplate({ ...base, durationMin: 12.5 })).toEqual({
       error: "INVALID_DURATION",
     });

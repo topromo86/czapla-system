@@ -69,7 +69,13 @@ export type VerifyResult = "OK" | "INVALID_OR_EXPIRED";
 export async function verifyEmailToken(rawToken: string): Promise<VerifyResult> {
   const token = await prisma.emailVerificationToken.findUnique({
     where: { tokenHash: hashToken(rawToken) },
-    select: { id: true, userId: true, expiresAt: true, usedAt: true, user: { select: { emailVerifiedAt: true } } },
+    select: {
+      id: true,
+      userId: true,
+      expiresAt: true,
+      usedAt: true,
+      user: { select: { emailVerifiedAt: true } },
+    },
   });
   if (!token) return "INVALID_OR_EXPIRED";
 

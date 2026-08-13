@@ -129,9 +129,7 @@ export default async function ProgressPage({
               className="border-line bg-surface flex items-center justify-between rounded-md border p-3"
             >
               <span className="text-text font-medium">{m.weightKg} kg</span>
-              <span className="text-muted-brand font-mono text-xs">
-                {formatDate(m.recordedAt)}
-              </span>
+              <span className="text-muted-brand font-mono text-xs">{formatDate(m.recordedAt)}</span>
             </li>
           ))}
           {measurements.length === 0 ? (

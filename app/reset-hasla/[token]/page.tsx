@@ -9,11 +9,7 @@ export const metadata: Metadata = {
   title: "Ustaw nowe hasło - toFitCONTROL",
 };
 
-export default async function ResetTokenPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+export default async function ResetTokenPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const valid = await isResetTokenValid(token);
 
@@ -36,10 +32,7 @@ export default async function ResetTokenPage({
               <p className="border-red bg-surface text-text rounded-md border p-3 text-sm">
                 Ten link wygasł lub został już użyty. Poproś o nowy.
               </p>
-              <Link
-                href="/reset-hasla"
-                className="text-brand-red text-center text-sm underline"
-              >
+              <Link href="/reset-hasla" className="text-brand-red text-center text-sm underline">
                 Poproś o nowy link
               </Link>
             </div>

@@ -82,7 +82,11 @@ export default async function AdminPayrollPage({
     trainers.map(async (trainer) => {
       const summary = await trainerPayout(trainer.id, selected.year, selected.month, now);
       const score = scoreByTrainer.get(trainer.id) ?? null;
-      const bonusGross = bonusForScore(score, settings.bonusThresholdScore, settings.bonusAmountGross);
+      const bonusGross = bonusForScore(
+        score,
+        settings.bonusThresholdScore,
+        settings.bonusAmountGross,
+      );
       return {
         trainer,
         summary,
@@ -105,7 +109,14 @@ export default async function AdminPayrollPage({
   const costSummary = sumCostsForMonth(costEntries, selected.year, selected.month);
   const costsThisMonth = costs.filter((c) =>
     costAppliesToMonth(
-      { id: c.id, name: c.name, amountGross: c.amountGross, kind: c.kind, startsOn: c.startsOn, endsOn: c.endsOn },
+      {
+        id: c.id,
+        name: c.name,
+        amountGross: c.amountGross,
+        kind: c.kind,
+        startsOn: c.startsOn,
+        endsOn: c.endsOn,
+      },
       selected.year,
       selected.month,
     ),
@@ -125,7 +136,9 @@ export default async function AdminPayrollPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="font-display text-brand-red text-2xl tracking-wide">Wynagrodzenia i koszty</h1>
+        <h1 className="font-display text-brand-red text-2xl tracking-wide">
+          Wynagrodzenia i koszty
+        </h1>
         <p className="text-muted-brand mt-1 text-sm">
           Stawki trenerów, wypłaty za poprowadzone zajęcia i koszty klubu. Widoczne wyłącznie dla
           Ciebie.
@@ -209,126 +222,128 @@ export default async function AdminPayrollPage({
           Wypłaty trenerów
         </h2>
         <div className="mt-2 flex flex-col gap-2">
-          {payouts.map(({ trainer, summary, score, scoreComputed, bonusGross, payoutWithBonus }) => (
-            <div key={trainer.id} className="border-line bg-surface rounded-md border p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-text font-medium">
-                    {trainer.user.name}
-                    {bonusGross > 0 ? (
-                      <span className="bg-brand-red/10 text-brand-red ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
-                        Premia {formatMoney(bonusGross)}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
-                    {trainer.location.name} · odbyte {summary.doneCount} zajęć (
-                    {formatMinutes(summary.doneMinutes)}) · zaplanowane {summary.upcomingCount}
-                  </p>
-                  <p className="text-muted-brand mt-0.5 font-mono text-xs">
-                    {scoreComputed
-                      ? `wynik ${score ?? "za mało danych"} · próg premii ${settings.bonusThresholdScore}`
-                      : `wynik za ten miesiąc jeszcze nieobliczony · próg premii ${settings.bonusThresholdScore}`}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-display text-brand-red text-2xl">
-                    {formatMoney(payoutWithBonus)}
-                  </p>
-                  <p className="text-muted-brand font-mono text-xs">
-                    zarobione {formatMoney(summary.earnedGross)}
-                    {bonusGross > 0 ? ` + premia ${formatMoney(bonusGross)}` : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {summary.byKind.map((kind) => (
-                  <div key={kind.kind} className="border-line-soft rounded-md border p-2">
-                    <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">
-                      {SESSION_KIND_LABEL[kind.kind]}
-                    </p>
-                    <p className="text-text mt-1 text-sm">
-                      {kind.doneCount} odbytych · {formatMinutes(kind.doneMinutes)} ={" "}
-                      <b>{formatMoney(kind.earnedGross)}</b>
-                    </p>
-                    <p className="text-muted-brand text-xs">
-                      {kind.upcomingCount} zaplanowanych = {formatMoney(kind.forecastGross)} ·
-                      stawka teraz:{" "}
-                      {kind.currentRateGross != null
-                        ? formatMoney(kind.currentRateGross)
-                        : "nie ustawiona"}
-                    </p>
-
-                    <form
-                      action={setTrainerRateAction}
-                      className="mt-2 flex flex-wrap items-end gap-2"
-                    >
-                      <input type="hidden" name="trainerId" value={trainer.id} />
-                      <input type="hidden" name="kind" value={kind.kind} />
-                      <input type="hidden" name="month" value={selectedKey} />
-                      <div className="w-24">
-                        <Label htmlFor={`amount-${trainer.id}-${kind.kind}`} className="text-xs">
-                          Stawka (zł)
-                        </Label>
-                        <Input
-                          id={`amount-${trainer.id}-${kind.kind}`}
-                          name="amount"
-                          required
-                          placeholder="120"
-                          className="border-line bg-surface-2 h-8"
-                        />
-                      </div>
-                      <div className="w-36">
-                        <Label htmlFor={`from-${trainer.id}-${kind.kind}`} className="text-xs">
-                          Od dnia
-                        </Label>
-                        <Input
-                          id={`from-${trainer.id}-${kind.kind}`}
-                          name="validFrom"
-                          type="date"
-                          required
-                          defaultValue={isoDate({ ...selected, day: 1 })}
-                          className="border-line bg-surface-2 h-8"
-                        />
-                      </div>
-                      <Button type="submit" size="sm" variant="outline">
-                        Ustaw
-                      </Button>
-                    </form>
-                  </div>
-                ))}
-              </div>
-
-              {trainer.rates.length > 0 ? (
-                <details className="mt-2">
-                  <summary className="text-muted-brand cursor-pointer text-xs">
-                    Historia stawek ({trainer.rates.length})
-                  </summary>
-                  <ul className="mt-1 flex flex-col gap-1">
-                    {trainer.rates.map((rate) => (
-                      <li
-                        key={rate.id}
-                        className="text-muted-brand flex items-center justify-between font-mono text-xs"
-                      >
-                        <span>
-                          {SESSION_KIND_LABEL[rate.kind]} · {formatMoney(rate.amountGross)} · od{" "}
-                          {formatDate(rate.validFrom)}
+          {payouts.map(
+            ({ trainer, summary, score, scoreComputed, bonusGross, payoutWithBonus }) => (
+              <div key={trainer.id} className="border-line bg-surface rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-text font-medium">
+                      {trainer.user.name}
+                      {bonusGross > 0 ? (
+                        <span className="bg-brand-red/10 text-brand-red ml-2 rounded-full px-2 py-0.5 font-mono text-xs uppercase">
+                          Premia {formatMoney(bonusGross)}
                         </span>
-                        <form action={deleteTrainerRateAction}>
-                          <input type="hidden" name="rateId" value={rate.id} />
-                          <input type="hidden" name="month" value={selectedKey} />
-                          <button type="submit" className="text-red hover:underline">
-                            usuń
-                          </button>
-                        </form>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-            </div>
-          ))}
+                      ) : null}
+                    </p>
+                    <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                      {trainer.location.name} · odbyte {summary.doneCount} zajęć (
+                      {formatMinutes(summary.doneMinutes)}) · zaplanowane {summary.upcomingCount}
+                    </p>
+                    <p className="text-muted-brand mt-0.5 font-mono text-xs">
+                      {scoreComputed
+                        ? `wynik ${score ?? "za mało danych"} · próg premii ${settings.bonusThresholdScore}`
+                        : `wynik za ten miesiąc jeszcze nieobliczony · próg premii ${settings.bonusThresholdScore}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-brand-red text-2xl">
+                      {formatMoney(payoutWithBonus)}
+                    </p>
+                    <p className="text-muted-brand font-mono text-xs">
+                      zarobione {formatMoney(summary.earnedGross)}
+                      {bonusGross > 0 ? ` + premia ${formatMoney(bonusGross)}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {summary.byKind.map((kind) => (
+                    <div key={kind.kind} className="border-line-soft rounded-md border p-2">
+                      <p className="text-muted-brand font-mono text-xs tracking-widest uppercase">
+                        {SESSION_KIND_LABEL[kind.kind]}
+                      </p>
+                      <p className="text-text mt-1 text-sm">
+                        {kind.doneCount} odbytych · {formatMinutes(kind.doneMinutes)} ={" "}
+                        <b>{formatMoney(kind.earnedGross)}</b>
+                      </p>
+                      <p className="text-muted-brand text-xs">
+                        {kind.upcomingCount} zaplanowanych = {formatMoney(kind.forecastGross)} ·
+                        stawka teraz:{" "}
+                        {kind.currentRateGross != null
+                          ? formatMoney(kind.currentRateGross)
+                          : "nie ustawiona"}
+                      </p>
+
+                      <form
+                        action={setTrainerRateAction}
+                        className="mt-2 flex flex-wrap items-end gap-2"
+                      >
+                        <input type="hidden" name="trainerId" value={trainer.id} />
+                        <input type="hidden" name="kind" value={kind.kind} />
+                        <input type="hidden" name="month" value={selectedKey} />
+                        <div className="w-24">
+                          <Label htmlFor={`amount-${trainer.id}-${kind.kind}`} className="text-xs">
+                            Stawka (zł)
+                          </Label>
+                          <Input
+                            id={`amount-${trainer.id}-${kind.kind}`}
+                            name="amount"
+                            required
+                            placeholder="120"
+                            className="border-line bg-surface-2 h-8"
+                          />
+                        </div>
+                        <div className="w-36">
+                          <Label htmlFor={`from-${trainer.id}-${kind.kind}`} className="text-xs">
+                            Od dnia
+                          </Label>
+                          <Input
+                            id={`from-${trainer.id}-${kind.kind}`}
+                            name="validFrom"
+                            type="date"
+                            required
+                            defaultValue={isoDate({ ...selected, day: 1 })}
+                            className="border-line bg-surface-2 h-8"
+                          />
+                        </div>
+                        <Button type="submit" size="sm" variant="outline">
+                          Ustaw
+                        </Button>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+
+                {trainer.rates.length > 0 ? (
+                  <details className="mt-2">
+                    <summary className="text-muted-brand cursor-pointer text-xs">
+                      Historia stawek ({trainer.rates.length})
+                    </summary>
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {trainer.rates.map((rate) => (
+                        <li
+                          key={rate.id}
+                          className="text-muted-brand flex items-center justify-between font-mono text-xs"
+                        >
+                          <span>
+                            {SESSION_KIND_LABEL[rate.kind]} · {formatMoney(rate.amountGross)} · od{" "}
+                            {formatDate(rate.validFrom)}
+                          </span>
+                          <form action={deleteTrainerRateAction}>
+                            <input type="hidden" name="rateId" value={rate.id} />
+                            <input type="hidden" name="month" value={selectedKey} />
+                            <button type="submit" className="text-red hover:underline">
+                              usuń
+                            </button>
+                          </form>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </div>
+            ),
+          )}
 
           {payouts.length === 0 ? (
             <p className="text-muted-brand text-sm">Brak aktywnych trenerów.</p>
@@ -414,7 +429,13 @@ export default async function AdminPayrollPage({
           </div>
           <div>
             <Label htmlFor="costKind">Rodzaj</Label>
-            <select id="costKind" name="kind" required defaultValue="RECURRING_MONTHLY" className={selectClass}>
+            <select
+              id="costKind"
+              name="kind"
+              required
+              defaultValue="RECURRING_MONTHLY"
+              className={selectClass}
+            >
               <option value="RECURRING_MONTHLY">Stały miesięczny</option>
               <option value="ONE_OFF">Jednorazowy</option>
             </select>
@@ -442,12 +463,7 @@ export default async function AdminPayrollPage({
           </div>
           <div>
             <Label htmlFor="costEndsOn">Do (opcjonalnie)</Label>
-            <Input
-              id="costEndsOn"
-              name="endsOn"
-              type="date"
-              className="border-line bg-surface-2"
-            />
+            <Input id="costEndsOn" name="endsOn" type="date" className="border-line bg-surface-2" />
           </div>
           <div className="sm:col-span-3">
             <Label htmlFor="costLocation">Lokalizacja (opcjonalnie)</Label>
@@ -501,8 +517,8 @@ export default async function AdminPayrollPage({
             </p>
             <p>
               Każda stawka obowiązuje <b>od wskazanego dnia</b>. Podwyżka od 1 sierpnia nie zmienia
-              tego, co trener zarobił w lipcu - każde zajęcia płacone są stawką z dnia, w którym
-              się odbyły. Dzięki temu zamknięty miesiąc nie zmienia kwoty po fakcie.
+              tego, co trener zarobił w lipcu - każde zajęcia płacone są stawką z dnia, w którym się
+              odbyły. Dzięki temu zamknięty miesiąc nie zmienia kwoty po fakcie.
             </p>
           </div>
 
@@ -512,8 +528,8 @@ export default async function AdminPayrollPage({
             </p>
             <p>
               „Zarobione” to zajęcia, które już się odbyły. „Prognoza” dolicza te zaplanowane do
-              końca miesiąca. Jeśli zajęcia zostaną odwołane albo dojdą nowe, kwota się zmieni -
-              to szacunek, nie zobowiązanie.
+              końca miesiąca. Jeśli zajęcia zostaną odwołane albo dojdą nowe, kwota się zmieni - to
+              szacunek, nie zobowiązanie.
             </p>
           </div>
 
@@ -524,8 +540,8 @@ export default async function AdminPayrollPage({
             <p>
               Jeśli trener poprowadził zajęcia, dla których nie ma ustawionej stawki na ten dzień,
               liczą się jako 0 zł, a na górze ekranu pojawia się ostrzeżenie z ich liczbą. Nie
-              zgadujemy kwoty za Ciebie - lepiej, żebyś zobaczył lukę, niż żeby ktoś dostał po
-              cichu zaniżoną wypłatę.
+              zgadujemy kwoty za Ciebie - lepiej, żebyś zobaczył lukę, niż żeby ktoś dostał po cichu
+              zaniżoną wypłatę.
             </p>
           </div>
         </div>

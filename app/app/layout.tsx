@@ -41,7 +41,10 @@ export default async function ClientLayout({ children }: { children: React.React
     select: { email: true, emailVerifiedAt: true },
   });
   const showVerifyBanner =
-    isEmailConfigured() && account != null && account.email != null && account.emailVerifiedAt == null;
+    isEmailConfigured() &&
+    account != null &&
+    account.email != null &&
+    account.emailVerifiedAt == null;
 
   // Zapisy zostają na jedno kliknięcie - to po nie klient wchodzi do apki.
   // Reszta schowana w dwóch grupach, więc nic nie jest dalej niż dwa kliknięcia.

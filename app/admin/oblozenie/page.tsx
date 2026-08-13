@@ -50,8 +50,8 @@ export default async function RoomOccupancyPage() {
         <h1 className="font-display text-brand-red text-2xl tracking-wide">Obłożenie sal</h1>
         <p className="text-muted-brand mt-1 text-sm">
           Najbliższe {DAYS_AHEAD} dni · średnie wypełnienie{" "}
-          {totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0}% (
-          {totalBooked}/{totalCapacity} miejsc)
+          {totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0}% ({totalBooked}/
+          {totalCapacity} miejsc)
         </p>
       </div>
 

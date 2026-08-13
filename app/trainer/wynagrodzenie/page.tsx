@@ -158,8 +158,8 @@ export default async function TrainerPayoutPage({
             </p>
           ) : scoreRow ? (
             <p className="text-text text-sm">
-              Wynik za ten miesiąc nie został policzony - za mało danych w Twojej kohorcie. Premia
-              ({formatMoney(settings.bonusAmountGross)}) nie jest doliczana.
+              Wynik za ten miesiąc nie został policzony - za mało danych w Twojej kohorcie. Premia (
+              {formatMoney(settings.bonusAmountGross)}) nie jest doliczana.
             </p>
           ) : (
             <p className="text-text text-sm">

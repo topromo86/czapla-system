@@ -97,7 +97,10 @@ async function main() {
         where: { id: existingUser.id },
         data: { name: rt.name, role: rt.role ?? "TRAINER" },
       });
-      await prisma.trainer.update({ where: { id: existingUser.trainer.id }, data: { bio: rt.bio } });
+      await prisma.trainer.update({
+        where: { id: existingUser.trainer.id },
+        data: { bio: rt.bio },
+      });
       updated++;
       continue;
     }

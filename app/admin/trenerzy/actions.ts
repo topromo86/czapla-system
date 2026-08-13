@@ -306,15 +306,16 @@ export async function deactivateTrainerAction(formData: FormData) {
     });
 
     const summaryParts = [...grouped.entries()].map(
-      ([targetId, targetItems]) =>
-        `${targetItems.length} → ${targetNames.get(targetId) ?? "?"}`,
+      ([targetId, targetItems]) => `${targetItems.length} → ${targetNames.get(targetId) ?? "?"}`,
     );
     await logActivity(tx, {
       actorUserId: session.user.id,
       action: "TRAINER_DEACTIVATED",
       summary:
         `Wyciszono trenera ${trainer.user.name}` +
-        (summaryParts.length > 0 ? ` (przepisano: ${summaryParts.join(", ")})` : " (nic do przepisania)"),
+        (summaryParts.length > 0
+          ? ` (przepisano: ${summaryParts.join(", ")})`
+          : " (nic do przepisania)"),
     });
   });
 

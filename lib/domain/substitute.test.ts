@@ -172,6 +172,8 @@ describe("validateAssignment", () => {
   });
 
   it("admin przestawia potwierdzone zastępstwo", () => {
-    expect(validateAssignment({ ...base, status: "ACCEPTED", byAdmin: true })).toEqual({ ok: true });
+    expect(validateAssignment({ ...base, status: "ACCEPTED", byAdmin: true })).toEqual({
+      ok: true,
+    });
   });
 });

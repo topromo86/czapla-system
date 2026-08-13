@@ -136,7 +136,7 @@ export function HeaderNav({ groups }: { groups: HeaderNavGroup[] }) {
               </button>
 
               {isOpen ? (
-                <div className="border-line bg-surface absolute left-0 top-full z-50 mt-2 flex w-52 flex-col gap-1 rounded-md border p-2 shadow-lg">
+                <div className="border-line bg-surface absolute top-full left-0 z-50 mt-2 flex w-52 flex-col gap-1 rounded-md border p-2 shadow-lg">
                   {group.items.map((item) => (
                     <Link
                       key={item.href}
@@ -164,7 +164,7 @@ export function HeaderNav({ groups }: { groups: HeaderNavGroup[] }) {
         >
           <Menu className="size-5" />
         </summary>
-        <nav className="border-line bg-surface absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-64 flex-col gap-3 overflow-y-auto rounded-md border p-3 font-mono text-xs tracking-widest uppercase shadow-lg">
+        <nav className="border-line bg-surface absolute top-full right-0 z-50 mt-2 flex max-h-[70vh] w-64 flex-col gap-3 overflow-y-auto rounded-md border p-3 font-mono text-xs tracking-widest uppercase shadow-lg">
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col gap-1">
               {group.items.length > 1 ? (

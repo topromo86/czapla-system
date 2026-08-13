@@ -117,7 +117,12 @@ export function Scanner({ locationId }: { locationId: string | null }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="border-line bg-surface overflow-hidden rounded-md border">
-        <video ref={videoRef} playsInline muted className="aspect-square w-full bg-black object-cover" />
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="aspect-square w-full bg-black object-cover"
+        />
       </div>
 
       {!cameraOn ? (
@@ -137,7 +142,9 @@ export function Scanner({ locationId }: { locationId: string | null }) {
         </p>
       ) : null}
       {cameraError ? (
-        <p className="border-red/40 bg-red/5 text-red rounded-md border p-2 text-xs">{cameraError}</p>
+        <p className="border-red/40 bg-red/5 text-red rounded-md border p-2 text-xs">
+          {cameraError}
+        </p>
       ) : null}
 
       {/* Ręczny fallback: sprzętowy czytnik QR działa jak klawiatura - wpisuje
@@ -168,9 +175,7 @@ export function Scanner({ locationId }: { locationId: string | null }) {
         result.ok ? (
           <div
             className={`rounded-md border p-4 text-center ${
-              result.alreadyOnFloor
-                ? "border-amber/50 bg-amber/10"
-                : "border-jade/50 bg-jade/10"
+              result.alreadyOnFloor ? "border-amber/50 bg-amber/10" : "border-jade/50 bg-jade/10"
             }`}
           >
             <p className="text-text text-lg font-medium">{result.name}</p>
@@ -182,9 +187,7 @@ export function Scanner({ locationId }: { locationId: string | null }) {
                 ? `Już na sali od ${timeHM(result.enteredAtIso)}`
                 : `Wejście zapisane: ${timeHM(result.enteredAtIso)}`}
             </p>
-            <p
-              className={`mt-1 font-mono text-xs ${result.valid ? "text-jade" : "text-amber"}`}
-            >
+            <p className={`mt-1 font-mono text-xs ${result.valid ? "text-jade" : "text-amber"}`}>
               {result.valid
                 ? "Wizyta zaliczona ✓"
                 : `Wizyta zaliczy się za ${result.minutesLeft} min`}

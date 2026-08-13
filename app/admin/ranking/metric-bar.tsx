@@ -57,13 +57,18 @@ export function ScoreProgressBar({
       <div className="mb-1 flex items-center justify-between font-mono text-xs tracking-widest uppercase">
         <span className="text-muted-brand">Postęp do premii</span>
         <span className={reached ? "text-jade" : "text-muted-brand"}>
-          {reached ? `+${clamped - threshold} pkt nad progiem` : `brakuje ${threshold - clamped} pkt`}
+          {reached
+            ? `+${clamped - threshold} pkt nad progiem`
+            : `brakuje ${threshold - clamped} pkt`}
         </span>
       </div>
 
       <div className="relative">
         <div className="bg-surface-2 h-3 w-full overflow-hidden rounded-full">
-          <div className="h-full rounded-full" style={{ width: `${clamped}%`, backgroundColor: color }} />
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${clamped}%`, backgroundColor: color }}
+          />
           {reached && clamped > threshold ? (
             <div
               className="absolute top-0 h-full opacity-30"

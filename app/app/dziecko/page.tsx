@@ -43,7 +43,9 @@ export default async function MyChildPage() {
         );
       })}
       {children.length === 0 ? (
-        <p className="text-muted-brand text-sm">Nie masz jeszcze przypisanego dziecka w systemie.</p>
+        <p className="text-muted-brand text-sm">
+          Nie masz jeszcze przypisanego dziecka w systemie.
+        </p>
       ) : null}
 
       <section className="border-line bg-surface rounded-md border p-4">
@@ -52,7 +54,11 @@ export default async function MyChildPage() {
         </h2>
         <p className="text-muted-brand mt-1 text-sm">
           Powiadomienie o wejściu dziecka na salę oraz pozostałe ustawienia znajdziesz w jednym
-          miejscu: <Link href="/app/powiadomienia" className="text-brand-red underline">Powiadomienia</Link>.
+          miejscu:{" "}
+          <Link href="/app/powiadomienia" className="text-brand-red underline">
+            Powiadomienia
+          </Link>
+          .
         </p>
       </section>
     </div>

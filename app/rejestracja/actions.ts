@@ -86,7 +86,9 @@ export async function registerAction(
 
   const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (existing) {
-    return { error: "Konto z tym adresem już istnieje. Spróbuj się zalogować albo zresetuj hasło." };
+    return {
+      error: "Konto z tym adresem już istnieje. Spróbuj się zalogować albo zresetuj hasło.",
+    };
   }
 
   const passwordHash = await hashPassword(password);

@@ -1,0 +1,22 @@
+#!/bin/sh
+# Te same kontrole co w CI, tylko przed wysłaniem, a nie po.
+#
+# Powód jest praktyczny: nieudany przebieg na GitHubie kosztuje kilka minut
+# czekania i wysyła maila o błędzie. Tutaj kosztuje kilkadziesiąt sekund i nikt
+# poza autorem tego nie widzi. Kolejność od najszybszej kontroli do najwolniejszej,
+# żeby literówka w formatowaniu nie czekała na testy.
+set -e
+
+echo "[pre-push] Format..."
+npm run format:check --silent
+
+echo "[pre-push] Lint..."
+npm run lint --silent
+
+echo "[pre-push] Typy..."
+npm run typecheck --silent
+
+echo "[pre-push] Testy..."
+npm test --silent
+
+echo "[pre-push] Wszystko zielone."

@@ -190,10 +190,10 @@ export default async function RetencjaPage() {
               Retencja 90 dni · wyżej = lepiej
             </p>
             <p>
-              Odsetek klientów, którzy dołączyli <b>co najmniej 90 dni temu</b> i do dziś nie zostali
-              oznaczeni jako odeszli. Liczba w nawiasie to wielkość tej grupy („dojrzała kohorta”) -
-              im większa, tym pewniejszy wynik. Nie ma jednej „dobrej” wartości; najbardziej
-              użyteczny jest <b>trend miesiąc do miesiąca</b>, nie pojedynczy odczyt.
+              Odsetek klientów, którzy dołączyli <b>co najmniej 90 dni temu</b> i do dziś nie
+              zostali oznaczeni jako odeszli. Liczba w nawiasie to wielkość tej grupy („dojrzała
+              kohorta”) - im większa, tym pewniejszy wynik. Nie ma jednej „dobrej” wartości;
+              najbardziej użyteczny jest <b>trend miesiąc do miesiąca</b>, nie pojedynczy odczyt.
             </p>
             <p className="mt-2">
               Status „odszedł” nadaje system automatycznie po {CHURN_THRESHOLD_DAYS} dniach bez
@@ -219,13 +219,14 @@ export default async function RetencjaPage() {
               Eskalacje · 0 = stan pożądany
             </p>
             <p>
-              <b>„Eskalowano” znaczy: zadanie przeleżało u trenera ponad{" "}
-              {TASK_ESCALATION_THRESHOLD_DAYS} dni bez zamknięcia i system sam oznaczył je jako
-              zaniedbane.</b>{" "}
-              Data przy wpisie to dzień, w którym to nastąpiło. Zadanie zamyka się wyłącznie
-              notatką z kontaktu (min. 30 znaków) - samo kliknięcie „zrobione” nie istnieje, więc
-              każda pozycja tutaj oznacza klienta, do którego przez ponad tydzień nikt się nie
-              odezwał.
+              <b>
+                „Eskalowano” znaczy: zadanie przeleżało u trenera ponad{" "}
+                {TASK_ESCALATION_THRESHOLD_DAYS} dni bez zamknięcia i system sam oznaczył je jako
+                zaniedbane.
+              </b>{" "}
+              Data przy wpisie to dzień, w którym to nastąpiło. Zadanie zamyka się wyłącznie notatką
+              z kontaktu (min. 30 znaków) - samo kliknięcie „zrobione” nie istnieje, więc każda
+              pozycja tutaj oznacza klienta, do którego przez ponad tydzień nikt się nie odezwał.
             </p>
             <p className="mt-2">
               Pusta lista jest dobra. Rosnąca lista to sygnał, że trener ma za dużo zadań albo je
@@ -239,10 +240,9 @@ export default async function RetencjaPage() {
             </p>
             <p>
               To samo pytanie co „Retencja 90 dni”, tylko rozbite na miesiące dołączenia. Pozwala
-              zobaczyć, czy klienci z konkretnego miesiąca (np. po promocji albo po zmianie
-              grafiku) zostają dłużej niż z innych. Wiersz oznaczony jako{" "}
-              <b>(świeża kohorta)</b> ma jeszcze mniej niż 90 dni - jego wynik się zmieni, nie
-              wyciągaj z niego wniosków.
+              zobaczyć, czy klienci z konkretnego miesiąca (np. po promocji albo po zmianie grafiku)
+              zostają dłużej niż z innych. Wiersz oznaczony jako <b>(świeża kohorta)</b> ma jeszcze
+              mniej niż 90 dni - jego wynik się zmieni, nie wyciągaj z niego wniosków.
             </p>
           </div>
 

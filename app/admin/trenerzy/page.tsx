@@ -149,7 +149,13 @@ export default async function AdminTrainersPage({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="name">Imię i nazwisko</Label>
-              <Input id="name" name="name" required minLength={3} className="border-line bg-surface-2" />
+              <Input
+                id="name"
+                name="name"
+                required
+                minLength={3}
+                className="border-line bg-surface-2"
+              />
             </div>
             <div>
               <Label htmlFor="email">E-mail (login)</Label>
@@ -263,13 +269,13 @@ export default async function AdminTrainersPage({
               Trener znika z list wyboru, z grafiku i z widoku klientów, ale cała historia zostaje:
               obecności, oceny, wyniki, rozliczenia. Przed wyciszeniem system pokazuje wszystko, co
               ta osoba prowadzi, i <b>wymaga wskazania następcy dla każdej pozycji</b> - można
-              przepisać wszystko na jednego trenera albo rozdzielić po kawałku. Bez kompletu
-              wskazań wyciszenie się nie wykona.
+              przepisać wszystko na jednego trenera albo rozdzielić po kawałku. Bez kompletu wskazań
+              wyciszenie się nie wykona.
             </p>
             <p className="mt-2">
-              Wyciszenie można cofnąć jednym kliknięciem. Okna treningów indywidualnych są
-              wyłączane (nie da się przekazać czyjejś dyspozycyjności) - po powrocie trener ustawia
-              je na nowo.
+              Wyciszenie można cofnąć jednym kliknięciem. Okna treningów indywidualnych są wyłączane
+              (nie da się przekazać czyjejś dyspozycyjności) - po powrocie trener ustawia je na
+              nowo.
             </p>
           </div>
 
@@ -281,8 +287,8 @@ export default async function AdminTrainersPage({
               Trwałe usunięcie działa <b>wyłącznie dla konta bez żadnej historii</b> - czyli w
               praktyce takiego, które właśnie założyłeś przez pomyłkę. Jeśli trener poprowadził
               choćby jedne zajęcia, baza go nie puści i słusznie: skasowanie pociągnęłoby za sobą
-              obecności, oceny i kontekst rozliczeń, które muszą zostać. W takiej sytuacji
-              właściwą operacją jest wyciszenie.
+              obecności, oceny i kontekst rozliczeń, które muszą zostać. W takiej sytuacji właściwą
+              operacją jest wyciszenie.
             </p>
           </div>
         </div>

@@ -7,11 +7,7 @@ import {
   normalizeEmail,
   validatePassword,
 } from "@/lib/domain/registration";
-import {
-  hashPassword,
-  requestPasswordReset,
-  resetPassword,
-} from "@/lib/services/password-reset";
+import { hashPassword, requestPasswordReset, resetPassword } from "@/lib/services/password-reset";
 
 // Adres aplikacji z nagłówków żądania - link resetu musi wskazywać na ten sam
 // host, z którego przyszła prośba, bez wpisywania go na sztywno.

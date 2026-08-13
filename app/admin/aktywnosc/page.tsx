@@ -82,7 +82,9 @@ export default async function AdminActivityPage({
                   ({log.actorUser.role === "ADMIN" ? "admin" : "trener"})
                 </span>
               </span>
-              <span className="text-muted-brand font-mono text-xs">{formatDate(log.createdAt)}</span>
+              <span className="text-muted-brand font-mono text-xs">
+                {formatDate(log.createdAt)}
+              </span>
             </div>
             <p className="text-text mt-1 text-sm">
               <span className="text-brand-red font-medium">

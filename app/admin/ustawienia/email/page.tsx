@@ -136,15 +136,15 @@ export default async function EmailSettingsPage({
         </h2>
         <div className={`${PROSE_WIDTH} text-muted-brand mt-2 flex flex-col gap-3 text-sm`}>
           <p>
-            System czyta dane serwera poczty ze zmiennych środowiskowych. Ustaw je w panelu
-            hostingu (sekcja &bdquo;Zmienne środowiskowe&rdquo; albo w pliku <code>.env</code> na
-            serwerze) i zrestartuj aplikację. Wzór wszystkich zmiennych jest w pliku{" "}
-            <code>.env.example</code> w repozytorium.
+            System czyta dane serwera poczty ze zmiennych środowiskowych. Ustaw je w panelu hostingu
+            (sekcja &bdquo;Zmienne środowiskowe&rdquo; albo w pliku <code>.env</code> na serwerze) i
+            zrestartuj aplikację. Wzór wszystkich zmiennych jest w pliku <code>.env.example</code> w
+            repozytorium.
           </p>
 
           <div className="border-line bg-surface-2 overflow-x-auto rounded-md border p-3">
             <pre className="text-text font-mono text-xs whitespace-pre">
-{`SMTP_HOST="poczta.twojadomena.pl"   # serwer wychodzący z panelu hostingu
+              {`SMTP_HOST="poczta.twojadomena.pl"   # serwer wychodzący z panelu hostingu
 SMTP_PORT="587"                     # 587 = STARTTLS (typowe), 465 = SSL
 SMTP_USER="powiadomienia@twojadomena.pl"
 SMTP_PASSWORD="haslo-do-skrzynki"
@@ -154,9 +154,9 @@ SMTP_FROM="Czapla Boxing <powiadomienia@twojadomena.pl>"`}
 
           <ul className="flex list-disc flex-col gap-1 pl-5">
             <li>
-              <b className="text-text">SMTP_HOST</b> i <b className="text-text">SMTP_PORT</b> znajdziesz
-              w panelu hostingu przy danych konta e-mail (&bdquo;serwer poczty wychodzącej&rdquo; /
-              SMTP). Zwykle port 587.
+              <b className="text-text">SMTP_HOST</b> i <b className="text-text">SMTP_PORT</b>{" "}
+              znajdziesz w panelu hostingu przy danych konta e-mail (&bdquo;serwer poczty
+              wychodzącej&rdquo; / SMTP). Zwykle port 587.
             </li>
             <li>
               <b className="text-text">SMTP_USER</b> i <b className="text-text">SMTP_PASSWORD</b> to
@@ -165,8 +165,8 @@ SMTP_FROM="Czapla Boxing <powiadomienia@twojadomena.pl>"`}
             </li>
             <li>
               <b className="text-text">SMTP_FROM</b> to adres widoczny dla klientów jako nadawca.
-              Większość hostingów wymaga, żeby zgadzał się z <b className="text-text">SMTP_USER</b> -
-              inaczej wiadomości trafią do spamu albo zostaną odrzucone.
+              Większość hostingów wymaga, żeby zgadzał się z <b className="text-text">SMTP_USER</b>{" "}
+              - inaczej wiadomości trafią do spamu albo zostaną odrzucone.
             </li>
           </ul>
 

@@ -19,7 +19,10 @@ export function ResetRequestForm() {
           Jeśli konto z tym adresem istnieje, wysłaliśmy link do ustawienia nowego hasła. Sprawdź
           skrzynkę (także folder spam). Link jest ważny 2 godziny.
         </p>
-        <Link href="/login" className="text-muted-brand hover:text-brand-red text-center text-sm underline">
+        <Link
+          href="/login"
+          className="text-muted-brand hover:text-brand-red text-center text-sm underline"
+        >
           Wróć do logowania
         </Link>
       </div>
@@ -49,7 +52,10 @@ export function ResetRequestForm() {
       <Button type="submit" disabled={isPending} className="mt-1">
         {isPending ? "Wysyłanie..." : "Wyślij link do resetu"}
       </Button>
-      <Link href="/login" className="text-muted-brand hover:text-brand-red text-center text-sm underline">
+      <Link
+        href="/login"
+        className="text-muted-brand hover:text-brand-red text-center text-sm underline"
+      >
         Wróć do logowania
       </Link>
     </form>

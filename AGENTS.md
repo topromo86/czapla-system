@@ -151,3 +151,21 @@ zalogowaniu, bo inaczej wystarczyłoby wpisać dowolny adres. Ekran zmiany hasł
 korzysta z `requireSessionRaw`, żeby nie odsyłał sam do siebie. Wpisanie z
 powrotem hasła otrzymanego od klubu jest odrzucane - wtedy nadal znałoby je
 dwoje ludzi.
+
+## Kontrole przed wysłaniem
+
+CI na GitHubie sprawdza cztery rzeczy: `format:check`, `lint`, `typecheck`,
+`test`. Te same kontrole odpala hak `.githooks/pre-push` - nieudany przebieg
+na GitHubie kosztuje kilka minut czekania i maila o błędzie, hak kosztuje
+kilkadziesiąt sekund i nie widzi go nikt poza autorem.
+
+Hak jest w repozytorium, więc po sklonowaniu trzeba raz wskazać katalog:
+
+```
+git config core.hooksPath .githooks
+```
+
+**Formatowanie puszczaj na całym repo** (`npx prettier --write .`), a nie na
+pojedynczych plikach. Formatowanie samych zmienionych plików zostawia resztę
+w rozjeździe i CI wywala się na plikach, których nikt nie ruszał - tak
+uzbierało się 48 plików naraz.

@@ -79,8 +79,8 @@ export default async function MemberCardPage({
         <p className="text-muted-brand mt-1 font-mono text-xs tracking-widest uppercase">
           {age} lat ·{" "}
           {member.sex === "FEMALE" ? "Kobieta" : member.sex === "MALE" ? "Mężczyzna" : "?"}
-          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} · Status{" "}
-          {member.status}
+          {member.isMinor ? " · Niepełnoletni" : ""} · Poziom {MEMBER_LEVEL_LABEL[member.level]} ·
+          Status {member.status}
         </p>
         <p className="text-muted-brand mt-1 text-sm">Opiekun: {member.ownerTrainer.user.name}</p>
         <p className="mt-2 text-sm">
@@ -174,7 +174,9 @@ export default async function MemberCardPage({
                       </p>
                       <p className="text-muted-brand mt-0.5 font-mono text-xs">
                         {formatDate(booking.session.startsAt)}
-                        {booking.status === "NO_SHOW" ? " · odwołane po terminie" : " · odwołane na czas"}
+                        {booking.status === "NO_SHOW"
+                          ? " · odwołane po terminie"
+                          : " · odwołane na czas"}
                       </p>
                       {booking.cancellationNote ? (
                         <p className="text-text mt-1 text-sm">{booking.cancellationNote}</p>
@@ -204,8 +206,7 @@ export default async function MemberCardPage({
           </ul>
           <p className="text-muted-brand mt-2 text-xs">
             Odwołanie na mniej niż {settings.freeCancellationHours} godz. przed startem kosztuje
-            wejście automatycznie. Jeśli
-            uznasz, że w tej sytuacji się należy - zwróć je.
+            wejście automatycznie. Jeśli uznasz, że w tej sytuacji się należy - zwróć je.
           </p>
         </section>
       ) : null}
