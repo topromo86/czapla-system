@@ -425,18 +425,24 @@
       });
 
       wierszeGodzin(zajete, od, doGodz).forEach(function (wiersz) {
-        if (wiersz.rodzaj === "przerwa" && !rozwiniete[tydzienKlucz + "|" + wiersz.godziny[0]]) {
+        if (wiersz.rodzaj === "przerwa") {
+          // Pasek przerwy zostaje na ekranie także po rozwinięciu - inaczej
+          // rozwinięte godziny nie miałyby czym się zwinąć z powrotem.
+          var otwarta = rozwiniete[tydzienKlucz + "|" + wiersz.godziny[0]] === true;
           html +=
             '<button type="button" class="tfc-przerwa" data-przerwa="' +
             wiersz.godziny[0] +
-            '">▾ ' +
+            '">' +
+            (otwarta ? "▴ " : "▾ ") +
             wiersz.godziny.length +
             " godz. bez zajęć (" +
             wiersz.godziny[0] +
             ":00 – " +
             (wiersz.godziny[wiersz.godziny.length - 1] + 1) +
-            ":00) — rozwiń</button>";
-          return;
+            ":00) — " +
+            (otwarta ? "zwiń" : "rozwiń") +
+            "</button>";
+          if (!otwarta) return;
         }
 
         var godziny = wiersz.rodzaj === "przerwa" ? wiersz.godziny : [wiersz.godzina];
@@ -471,7 +477,8 @@
 
       Array.prototype.forEach.call(lista.querySelectorAll(".tfc-przerwa"), function (przycisk) {
         przycisk.addEventListener("click", function () {
-          rozwiniete[tydzienKlucz + "|" + przycisk.getAttribute("data-przerwa")] = true;
+          var klucz = tydzienKlucz + "|" + przycisk.getAttribute("data-przerwa");
+          rozwiniete[klucz] = rozwiniete[klucz] !== true;
           rysuj();
         });
       });
