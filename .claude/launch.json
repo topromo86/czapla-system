@@ -11,12 +11,7 @@
     {
       "name": "toracing",
       "runtimeExecutable": "npm.cmd",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--prefix",
-        "C:\\Users\\toPROMO\\Desktop\\toRACING"
-      ],
+      "runtimeArgs": ["run", "dev", "--prefix", "C:\\Users\\toPROMO\\Desktop\\toRACING"],
       "port": 3100
     }
   ]
