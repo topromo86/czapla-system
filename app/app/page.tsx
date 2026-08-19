@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAccessibleMembers } from "@/lib/auth/guard";
-import { canCancelFree, hasRequiredConsents, requiredConsentKeys } from "@/lib/domain/booking";
+import {
+  BOOKING_ERROR_MESSAGE,
+  canCancelFree,
+  hasRequiredConsents,
+  requiredConsentKeys,
+} from "@/lib/domain/booking";
 import { ABSENCE_REASON_LABEL } from "@/lib/domain/absence";
 import { RATING_LABEL, RATING_SCORES, scoreColor } from "@/lib/domain/rating";
 import { bookingHorizonEnd, describeHorizon, startOfWeek, weekDays } from "@/lib/domain/schedule";
@@ -21,19 +26,6 @@ import {
 } from "./actions";
 
 const RATING_DELAY_MS = 3_600_000;
-
-const ERROR_MESSAGES: Record<string, string> = {
-  NOT_APPROVED:
-    "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
-  CONSENTS_NOT_DELIVERED:
-    "Dostarcz podpisane zgody trenerowi lub w recepcji - do potwierdzenia odbioru możesz zapisać się tylko na pierwsze zajęcia.",
-  ALREADY_BOOKED: "Jesteś już zapisany na te zajęcia.",
-  SESSION_CANCELLED: "Te zajęcia zostały odwołane.",
-  ALREADY_STARTED: "Te zajęcia już się rozpoczęły.",
-  MISSING_CONSENTS: "Brakuje wymaganych zgód - uzupełnij je w zakładce Zgody.",
-  NO_ACTIVE_PASS: "Brak aktywnego karnetu - skontaktuj się z klubem.",
-  AGE_NOT_ELIGIBLE: "Wiek nie pasuje do tej grupy zajęciowej.",
-};
 
 function formatDay(date: Date): string {
   return new Intl.DateTimeFormat("pl-PL", {
@@ -355,7 +347,8 @@ export default async function SchedulePage({
 
       {params.error ? (
         <p role="alert" className="border-red/40 bg-red/10 text-red rounded-md border p-3 text-sm">
-          {ERROR_MESSAGES[params.error] ?? "Nie udało się wykonać akcji."}
+          {BOOKING_ERROR_MESSAGE[params.error as keyof typeof BOOKING_ERROR_MESSAGE] ??
+            "Nie udało się wykonać akcji."}
         </p>
       ) : null}
 

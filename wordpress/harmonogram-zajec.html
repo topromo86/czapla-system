@@ -1,0 +1,12 @@
+<!-- Treść strony "Harmonogram zajęć" na czaplaboxing.pl.
+
+     To wszystko, co jest wklejone w WordPressie - reszta (wygląd, pobieranie
+     danych, filtr sal) siedzi w public/harmonogram-widget.js w tym repozytorium
+     i jedzie z każdym wdrożeniem aplikacji. Dzięki temu poprawka grafiku nie
+     wymaga logowania do WordPressa.
+
+     Dane: /api/publiczny/harmonogram (bez logowania, bez danych klientów).
+     Zapis: /zapis/<id> - tam system prosi o zalogowanie. -->
+
+<div id="tfc-harmonogram" data-api="https://czapla-system.vercel.app" data-dni="21"></div>
+<script src="https://czapla-system.vercel.app/harmonogram-widget.js" defer></script>

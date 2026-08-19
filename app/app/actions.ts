@@ -16,6 +16,7 @@ import {
   resolveAbsenceOutcome,
   resolveAbsenceRangeEnd,
 } from "@/lib/domain/absence";
+import { safeReturnPath } from "@/lib/domain/return-path";
 import { zonedTimeToUtc } from "@/lib/domain/time";
 import { getClubSettings } from "@/lib/services/settings";
 import { decrementPassEntryIfLimited, findPassForSession } from "@/lib/services/pass";
@@ -23,9 +24,13 @@ import { logActivity } from "@/lib/services/activity";
 import { notify } from "@/lib/services/notification";
 import { formatDate, formatDayTime } from "@/lib/format";
 
+// Zapisać można się z dwóch miejsc: z plannera w /app i ze strony konkretnych
+// zajęć /zapis (wejście z witryny klubu). Obie gałęzie są dozwolone jako powrót,
+// reszta odpada - patrz lib/domain/return-path.ts.
+const RETURN_PREFIXES = ["/app", "/zapis"] as const;
+
 function readReturnTo(formData: FormData): string {
-  const value = formData.get("returnTo");
-  return typeof value === "string" && value.startsWith("/app") ? value : "/app";
+  return safeReturnPath(formData.get("returnTo"), RETURN_PREFIXES, "/app");
 }
 
 function withError(returnTo: string, reason: string): string {

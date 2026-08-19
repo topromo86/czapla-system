@@ -16,7 +16,7 @@ const NOTICE: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ zarejestrowano?: string; "haslo-zmienione"?: string }>;
+  searchParams: Promise<{ zarejestrowano?: string; "haslo-zmienione"?: string; powrot?: string }>;
 }) {
   const params = await searchParams;
   const notice = params.zarejestrowano
@@ -32,7 +32,7 @@ export default async function LoginPage({
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <LoginForm notice={notice} googleEnabled={isGoogleConfigured()} />
+      <LoginForm notice={notice} googleEnabled={isGoogleConfigured()} returnTo={params.powrot} />
       <SiteFooter />
     </main>
   );

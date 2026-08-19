@@ -169,3 +169,27 @@ git config core.hooksPath .githooks
 pojedynczych plikach. Formatowanie samych zmienionych plików zostawia resztę
 w rozjeździe i CI wywala się na plikach, których nikt nie ruszał - tak
 uzbierało się 48 plików naraz.
+
+## Harmonogram na stronie klubu
+
+Witryna `czaplaboxing.pl` ma zakładkę **Harmonogram zajęć** z grafikiem
+dostępnym bez logowania. Cały kod tego widoku żyje tutaj, nie w WordPressie:
+
+- `app/api/publiczny/harmonogram` - dane (bez autoryzacji, z CORS). Wychodzą
+  stąd wyłącznie informacje o zajęciach; kształt odpowiedzi jest wypisany polem
+  po polu w `lib/domain/public-schedule.ts`, więc nowa kolumna w `Session` nie
+  wypchnie danych klientów na zewnątrz przez przypadek. Treningi indywidualne
+  są pominięte - to czyjeś prywatne terminy.
+- `public/harmonogram-widget.js` - wygląd i logika grafiku na witrynie.
+- `app/zapis/[sessionId]` - strona pojedynczych zajęć. Otwiera się bez
+  logowania (podgląd terminu), a hasła prosi dopiero przy zapisie. Sam zapis
+  idzie tą samą akcją co planner w `/app`, więc reguły (zgody, karnet, wiek,
+  komplet) są sprawdzane w jednym miejscu.
+
+W WordPressie leżą dwie linijki - pojemnik i `<script src>` (kopia w
+`wordpress/harmonogram-zajec.html`). Poprawka grafiku to wdrożenie aplikacji,
+bez logowania do WordPressa.
+
+Po zalogowaniu z takiego odsyłacza użytkownik wraca na stronę zajęć dzięki
+parametrowi `?powrot=`; dozwolone adresy pilnuje `lib/domain/return-path.ts`
+(inaczej byłby to otwarty przekierowywacz do phishingu).

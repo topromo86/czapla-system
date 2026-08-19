@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeEmail } from "@/lib/domain/registration";
+import { safeReturnPath } from "@/lib/domain/return-path";
 import type { Role } from "@/app/generated/prisma/client";
 
 const ROLE_HOME: Record<Role, string> = {
@@ -16,11 +17,17 @@ const ROLE_HOME: Record<Role, string> = {
   KIOSK: "/kod-zajec",
 };
 
+// Gałęzie, do których wolno odesłać po zalogowaniu. Klient trafia tu ze strony
+// klubu ("zapisz się na te zajęcia"), więc po wpisaniu hasła ma wrócić do tych
+// zajęć, a nie na ogólny pulpit - inaczej musiałby szukać terminu od nowa.
+const RETURN_PREFIXES = ["/app", "/zapis"] as const;
+
 export type LoginState = { error?: string };
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = formData.get("email");
   const password = formData.get("password");
+  const returnTo = formData.get("powrot");
 
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return { error: "Podaj e-mail i hasło." };
@@ -46,5 +53,11 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // Hasło nadane przez klub zna dwoje ludzi - do systemu wchodzi się dopiero
   // po ustawieniu własnego.
   if (user?.mustChangePassword) redirect("/zmiana-hasla");
-  redirect(ROLE_HOME[user?.role ?? "MEMBER"]);
+
+  const home = ROLE_HOME[user?.role ?? "MEMBER"];
+  // Adres powrotny działa wyłącznie dla kont, które faktycznie zapisują się na
+  // zajęcia. Trener czy tablet kiosku po zalogowaniu ma iść na swój ekran,
+  // nawet jeśli w adresie zostało "?powrot=/zapis/...".
+  const canReturn = user?.role === "MEMBER" || user?.role === "GUARDIAN" || user == null;
+  redirect(canReturn ? safeReturnPath(returnTo, RETURN_PREFIXES, home) : home);
 }

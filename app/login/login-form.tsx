@@ -12,7 +12,17 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm({ notice, googleEnabled }: { notice?: string; googleEnabled?: boolean }) {
+export function LoginForm({
+  notice,
+  googleEnabled,
+  returnTo,
+}: {
+  notice?: string;
+  googleEnabled?: boolean;
+  // Dokąd wrócić po zalogowaniu - ustawiane, gdy ktoś przyszedł z witryny
+  // klubu na konkretne zajęcia. Poprawność adresu sprawdza serwer.
+  returnTo?: string;
+}) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
 
   return (
@@ -34,6 +44,7 @@ export function LoginForm({ notice, googleEnabled }: { notice?: string; googleEn
           </p>
         ) : null}
         <form action={formAction} className="flex flex-col gap-4">
+          {returnTo ? <input type="hidden" name="powrot" value={returnTo} /> : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="email" className="font-mono text-xs tracking-widest uppercase">
               E-mail

@@ -188,6 +188,28 @@ export function evaluateBookingEligibility(
   return { ok: true, willWaitlist };
 }
 
+// Kod, który akcja zapisu doczepia do adresu powrotnego. Poza powodami odmowy
+// jest tu ALREADY_BOOKED - nie pochodzi z oceny uprawnień, tylko ze stanu
+// rezerwacji, ale dla klienta jest takim samym komunikatem.
+export type BookingErrorCode = BookingRejectionReason | "ALREADY_BOOKED";
+
+// Jedna lista komunikatów dla wszystkich ekranów, z których da się zapisać:
+// planner w /app i strona pojedynczych zajęć /zapis (wejście z witryny klubu).
+// Wcześniej mapa siedziała w pliku plannera - drugi ekran musiałby ją powielić,
+// a powielone komunikaty rozjeżdżają się przy pierwszej zmianie treści.
+export const BOOKING_ERROR_MESSAGE: Record<BookingErrorCode, string> = {
+  NOT_APPROVED:
+    "Konto czeka na zatwierdzenie przez klub - zapis na zajęcia będzie możliwy po akceptacji.",
+  CONSENTS_NOT_DELIVERED:
+    "Dostarcz podpisane zgody trenerowi lub w recepcji - do potwierdzenia odbioru możesz zapisać się tylko na pierwsze zajęcia.",
+  ALREADY_BOOKED: "Jesteś już zapisany na te zajęcia.",
+  SESSION_CANCELLED: "Te zajęcia zostały odwołane.",
+  ALREADY_STARTED: "Te zajęcia już się rozpoczęły.",
+  MISSING_CONSENTS: "Brakuje wymaganych zgód - uzupełnij je w zakładce Zgody.",
+  NO_ACTIVE_PASS: "Brak aktywnego karnetu - skontaktuj się z klubem.",
+  AGE_NOT_ELIGIBLE: "Wiek nie pasuje do tej grupy zajęciowej.",
+};
+
 export type WaitlistEntry = { id: string; waitlistPosition: number | null };
 
 // Kto awansuje z listy rezerwowej po zwolnieniu miejsca - najniższa pozycja.
