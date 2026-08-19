@@ -62,6 +62,8 @@
     "#tfc-harmonogram .tfc-strzalka{padding:6px 14px;border:1px solid var(--tfc-linia);border-radius:6px;background:transparent;",
     "color:var(--tfc-tekst);font:inherit;font-size:13px;cursor:pointer}",
     "#tfc-harmonogram .tfc-strzalka[disabled]{opacity:.35;cursor:default}",
+    "#tfc-harmonogram .tfc-sala-pasek{margin:26px 0 10px;padding:8px 14px;border-left:4px solid var(--tfc-czerwien);",
+    "background:rgba(238,29,35,.10);font-size:14px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}",
     "#tfc-harmonogram .tfc-przewijak{overflow-x:auto}",
     "#tfc-harmonogram .tfc-siatka{display:grid;grid-template-columns:56px repeat(7,minmax(120px,1fr));gap:4px;min-width:920px}",
     "#tfc-harmonogram .tfc-kolumna-naglowek{padding:6px 4px;text-align:center;font-size:12px;font-weight:700;",
@@ -314,9 +316,11 @@
         '"><b>' +
         tekst(z.name) +
         "</b><span>" +
-        tekst(godzinaFmt.format(new Date(z.startsAt))) +
-        " · " +
-        tekst(z.location) +
+        // Sala nie wraca w kafelku - stoi w poziomym napisie nad całą siatką
+        // tej sali, więc powtarzanie jej przy każdych zajęciach tylko zaśmieca.
+        tekst(
+          godzinaFmt.format(new Date(z.startsAt)) + " – " + godzinaFmt.format(new Date(z.endsAt)),
+        ) +
         "</span><span>" +
         (pelny ? "komplet" : "wolne: " + z.freeSlots) +
         "</span></a>"
@@ -352,32 +356,16 @@
       return wiersze;
     }
 
-    function rysujTydzien(pozycje) {
-      var tygodnie = {};
-      pozycje.forEach(function (z) {
-        var klucz = kluczDnia(new Date(z.startsAt));
-        var pon = poniedzialek(klucz);
-        if (!tygodnie[pon]) tygodnie[pon] = [];
-        tygodnie[pon].push(z);
-      });
-
-      var dostepne = Object.keys(tygodnie).sort();
-      if (dostepne.length === 0) {
-        lista.innerHTML =
-          '<p class="tfc-pusto">Brak zajęć w tym terminie. Zajrzyj za kilka dni albo zadzwoń do klubu.</p>';
-        return;
-      }
-      if (dostepne.indexOf(tydzienKlucz) === -1) tydzienKlucz = dostepne[0];
-
-      var wTygodniu = tygodnie[tydzienKlucz];
-      var pozycjaWZakresie = dostepne.indexOf(tydzienKlucz);
-
-      // Zajęcia poukładane w kratki: dzień + pas godzinowy.
+    // Siatka jednej sali w wybranym tygodniu: kolumny pon-nd, pasy godzinowe.
+    // Zakres godzin liczony z zajęć tej sali, więc sekcja nie ciągnie pustych
+    // pasów tylko dlatego, że w drugiej sali ktoś trenuje o 7 rano.
+    function siatkaSali(sala, pozycje, dniTygodnia) {
       var kratki = {};
       var zajete = {};
       var minG = 23;
       var maxG = 0;
-      wTygodniu.forEach(function (z) {
+
+      pozycje.forEach(function (z) {
         var data = new Date(z.startsAt);
         var godz = parseInt(pasFmt.format(data), 10);
         var klucz = kluczDnia(data) + "|" + godz;
@@ -391,31 +379,7 @@
       var od = minG <= maxG ? minG : GODZINA_OD;
       var doGodz = minG <= maxG ? Math.min(23, maxG + 1) : GODZINA_DO;
 
-      var dniTygodnia = [];
-      for (var i = 0; i < 7; i++) {
-        dniTygodnia.push(
-          new Date(dataZKlucza(tydzienKlucz).getTime() + i * DZIEN_MS).toISOString().slice(0, 10),
-        );
-      }
-
-      var html =
-        '<div class="tfc-tydzien-pasek">' +
-        '<button type="button" class="tfc-strzalka" data-krok="-1"' +
-        (pozycjaWZakresie === 0 ? " disabled" : "") +
-        ">← poprzedni</button>" +
-        '<span class="tfc-tydzien-nazwa">' +
-        tekst(
-          zakresFmt.format(dataZKlucza(dniTygodnia[0])) +
-            " – " +
-            zakresFmt.format(dataZKlucza(dniTygodnia[6])),
-        ) +
-        "</span>" +
-        '<button type="button" class="tfc-strzalka" data-krok="1"' +
-        (pozycjaWZakresie === dostepne.length - 1 ? " disabled" : "") +
-        ">następny →</button>" +
-        "</div>";
-
-      html += '<div class="tfc-przewijak"><div class="tfc-siatka">';
+      var html = '<div class="tfc-przewijak"><div class="tfc-siatka">';
       html += '<div class="tfc-kolumna-naglowek"></div>';
       dniTygodnia.forEach(function (klucz) {
         html +=
@@ -428,10 +392,11 @@
         if (wiersz.rodzaj === "przerwa") {
           // Pasek przerwy zostaje na ekranie także po rozwinięciu - inaczej
           // rozwinięte godziny nie miałyby czym się zwinąć z powrotem.
-          var otwarta = rozwiniete[tydzienKlucz + "|" + wiersz.godziny[0]] === true;
+          var kluczPrzerwy = sala + "|" + wiersz.godziny[0];
+          var otwarta = rozwiniete[tydzienKlucz + "|" + kluczPrzerwy] === true;
           html +=
             '<button type="button" class="tfc-przerwa" data-przerwa="' +
-            wiersz.godziny[0] +
+            tekst(kluczPrzerwy) +
             '">' +
             (otwarta ? "▴ " : "▾ ") +
             wiersz.godziny.length +
@@ -462,7 +427,73 @@
         });
       });
 
-      html += "</div></div>";
+      return html + "</div></div>";
+    }
+
+    function rysujTydzien(pozycje) {
+      var tygodnie = {};
+      pozycje.forEach(function (z) {
+        var klucz = kluczDnia(new Date(z.startsAt));
+        var pon = poniedzialek(klucz);
+        if (!tygodnie[pon]) tygodnie[pon] = [];
+        tygodnie[pon].push(z);
+      });
+
+      var dostepne = Object.keys(tygodnie).sort();
+      if (dostepne.length === 0) {
+        lista.innerHTML =
+          '<p class="tfc-pusto">Brak zajęć w tym terminie. Zajrzyj za kilka dni albo zadzwoń do klubu.</p>';
+        return;
+      }
+      if (dostepne.indexOf(tydzienKlucz) === -1) tydzienKlucz = dostepne[0];
+
+      var wTygodniu = tygodnie[tydzienKlucz];
+      var pozycjaWZakresie = dostepne.indexOf(tydzienKlucz);
+
+      var dniTygodnia = [];
+      for (var i = 0; i < 7; i++) {
+        dniTygodnia.push(
+          new Date(dataZKlucza(tydzienKlucz).getTime() + i * DZIEN_MS).toISOString().slice(0, 10),
+        );
+      }
+
+      var html =
+        '<div class="tfc-tydzien-pasek">' +
+        '<button type="button" class="tfc-strzalka" data-krok="-1"' +
+        (pozycjaWZakresie === 0 ? " disabled" : "") +
+        ">← poprzedni</button>" +
+        '<span class="tfc-tydzien-nazwa">' +
+        tekst(
+          zakresFmt.format(dataZKlucza(dniTygodnia[0])) +
+            " – " +
+            zakresFmt.format(dataZKlucza(dniTygodnia[6])),
+        ) +
+        "</span>" +
+        '<button type="button" class="tfc-strzalka" data-krok="1"' +
+        (pozycjaWZakresie === dostepne.length - 1 ? " disabled" : "") +
+        ">następny →</button>" +
+        "</div>";
+
+      // Każda sala dostaje własną siatkę pod poziomym napisem z jej nazwą.
+      // We wspólnym widoku zajęcia z Mikołowa i Tychów lądowały wcześniej
+      // w tej samej kratce, jedne pod drugimi - z takiego kłębka nie dało się
+      // odczytać, gdzie właściwie jest trening.
+      var sale = [];
+      var wgSali = {};
+      wTygodniu.forEach(function (z) {
+        if (!wgSali[z.location]) {
+          wgSali[z.location] = [];
+          sale.push(z.location);
+        }
+        wgSali[z.location].push(z);
+      });
+      sale.sort();
+
+      sale.forEach(function (sala) {
+        html += '<div class="tfc-sala-pasek">' + tekst(sala) + "</div>";
+        html += siatkaSali(sala, wgSali[sala], dniTygodnia);
+      });
+
       lista.innerHTML = html;
 
       Array.prototype.forEach.call(lista.querySelectorAll(".tfc-strzalka"), function (przycisk) {
