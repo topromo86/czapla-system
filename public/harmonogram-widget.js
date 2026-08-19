@@ -32,7 +32,10 @@
     "max-width:1200px;margin:0 auto;padding:56px 20px 72px;box-sizing:border-box}",
     "#tfc-harmonogram .tfc-tytul{margin:0 0 8px;color:var(--tfc-tekst);font-size:36px;font-weight:800;",
     "font-style:italic;letter-spacing:.02em;text-transform:uppercase;line-height:1.1}",
-    "#tfc-harmonogram .tfc-wstep{margin:0 0 32px;color:var(--tfc-tekst-slaby);font-size:15px;max-width:56ch}",
+    // Bez ograniczenia szerokości: na desktopie zdanie mieści się w jednej
+    // linijce, a łamanie go w połowie przy tak szerokiej stronie wyglądało
+    // na przypadek. Na telefonie zawinie się samo.
+    "#tfc-harmonogram .tfc-wstep{margin:0 0 32px;color:var(--tfc-tekst-slaby);font-size:15px}",
     "#tfc-harmonogram .tfc-pasek{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}",
     "#tfc-harmonogram .tfc-filtry{display:flex;flex-wrap:wrap;gap:8px}",
     "#tfc-harmonogram .tfc-filtr{padding:8px 18px;border:1px solid var(--tfc-linia);border-radius:999px;background:transparent;",
@@ -114,7 +117,7 @@
     var tytul = korzen.getAttribute("data-tytul") || "Harmonogram zajęć";
     var wstep =
       korzen.getAttribute("data-wstep") ||
-      "Zajęcia grupowe w Mikołowie i Tychach. Grafik jest żywy - pokazuje to, co realnie odbędzie się w klubie, razem z liczbą wolnych miejsc.";
+      "Zajęcia grupowe w Mikołowie i Tychach - to, co realnie odbędzie się w klubie, razem z liczbą wolnych miejsc.";
 
     korzen.innerHTML =
       '<h1 class="tfc-tytul"></h1><p class="tfc-wstep"></p>' +
