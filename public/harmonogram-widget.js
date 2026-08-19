@@ -51,7 +51,9 @@
     "color:#fff;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}",
     "#tfc-harmonogram .tfc-zapis:hover{background:transparent;color:var(--tfc-czerwien)}",
     "#tfc-harmonogram .tfc-ladowanie,#tfc-harmonogram .tfc-pusto,#tfc-harmonogram .tfc-blad{padding:24px 0;color:var(--tfc-tekst-slaby)}",
-    "@media (max-width:640px){#tfc-harmonogram .tfc-zajecia{align-items:flex-start}",
+    "@media (max-width:640px){#tfc-harmonogram{padding:40px 16px 56px}",
+    "#tfc-harmonogram .tfc-tytul{font-size:28px}",
+    "#tfc-harmonogram .tfc-zajecia{align-items:flex-start}",
     "#tfc-harmonogram .tfc-godzina{min-width:0;font-size:18px}",
     "#tfc-harmonogram .tfc-zapis{width:100%;text-align:center}}",
   ].join("");
