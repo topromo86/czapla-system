@@ -4,7 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import { getClubSettings } from "@/lib/services/settings";
 import { RegisterServiceWorker } from "./register-service-worker";
-import { THEME_INIT_SCRIPT } from "./theme-toggle";
+import { getAccountTheme } from "@/lib/services/theme";
+import { themeInitScript } from "./theme-init";
 
 // Wszystkie rodziny ładujemy zawsze (każda pod swoją zmienną CSS). O tym, KTÓRA
 // jest aktywna, decyduje atrybut data-font na <html> (patrz globals.css) -
@@ -55,13 +56,13 @@ export default async function RootLayout({
 }>) {
   // Zestaw czcionek z ustawień klubu - deterministyczny (z bazy), więc SSR i
   // klient zgadzają się co do data-font, bez migotania.
-  const { fontTheme } = await getClubSettings();
+  const [{ fontTheme }, accountTheme] = await Promise.all([getClubSettings(), getAccountTheme()]);
 
   return (
     <html
       lang="pl"
       data-font={fontTheme}
-      className={`${FONT_VARS} h-full antialiased`}
+      className={`${FONT_VARS} h-full antialiased${accountTheme === "dark" ? "dark" : ""}`}
       // Skrypt motywu dopisuje klasę `dark` do <html> przed hydratacją, więc
       // serwer i klient widzą tu różny className. To zamierzone.
       suppressHydrationWarning
@@ -72,7 +73,7 @@ export default async function RootLayout({
         przed kodem Next - w przeciwieństwie do surowego <script> nie wywołuje
         ostrzeżenia React o skrypcie w drzewie komponentów. */}
         <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
+          {themeInitScript(accountTheme)}
         </Script>
         {children}
         <RegisterServiceWorker />

@@ -2,32 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+import type { ThemeChoice } from "@/lib/domain/theme";
+import { saveThemeAction } from "./theme-action";
+import { THEME_STORAGE_KEY } from "./theme-init";
 
 // Zdarzenie, którym sam przełącznik ogłasza zmianę motywu - useSyncExternalStore
 // nasłuchuje go i przerysowuje ikonę bez setState w efekcie.
 const THEME_CHANGE_EVENT = "czapla-theme-change";
-
-export const THEME_STORAGE_KEY = "czapla-theme";
-
-// Skrypt wstrzykiwany do <head> i wykonywany PRZED pierwszym malowaniem.
-// Bez tego strona mignęłaby na biało, zanim React zdąży się zamontować -
-// przy motywie ciemnym w nocy to realnie razi w oczy.
-//
-// Kolejność: zapisany wybór użytkownika, a gdy go nie ma - ustawienie
-// systemu. Zapisany wybór wygrywa z systemem, bo to świadoma decyzja.
-export const THEME_INIT_SCRIPT = `
-(function () {
-  try {
-    var stored = localStorage.getItem('${THEME_STORAGE_KEY}');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (stored === 'dark' || (stored === null && prefersDark)) {
-      document.documentElement.classList.add('dark');
-    }
-  } catch (e) {
-    /* Prywatny tryb przeglądarki blokuje localStorage - trudno, zostaje jasny. */
-  }
-})();
-`;
 
 function isDarkNow(): boolean {
   return document.documentElement.classList.contains("dark");
@@ -54,13 +35,19 @@ export function ThemeToggle() {
 
   function toggle() {
     const next = !isDarkNow();
+    const choice: ThemeChoice = next ? "dark" : "light";
     document.documentElement.classList.toggle("dark", next);
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, next ? "dark" : "light");
+      localStorage.setItem(THEME_STORAGE_KEY, choice);
     } catch {
       /* Bez zapisu wybór zniknie po odświeżeniu, ale sam przełącznik działa. */
     }
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+
+    // Zapis przy koncie idzie w tle - ekran przełącza się od razu, a nieudana
+    // sieć nie ma prawa zablokować kliknięcia w przycisk. Dla gościa akcja
+    // po cichu nic nie robi.
+    void saveThemeAction(choice).catch(() => {});
   }
 
   const label = dark ? "Włącz tryb jasny" : "Włącz tryb ciemny";

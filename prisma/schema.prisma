@@ -50,6 +50,10 @@ model User {
   // tam, gdzie hasło nadaje ktoś inny niż właściciel konta (skrypt kadrowy,
   // reset przez klub) - hasło znane dwóm osobom przestaje być hasłem.
   mustChangePassword Boolean @default(false)
+  // Ostatnio wybrany motyw ("dark" / "light"). Trzymany przy KONCIE, a nie
+  // tylko w przeglądarce: wybór ma jechać z człowiekiem na telefon, tablet
+  // i drugi komputer. null = brak wyboru, czyli tak jak ustawiony system.
+  theme           String?
   checkInToken    String?   @unique
   emailVerifiedAt DateTime? @db.Timestamptz
   lastLoginAt     DateTime? @db.Timestamptz
