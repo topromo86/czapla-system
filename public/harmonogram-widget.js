@@ -92,6 +92,23 @@
     "#tfc-harmonogram .tfc-zapis{width:100%;text-align:center}}",
   ].join("");
 
+  // Kolory rodzajów zajęć - te same, co na grafiku w panelu (wartości --cat-*
+  // z app/globals.css, wariant dla ciemnego tła, bo strona klubu jest ciemna).
+  // Który rodzaj dostaje który kolor, decyduje system i przysyła w polu
+  // categoryColor; tutaj zostaje samo przełożenie klucza na barwę.
+  var KOLORY = {
+    sky: "#58a6ff",
+    violet: "#a684f5",
+    teal: "#3ec9c9",
+    lime: "#8bc94a",
+    rose: "#f06a9e",
+    orange: "#f0913f",
+    indigo: "#7d80ee",
+    fuchsia: "#d975e8",
+    sienna: "#c08a55",
+    slate: "#8ba3ba",
+  };
+
   var TELEFON_KLUBU = "+48531026740";
   var DZIEN_MS = 24 * 60 * 60 * 1000;
 
@@ -258,8 +275,11 @@
     // ---------------------------------------------------------------- lista
 
     function wierszZajec(z) {
+      var kolor = KOLORY[z.categoryColor];
       return (
-        '<div class="tfc-zajecia">' +
+        '<div class="tfc-zajecia"' +
+        (kolor ? ' style="border-left-color:' + kolor + '"' : "") +
+        ">" +
         '<div class="tfc-godzina">' +
         tekst(godzinaFmt.format(new Date(z.startsAt))) +
         "</div>" +
@@ -312,12 +332,15 @@
 
     function kafelek(z) {
       var pelny = z.freeSlots <= 0;
+      var kolor = KOLORY[z.categoryColor];
       return (
         '<a class="tfc-kafelek' +
         (pelny ? " tfc-kafelek-pelny" : "") +
         '" href="' +
         odsylacz(z) +
-        '"><b>' +
+        '"' +
+        (kolor ? ' style="border-left-color:' + kolor + '"' : "") +
+        "><b>" +
         tekst(z.name) +
         "</b><span>" +
         // Sala nie wraca w kafelku - stoi w poziomym napisie nad całą siatką

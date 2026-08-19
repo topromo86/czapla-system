@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { assignCategoryColors } from "@/lib/domain/class-color";
 import { effectiveTrainerId } from "@/lib/domain/substitute";
 import {
   publicScheduleDays,
@@ -66,6 +67,14 @@ export async function GET(request: Request) {
     },
   });
 
+  // Kolory rodzajów liczone dla PEŁNEJ listy kategorii, dokładnie jak na
+  // grafiku w panelu - inaczej ten sam rodzaj miałby na stronie inny kolor
+  // niż w systemie, a to jest jeden klub i jeden grafik.
+  const categories = await prisma.classCategory.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+  const categoryColors = assignCategoryColors(categories);
+
   const items: PublicScheduleSession[] = sessions.map((session) => {
     // Zastępstwo liczy się dopiero po akceptacji - jedyna definicja "kto
     // realnie prowadzi" siedzi w lib/domain/substitute.ts.
@@ -82,6 +91,9 @@ export async function GET(request: Request) {
       endsAt: session.endsAt,
       capacity: session.capacity,
       categoryName: session.category?.name ?? null,
+      categoryColor: session.categoryId
+        ? (categoryColors.get(session.categoryId)?.key ?? null)
+        : null,
       locationName: session.location.name,
       trainerName,
       bookedCount: session.bookings.filter((b) => b.status === "BOOKED").length,

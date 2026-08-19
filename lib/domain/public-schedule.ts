@@ -38,6 +38,11 @@ export type PublicScheduleSource = {
   endsAt: Date;
   capacity: number;
   categoryName: string | null;
+  // Klucz koloru rodzaju z palety (lib/domain/class-color.ts) - ten sam, co
+  // na grafiku w panelu. Wychodzi na zewnątrz, żeby grafik na witrynie klubu
+  // malował te same grupy tym samym kolorem; inaczej "Boks Junior" byłby
+  // zielony w panelu i niebieski na stronie.
+  categoryColor: string | null;
   locationName: string;
   trainerName: string;
   bookedCount: number;
@@ -47,6 +52,7 @@ export type PublicScheduleSession = {
   id: string;
   name: string;
   category: string | null;
+  categoryColor: string | null;
   location: string;
   trainer: string;
   startsAt: string;
@@ -60,6 +66,7 @@ export function toPublicScheduleSession(source: PublicScheduleSource): PublicSch
     id: source.id,
     name: source.name,
     category: source.categoryName,
+    categoryColor: source.categoryColor,
     location: source.locationName,
     trainer: source.trainerName,
     startsAt: source.startsAt.toISOString(),

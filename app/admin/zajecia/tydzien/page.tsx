@@ -6,6 +6,10 @@ import { addCalendarDays, todayInTimeZone, zonedTimeToUtc } from "@/lib/domain/t
 import { assignCategoryColors, stripeClass } from "@/lib/domain/class-color";
 import { AdminWeekGrid, type GridSession } from "./week-grid";
 
+// Wartość parametru ?location dla widoku obu sal naraz. Nie jest to id żadnej
+// lokalizacji, więc nie zderzy się z prawdziwym wyborem sali.
+const ALL_LOCATIONS = "wszystkie";
+
 function isoDate(date: { year: number; month: number; day: number }): string {
   return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
 }
@@ -20,8 +24,14 @@ export default async function AdminWeekViewPage({
 
   const now = new Date();
   const locations = await prisma.location.findMany({ orderBy: { name: "asc" } });
-  const activeLocationId =
-    locations.find((l) => l.id === params.location)?.id ?? locations[0]?.id ?? null;
+
+  // "wszystkie" = obie sale naraz, każda pod własnym nagłówkiem. Ten sam
+  // wybór, co na grafiku na stronie klubu - żeby właściciel oglądał grafik
+  // w tym samym układzie, w którym widzą go klubowicze.
+  const combined = params.location === ALL_LOCATIONS;
+  const activeLocationId = combined
+    ? null
+    : (locations.find((l) => l.id === params.location)?.id ?? locations[0]?.id ?? null);
 
   // Który tydzień. Domyślnie bieżący; admin może cofać się i iść w przód bez
   // ograniczeń - podgląd grafiku wstecz bywa potrzebny do sprawdzenia, co było.
@@ -46,21 +56,23 @@ export default async function AdminWeekViewPage({
     0,
   );
 
-  const sessions = activeLocationId
-    ? await prisma.session.findMany({
-        where: {
-          locationId: activeLocationId,
-          kind: "GROUP",
-          startsAt: { gte: weekStartUtc, lt: weekEndUtc },
-        },
-        include: {
-          category: true,
-          trainer: { include: { user: true } },
-          bookings: { where: { status: "BOOKED" } },
-        },
-        orderBy: { startsAt: "asc" },
-      })
-    : [];
+  const sessions =
+    combined || activeLocationId
+      ? await prisma.session.findMany({
+          where: {
+            ...(activeLocationId ? { locationId: activeLocationId } : {}),
+            kind: "GROUP",
+            startsAt: { gte: weekStartUtc, lt: weekEndUtc },
+          },
+          include: {
+            category: true,
+            location: true,
+            trainer: { include: { user: true } },
+            bookings: { where: { status: "BOOKED" } },
+          },
+          orderBy: { startsAt: "asc" },
+        })
+      : [];
 
   // Kolory rodzajów liczone dla PEŁNEJ listy kategorii (nie tylko tych obecnych
   // w tym tygodniu) - inaczej ten sam rodzaj miałby inny kolor w różnych
@@ -70,7 +82,7 @@ export default async function AdminWeekViewPage({
   });
   const categoryColors = assignCategoryColors(categories);
 
-  const gridSessions: GridSession[] = sessions.map((s) => ({
+  const toGridSession = (s: (typeof sessions)[number]): GridSession => ({
     id: s.id,
     name: s.name,
     startsAt: s.startsAt,
@@ -80,14 +92,29 @@ export default async function AdminWeekViewPage({
     categoryName: s.category?.name ?? null,
     trainerName: s.trainer.user.name,
     stripe: stripeClass(s.categoryId ? categoryColors.get(s.categoryId) : null),
-  }));
+  });
+
+  const gridSessions = sessions.map(toGridSession);
+
+  // We wspólnym widoku każda sala dostaje własną siatkę pod nagłówkiem z nazwą.
+  // Wrzucenie obu sal do jednej kratki dawało kłębek, z którego nie da się
+  // odczytać, gdzie właściwie jest trening.
+  const sections: { name: string | null; sessions: GridSession[] }[] = combined
+    ? locations
+        .map((loc) => ({
+          name: loc.name,
+          sessions: sessions.filter((s) => s.locationId === loc.id).map(toGridSession),
+        }))
+        .filter((section) => section.sessions.length > 0)
+    : [{ name: null, sessions: gridSessions }];
 
   const visibleDays = weekDays(weekStart);
   const weekLabel = `${visibleDays[0].day}.${String(visibleDays[0].month).padStart(2, "0")} - ${visibleDays[6].day}.${String(visibleDays[6].month).padStart(2, "0")}`;
 
   function linkWith(overrides: Record<string, string>): string {
     const query = new URLSearchParams();
-    if (activeLocationId) query.set("location", activeLocationId);
+    if (combined) query.set("location", ALL_LOCATIONS);
+    else if (activeLocationId) query.set("location", activeLocationId);
     query.set("tydzien", isoDate(weekStart));
     for (const [key, value] of Object.entries(overrides)) query.set(key, value);
     return `/admin/zajecia/tydzien?${query.toString()}`;
@@ -115,6 +142,16 @@ export default async function AdminWeekViewPage({
           <span className="text-muted-brand w-20 font-mono text-xs tracking-widest uppercase">
             Miejsce
           </span>
+          <Link
+            href={linkWith({ location: ALL_LOCATIONS })}
+            className={`rounded-md border px-3 py-1.5 text-sm ${
+              combined
+                ? "border-brand-red text-brand-red font-medium"
+                : "border-line bg-surface text-text"
+            }`}
+          >
+            Wszystkie
+          </Link>
           {locations.map((loc) => (
             <Link
               key={loc.id}
@@ -162,15 +199,26 @@ export default async function AdminWeekViewPage({
 
         {gridSessions.length === 0 ? (
           <p className="text-muted-brand border-line bg-surface rounded-md border p-4 text-sm">
-            W tym tygodniu nie ma zajęć grupowych w tej lokalizacji.
+            {combined
+              ? "W tym tygodniu nie ma zajęć grupowych w żadnej lokalizacji."
+              : "W tym tygodniu nie ma zajęć grupowych w tej lokalizacji."}
           </p>
         ) : (
-          <AdminWeekGrid
-            weekStart={weekStart}
-            sessions={gridSessions}
-            now={now}
-            returnTo={linkWith({})}
-          />
+          sections.map((section) => (
+            <div key={section.name ?? "jedna"} className="flex flex-col gap-2">
+              {section.name ? (
+                <h3 className="text-brand-red border-line border-l-2 pl-3 font-mono text-xs tracking-widest uppercase">
+                  {section.name}
+                </h3>
+              ) : null}
+              <AdminWeekGrid
+                weekStart={weekStart}
+                sessions={section.sessions}
+                now={now}
+                returnTo={linkWith({})}
+              />
+            </div>
+          ))
         )}
 
         <div className="text-muted-brand flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
