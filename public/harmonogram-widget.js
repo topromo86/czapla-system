@@ -81,9 +81,12 @@
     "border-radius:4px;background:var(--tfc-karta);color:var(--tfc-tekst);text-decoration:none;margin-bottom:3px}",
     "#tfc-harmonogram .tfc-kafelek:hover{background:rgba(238,29,35,.12);border-color:var(--tfc-czerwien)}",
     "#tfc-harmonogram .tfc-kafelek-pelny{opacity:.55}",
+    "#tfc-harmonogram .tfc-kafelek-glowny{display:block;color:inherit;text-decoration:none}",
     "#tfc-harmonogram .tfc-kafelek b{display:block;font-size:12px;line-height:1.25;text-transform:uppercase}",
     "#tfc-harmonogram .tfc-kafelek span{display:block;font-size:11px;color:var(--tfc-tekst-slaby);line-height:1.3}",
     "#tfc-harmonogram .tfc-kafelek .tfc-kafelek-trener{color:var(--tfc-tekst);opacity:.85}",
+    "#tfc-harmonogram .tfc-trener{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}",
+    "#tfc-harmonogram .tfc-trener:hover{color:var(--tfc-czerwien);border-bottom-style:solid}",
 
     "@media (max-width:640px){#tfc-harmonogram{padding:40px 16px 56px}",
     "#tfc-harmonogram .tfc-tytul{font-size:28px}",
@@ -131,6 +134,10 @@
 
     var api = korzen.getAttribute("data-api") || "";
     var dni = korzen.getAttribute("data-dni") || "21";
+    var stronaKadry =
+      korzen.getAttribute("data-kadra") === null
+        ? "/nasza-kadra-trenerska/"
+        : korzen.getAttribute("data-kadra");
 
     var tytul = korzen.getAttribute("data-tytul") || "Harmonogram zajęć";
     var wstep =
@@ -203,6 +210,35 @@
       var el = document.createElement("span");
       el.textContent = wartosc == null ? "" : String(wartosc);
       return el.innerHTML;
+    }
+
+    // Kotwica trenera na stronie "Nasza Kadra Trenerska". Ten sam przepis na
+    // uproszczenie nazwiska co przy nadawaniu identyfikatorów tamtym
+    // nagłówkom - zmiana tutaj bez zmiany tam zerwie odsyłacz.
+    function kotwicaTrenera(nazwa) {
+      var uproszczone = String(nazwa)
+        .toLowerCase()
+        .replace(/ą/g, "a")
+        .replace(/ć/g, "c")
+        .replace(/ę/g, "e")
+        .replace(/ł/g, "l")
+        .replace(/ń/g, "n")
+        .replace(/ó/g, "o")
+        .replace(/ś/g, "s")
+        .replace(/ź/g, "z")
+        .replace(/ż/g, "z")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return uproszczone ? stronaKadry + "#trener-" + uproszczone : null;
+    }
+
+    // Nazwisko prowadzącego jako odsyłacz do jego wizytówki. Gdy adres strony
+    // kadry zostanie wyczyszczony (data-kadra=""), zostaje sam tekst - lepszy
+    // brak odsyłacza niż odsyłacz donikąd.
+    function trenerHtml(nazwa) {
+      var cel = stronaKadry ? kotwicaTrenera(nazwa) : null;
+      if (!cel) return tekst(nazwa);
+      return '<a class="tfc-trener" href="' + cel + '">' + tekst(nazwa) + "</a>";
     }
 
     function kluczDnia(data) {
@@ -290,7 +326,7 @@
         " · do " +
         tekst(godzinaFmt.format(new Date(z.endsAt))) +
         " · prowadzi " +
-        tekst(z.trainer) +
+        trenerHtml(z.trainer) +
         "</span></div>" +
         '<div class="tfc-miejsca">' +
         miejscaHtml(z) +
@@ -333,14 +369,18 @@
     function kafelek(z) {
       var pelny = z.freeSlots <= 0;
       var kolor = KOLORY[z.categoryColor];
+      // Kafelek jest pojemnikiem, a nie jednym wielkim odsyłaczem: w środku
+      // są dwa różne cele (zapis na zajęcia i wizytówka trenera), a odsyłacz
+      // w odsyłaczu to nieprawidłowy HTML - przeglądarka rozrywa wtedy
+      // zewnętrzny znacznik i układ się sypie.
       return (
-        '<a class="tfc-kafelek' +
+        '<div class="tfc-kafelek' +
         (pelny ? " tfc-kafelek-pelny" : "") +
-        '" href="' +
-        odsylacz(z) +
         '"' +
         (kolor ? ' style="border-left-color:' + kolor + '"' : "") +
-        "><b>" +
+        '><a class="tfc-kafelek-glowny" href="' +
+        odsylacz(z) +
+        '"><b>' +
         tekst(z.name) +
         "</b><span>" +
         // Sala nie wraca w kafelku - stoi w poziomym napisie nad całą siatką
@@ -348,15 +388,15 @@
         tekst(
           godzinaFmt.format(new Date(z.startsAt)) + " – " + godzinaFmt.format(new Date(z.endsAt)),
         ) +
-        "</span>" +
+        "</span></a>" +
         // Kto prowadzi - w klubie ludzie wybierają zajęcia po trenerze,
         // a nie tylko po godzinie. W panelu nazwisko stoi na kafelku i tutaj
         // ma być tak samo.
         '<span class="tfc-kafelek-trener">' +
-        tekst(z.trainer) +
+        trenerHtml(z.trainer) +
         "</span><span>" +
         (pelny ? "komplet" : "wolne: " + z.freeSlots) +
-        "</span></a>"
+        "</span></div>"
       );
     }
 
