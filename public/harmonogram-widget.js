@@ -2,8 +2,8 @@
  *
  * Strona WordPressa zawiera tylko pusty pojemnik i odsyłacz do tego pliku:
  *
- *   <div id="tfc-harmonogram" data-api="https://czapla-system.vercel.app" data-dni="21"></div>
- *   <script src="https://czapla-system.vercel.app/harmonogram-widget.js" defer></script>
+ *   <div id="tfc-harmonogram" data-api="https://panel.czaplaboxing.pl" data-dni="21"></div>
+ *   <script src="https://panel.czaplaboxing.pl/harmonogram-widget.js" defer></script>
  *
  * Dzięki temu kod grafiku żyje w repozytorium i jedzie z każdym wdrożeniem,
  * zamiast siedzieć wklejony w bazie WordPressa, gdzie nikt go nie znajdzie
