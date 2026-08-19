@@ -83,6 +83,7 @@
     "#tfc-harmonogram .tfc-kafelek-pelny{opacity:.55}",
     "#tfc-harmonogram .tfc-kafelek b{display:block;font-size:12px;line-height:1.25;text-transform:uppercase}",
     "#tfc-harmonogram .tfc-kafelek span{display:block;font-size:11px;color:var(--tfc-tekst-slaby);line-height:1.3}",
+    "#tfc-harmonogram .tfc-kafelek .tfc-kafelek-trener{color:var(--tfc-tekst);opacity:.85}",
 
     "@media (max-width:640px){#tfc-harmonogram{padding:40px 16px 56px}",
     "#tfc-harmonogram .tfc-tytul{font-size:28px}",
@@ -324,6 +325,12 @@
         tekst(
           godzinaFmt.format(new Date(z.startsAt)) + " – " + godzinaFmt.format(new Date(z.endsAt)),
         ) +
+        "</span>" +
+        // Kto prowadzi - w klubie ludzie wybierają zajęcia po trenerze,
+        // a nie tylko po godzinie. W panelu nazwisko stoi na kafelku i tutaj
+        // ma być tak samo.
+        '<span class="tfc-kafelek-trener">' +
+        tekst(z.trainer) +
         "</span><span>" +
         (pelny ? "komplet" : "wolne: " + z.freeSlots) +
         "</span></a>"
