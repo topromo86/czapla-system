@@ -193,3 +193,27 @@ bez logowania do WordPressa.
 Po zalogowaniu z takiego odsyłacza użytkownik wraca na stronę zajęć dzięki
 parametrowi `?powrot=`; dozwolone adresy pilnuje `lib/domain/return-path.ts`
 (inaczej byłby to otwarty przekierowywacz do phishingu).
+
+## Wygląd listów
+
+Każdy e-mail wychodzi w dwóch wersjach naraz: zwykły tekst i ta sama treść
+w barwach klubu. Opakowanie robi `lib/domain/email-template.ts`, wołane
+z jednego miejsca — `sendEmail` w `lib/services/notify.ts`. Nadawca (reset
+hasła, potwierdzenie adresu, dane do logowania, powiadomienia) pisze zwykły
+tekst i nie dotyka HTML-a; nowy rodzaj listu wygląda dobrze bez zmian w kodzie
+wyglądu.
+
+Akapit będący samym odsyłaczem zamienia się w czerwony przycisk - napis podaje
+się przez `{ buttonLabel }`. Bez obrazków: znak firmowy jest napisem, bo Gmail
+domyślnie blokuje grafikę od nieznanych nadawców, a wtedy list z samym logo
+w nagłówku przychodzi pusty.
+
+Wymuszenie zmiany hasła na dowolnym koncie (skrypt kadrowy obejmuje wyłącznie
+trenerów, więc konto właściciela trzeba objąć osobno):
+
+```
+npx tsx prisma/wymus-zmiane-hasla.ts --env .env.vercel --email <adres> --ustaw
+```
+
+Sama flaga nie unieważnia starego hasła - jeśli hasło zna ktoś poza
+właścicielem konta, trzeba je najpierw wymienić.

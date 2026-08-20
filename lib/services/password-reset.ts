@@ -47,6 +47,7 @@ export async function requestPasswordReset(rawEmail: string, baseUrl: string): P
       `Ktoś (miejmy nadzieję, że Ty) poprosił o reset hasła do konta Czapla Boxing.\n\n` +
       `Ustaw nowe hasło pod tym linkiem (ważny ${TOKEN_TTL_HOURS} godz.):\n${link}\n\n` +
       `Jeśli to nie Ty, zignoruj tę wiadomość - hasło zostanie bez zmian.`,
+    { buttonLabel: "Ustaw nowe hasło" },
   );
 }
 

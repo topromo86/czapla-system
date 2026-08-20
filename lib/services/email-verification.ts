@@ -40,6 +40,7 @@ export async function sendVerificationEmail(input: {
     `Cześć ${input.name},\n\n` +
       `Potwierdź swój adres e-mail, klikając w link (ważny ${TOKEN_TTL_HOURS} godz.):\n${link}\n\n` +
       `Jeśli to nie Ty zakładałeś konto, zignoruj tę wiadomość.`,
+    { buttonLabel: "Potwierdź adres" },
   );
 }
 

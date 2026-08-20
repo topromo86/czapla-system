@@ -1,5 +1,6 @@
 import "server-only";
 import webpush, { type PushSubscription } from "web-push";
+import { renderEmailHtml } from "@/lib/domain/email-template";
 
 const vapidConfigured = Boolean(
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY,
@@ -123,7 +124,18 @@ async function buildTransport(config: SmtpConfig) {
   });
 }
 
-export async function sendEmail(to: string, subject: string, text: string): Promise<boolean> {
+// Każdy list wychodzi w dwóch wersjach naraz: zwykły tekst i ta sama treść
+// w barwach klubu (lib/domain/email-template.ts). Program pocztowy wybiera,
+// co pokazać - więc czytelnik z zablokowanym HTML-em dostaje pełną treść,
+// a nie pustą wiadomość. Opakowanie siedzi TUTAJ, a nie w każdym nadawcy
+// z osobna: dzięki temu nowy rodzaj listu wygląda dobrze bez dopisywania
+// czegokolwiek.
+export async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  options?: { buttonLabel?: string },
+): Promise<boolean> {
   const config = readSmtpConfig();
   if (!config) {
     console.warn(`[email] Brak konfiguracji SMTP - nie wysłano do ${to}: ${subject}`);
@@ -132,7 +144,13 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
 
   try {
     const transporter = await buildTransport(config);
-    await transporter.sendMail({ from: config.from, to, subject, text });
+    await transporter.sendMail({
+      from: config.from,
+      to,
+      subject,
+      text,
+      html: renderEmailHtml({ subject, text, buttonLabel: options?.buttonLabel }),
+    });
     return true;
   } catch (error) {
     // Nie rzucamy: nieudany e-mail nie może wywrócić check-inu ani jobu.
@@ -159,7 +177,13 @@ export async function sendEmailDiagnostic(
     // verify() sprawdza połączenie i logowanie osobno od samej wysyłki, więc
     // przy błędzie od razu wiadomo, czy problem jest w haśle, czy w treści.
     await transporter.verify();
-    await transporter.sendMail({ from: config.from, to, subject, text });
+    await transporter.sendMail({
+      from: config.from,
+      to,
+      subject,
+      text,
+      html: renderEmailHtml({ subject, text }),
+    });
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
